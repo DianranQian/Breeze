@@ -86,14 +86,13 @@ pub fn 编码场景(文档: &场景文档) -> 场景结果<String> {
 pub fn 解码场景(文本: &str, 路径: &Path) -> 场景结果<场景文档> {
     // 先用一个宽松的结构读出格式版本，这样即使后续字段解析失败，
     // 也能给出"版本过新"这种更有价值的错误，而不是笼统的解析失败。
-    if let Some(文件版本) = 探测格式版本(文本) {
-        if 文件版本 > 当前格式版本 {
+    if let Some(文件版本) = 探测格式版本(文本)
+        && 文件版本 > 当前格式版本 {
             return Err(场景错误::版本过新 {
                 文件版本,
                 支持版本: 当前格式版本,
             });
         }
-    }
 
     let 文档: 场景文档 = ron::from_str(文本).map_err(|来源| 场景错误::格式解析 {
         路径: 路径.to_path_buf(),
@@ -209,12 +208,11 @@ impl 场景存储 for 文件系统场景存储 {
         let 已存在 = 路径.is_file();
         let 文本 = 编码场景(文档)?;
 
-        if let Some(父目录) = 路径.parent() {
-            if !父目录.as_os_str().is_empty() {
+        if let Some(父目录) = 路径.parent()
+            && !父目录.as_os_str().is_empty() {
                 std::fs::create_dir_all(父目录)
                     .map_err(|错误| 场景错误::文件(父目录, 错误))?;
             }
-        }
 
         let 临时 = Self::临时路径(路径);
         let 备份 = Self::备份路径(路径);

@@ -119,11 +119,10 @@ pub fn 命中测试(文档: &场景文档, 世界点: (f32, f32)) -> Option<实�
         if 实体.编辑器锁定 || 实体.编辑器隐藏 {
             continue;
         }
-        if let Some(框) = 计算实体框(文档, *标识) {
-            if 框.包含(世界点) {
+        if let Some(框) = 计算实体框(文档, *标识)
+            && 框.包含(世界点) {
                 return Some(*标识);
             }
-        }
     }
     None
 }
@@ -194,12 +193,11 @@ pub fn 绘制内容(
         .map(|位置| egui::vec2(位置.x - 内容矩形.min.x, 位置.y - 内容矩形.min.y));
 
     // 滚轮缩放（以指针为锚点）
-    if 响应.hovered() && 滚轮.abs() > 0.0 {
-        if let Some(锚点) = 局部指针 {
+    if 响应.hovered() && 滚轮.abs() > 0.0
+        && let Some(锚点) = 局部指针 {
             let 系数 = (滚轮 * 0.0015).exp();
             上下文.界面.相机.以锚点缩放(系数, 锚点, 尺寸);
         }
-    }
 
     // 中键或空格拖动 = 平移视图
     if 响应.dragged_by(egui::PointerButton::Middle)
@@ -214,8 +212,8 @@ pub fn 绘制内容(
 
     // 左键按下：命中测试 → 选择 + 开始拖动
     let 主键按下 = 响应.drag_started_by(egui::PointerButton::Primary) && !空格按下;
-    if 主键按下 {
-        if let Some(局部) = 局部指针 {
+    if 主键按下
+        && let Some(局部) = 局部指针 {
             let 世界 = 上下文.界面.相机.屏幕转世界(局部, 尺寸);
             match 命中测试(文档, 世界) {
                 Some(命中) => {
@@ -243,7 +241,6 @@ pub fn 绘制内容(
                 }
             }
         }
-    }
 
     // 拖动中
     if 响应.dragged_by(egui::PointerButton::Primary) && !空格按下 {
@@ -318,12 +315,11 @@ pub fn 绘制内容(
     }
 
     // 选中标记：中心锚点 + 标识首段，便于在重叠对象中确认选的是谁。
-    if let Some(标识) = 主选中 {
-        if let Some(框) = 计算实体框(文档, 标识) {
+    if let Some(标识) = 主选中
+        && let Some(框) = 计算实体框(文档, 标识) {
             let 屏幕中心 = 到屏幕(上下文.界面.相机.世界转屏幕(框.中心, 尺寸));
             画布.circle_filled(屏幕中心, 3.0, 上下文.配色.强调);
         }
-    }
 
     // 框选矩形
     if let (视口拖拽::框选 { 起点 }, Some(终点)) = (&上下文.界面.拖拽, 局部指针) {
@@ -578,14 +574,13 @@ fn 绘制状态栏(
                 );
             }
             ui.separator();
-            if ui.small_button("适应窗口 (F)").clicked() {
-                if let Some((最小, 最大)) = 世界包围盒(&上下文.编辑器.会话.文档) {
+            if ui.small_button("适应窗口 (F)").clicked()
+                && let Some((最小, 最大)) = 世界包围盒(&上下文.编辑器.会话.文档) {
                     上下文
                          .界面
                          .相机
                         .适应包围盒(最小, 最大, 内容矩形.size());
                 }
-            }
             if ui.small_button("重置视图").clicked() {
                 上下文.界面.相机.中心 = (0.0, 0.0);
                 上下文.界面.相机.缩放 = 48.0;

@@ -563,11 +563,10 @@ impl 场景文档 {
         if let Some(当前下标) = 新父子列表.iter().position(|项| 项 == &标识) {
             self.把子实体移到(新父, 当前下标, 新次序 as usize);
         }
-        if let Some(旧父标识) = 旧父 {
-            if Some(旧父标识) != 新父 {
+        if let Some(旧父标识) = 旧父
+            && Some(旧父标识) != 新父 {
                 self.修正次序(Some(旧父标识));
             }
-        }
         if 新父.is_none() && 旧父.is_some() {
             self.修正次序(None);
         }
@@ -734,15 +733,19 @@ impl 场景文档 {
             数量 += 1;
         }
 
-        // 组件属性里的内嵌引用
+        // 组件属性里的内嵌引用。
+        //
+        // `含路径` 返回 `Option<()>`，这里只关心"是否存在"，因此直接用
+        // `is_some()` 判断，而不是把返回值绑定到变量上再丢弃 ——
+        // 后者会留下一个没有任何效果的表达式。
         let mut 受影响实体 = Vec::new();
         for (标识, 实体) in &self.实体表 {
-            for 组件 in &实体.组件 {
+            '实体: for 组件 in &实体.组件 {
                 for 值 in 组件.属性.values() {
-                    if let Some(内部路径) = 含路径(值, 旧路径) {
-                        let _ = 内部路径;
+                    if 含路径(值, 旧路径).is_some() {
                         受影响实体.push(*标识);
-                        break;
+                        // 一个实体只要有一处引用就够了，跳到下一个实体。
+                        break '实体;
                     }
                 }
             }
@@ -778,21 +781,21 @@ impl 场景文档 {
 
         // 父实体存在性
         for (标识, 实体) in &self.实体表 {
-            if let Some(父) = 实体.父实体 {
-                if !self.实体表.contains_key(&父) {
+            if let Some(父) = 实体.父实体
+                && !self.实体表.contains_key(&父) {
                     报告.悬空父实体.push(*标识);
                 }
-            }
         }
 
         // 循环层级：从每个实体向上走，若步数超过实体总数则必然处于环中。
+        //
+        // 用 `while let` 串起两次查找，比在 `loop` 里写两个 `let ... else break`
+        // 更直白：条件本身就是"还能往上走一步"。
         let 上限 = self.实体表.len() + 1;
         for 标识 in self.实体表.keys() {
             let mut 当前 = *标识;
             let mut 步数 = 0;
-            loop {
-                let Some(实体) = self.取(当前) else { break };
-                let Some(父) = 实体.父实体 else { break };
+            while let Some(父) = self.取(当前).and_then(|实体| 实体.父实体) {
                 当前 = 父;
                 步数 += 1;
                 if 步数 > 上限 {

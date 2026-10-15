@@ -26,8 +26,8 @@ pub mod plugin;
 pub mod scene_bridge;
 
 pub use plugin::{
-    BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 绘制一帧, 文件对话框通道,
-    文件对话框结果, 文件对话框请求, 缩略图缓存, 诊断资源, 配色资源,
+    BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 绘制一帧, 绘制环境,
+    文件对话框通道, 文件对话框结果, 文件对话框请求, 缩略图缓存, 诊断资源, 配色资源,
 };
 pub use scene_bridge::{
     实体映射表, 构建世界, 构建统计, 运行时宿主, 运行状态, 默认组件注册表,

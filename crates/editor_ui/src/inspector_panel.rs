@@ -407,12 +407,11 @@ fn 绘制单个组件(
                     .unwrap_or_else(|| 描述.默认值.clone());
 
                 ui.horizontal(|ui| {
-                    let 标签文本 = if 描述.提示.is_empty() {
-                        RichText::new(&描述.显示名).color(上下文.配色.文字)
-                    } else {
-                        RichText::new(&描述.显示名).color(上下文.配色.文字)
-                    };
-                    ui.label(标签文本).on_hover_text(格式提示(描述));
+                    // 字段名与悬停提示。提示内容由 `格式提示` 统一组装，
+                    // 因此这里不需要按"提示是否为空"分叉 —— 之前那样写
+                    // 会出现两个完全相同的分支。
+                    ui.label(RichText::new(&描述.显示名).color(上下文.配色.文字))
+                        .on_hover_text(格式提示(描述));
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if 描述.只读 {

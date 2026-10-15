@@ -1,0 +1,34 @@
+//! Bevy Studio 编辑器应用。
+//!
+//! # 模块结构
+//!
+//! | 模块 | 职责 |
+//! | --- | --- |
+//! | [`scene_bridge`] | 场景文档 ⇄ Bevy ECS 的单向桥接、组件注册表 |
+//! | [`plugin`] | Bevy 应用装配、资源定义、文件对话框线程 |
+//! | [`actions`] | 界面意图的执行器（唯一修改编辑器状态的地方） |
+//!
+//! # 分层依赖方向
+//!
+//! ```text
+//! editor_app  ──>  editor_ui  ──>  editor_core  ──>  scene_doc
+//!     │                                                  ▲
+//!     └──────────────────────────────────────────────────┘
+//!              （scene_bridge 只用 scene_doc + Bevy）
+//! ```
+//!
+//! 依赖是单向的：下层完全不知道上层的存在。因此 `scene_doc` 能被
+//! 快速单元测试覆盖，`editor_ui` 能在没有窗口的环境里编译，
+//! 而只有 `editor_app` 需要拉起真正的 Bevy 应用。
+
+pub mod actions;
+pub mod plugin;
+pub mod scene_bridge;
+
+pub use plugin::{
+    BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 绘制一帧, 文件对话框通道,
+    文件对话框结果, 文件对话框请求, 缩略图缓存, 诊断资源, 配色资源,
+};
+pub use scene_bridge::{
+    实体映射表, 构建世界, 构建统计, 运行时宿主, 运行状态, 默认组件注册表,
+};

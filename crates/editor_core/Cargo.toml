@@ -1,0 +1,20 @@
+[package]
+name = "editor_core"
+description = "Bevy Studio 编辑器核心：项目模型、编辑器状态、命令与事务、撤销重做栈。不依赖 Bevy 渲染层，可独立测试。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+scene_doc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ron.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

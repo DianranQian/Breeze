@@ -1,0 +1,18 @@
+[package]
+name = "editor_ui"
+description = "Bevy Studio 编辑器界面层：可停靠面板布局、场景树、Inspector、资源浏览器、控制台。基于 egui/egui_dock。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+scene_doc.workspace = true
+editor_core.workspace = true
+egui.workspace = true
+egui_dock.workspace = true
+serde.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

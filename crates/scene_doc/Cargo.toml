@@ -1,0 +1,18 @@
+[package]
+name = "scene_doc"
+description = "Bevy Studio 场景文档数据模型：与 Bevy 无关的纯逻辑层，负责场景的稳定序列化格式、资源引用与原子保存。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ron.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

@@ -1,0 +1,80 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/scene_doc",
+    "crates/editor_core",
+    "crates/editor_ui",
+    "crates/editor_app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+license = "MIT OR Apache-2.0"
+repository = ""
+
+# ---------------------------------------------------------------------------
+# 依赖版本全部经过 crates.io 实际查询核实（2026-10 环境快照）：
+#   bevy                 0.20.0   当前最新稳定版
+#   bevy_egui            0.43.1   依赖 bevy ^0.20.0 与 egui ^0.36  → 与 Bevy 0.20 匹配
+#   egui_dock            0.21.1   依赖 egui ^0.36               → 与 bevy_egui 的 egui 对齐
+#   egui                 0.36     （注意：crates.io 上 egui 最新为 0.37，不可使用，
+#                                  否则与 bevy_egui/egui_dock 的 egui 0.36 产生双版本冲突）
+#   bevy-inspector-egui  0.37.0   ✗ 依赖 bevy ^0.19.0 + egui ^0.34，与 Bevy 0.20 不兼容，
+#                                  因此本项目自行实现 Inspector，不引入该依赖。
+# ---------------------------------------------------------------------------
+
+[workspace.dependencies]
+bevy = { version = "0.20.0", default-features = true }
+bevy_egui = "0.43.1"
+egui = "0.36"
+egui_dock = "0.21.1"
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0"
+ron = "0.12.2"
+uuid = { version = "1.28.0", features = ["v4", "serde"] }
+thiserror = "2.0"
+anyhow = "1.0"
+indexmap = { version = "2.0", features = ["serde"] }
+smallvec = "1.13"
+notify = "8.2.0"
+rfd = "0.17.2"
+bitflags = "2.0"
+
+# 读取图片真实像素尺寸（从资源创建精灵时填入正确的视口包围盒）。
+# 只启用解码所需的最小特性，避免拖入一堆用不到的编解码器，
+# 这些特性与 Bevy 自己启用的 image 特性会做并集，不冲突。
+image = { version = "0.25.10", default-features = false, features = [
+    "png",
+    "jpeg",
+    "webp",
+    "bmp",
+    "gif",
+] }
+
+scene_doc = { path = "crates/scene_doc" }
+editor_core = { path = "crates/editor_core" }
+editor_ui = { path = "crates/editor_ui" }
+
+# ---------------------------------------------------------------------------
+# 开发期编译优化：第三方依赖（Bevy）在 dev 模式下也用 opt-level = 2。
+# 这是 Bevy 官方推荐的配置：编辑-运行循环的迭代速度显著提升。
+# ---------------------------------------------------------------------------
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# 测试也要能跑得动 Bevy 本体：测试环境复用同一份依赖优化。
+[profile.test]
+opt-level = 1
+
+[profile.test.package."*"]
+opt-level = 2

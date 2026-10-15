@@ -1,0 +1,37 @@
+[package]
+name = "editor_app"
+description = "Bevy Studio 编辑器应用入口：窗口、Bevy 插件装配、视口渲染、运行时宿主。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bevy-studio"
+path = "src/main.rs"
+
+[lib]
+name = "editor_app"
+path = "src/lib.rs"
+
+[dependencies]
+scene_doc.workspace = true
+editor_core.workspace = true
+editor_ui.workspace = true
+
+bevy.workspace = true
+bevy_egui.workspace = true
+egui.workspace = true
+serde.workspace = true
+uuid.workspace = true
+anyhow.workspace = true
+rfd.workspace = true
+notify.workspace = true
+image.workspace = true
+# 文件对话框必须放到后台线程，否则原生对话框会阻塞 Bevy 主循环。
+crossbeam-channel = "0.5"
+# 在系统文件管理器里定位资源用。
+opener = "0.8"
+
+[dev-dependencies]
+tempfile = "3.13"

@@ -279,7 +279,7 @@ log_project_opened	已打开项目 `{}`：{} 个场景，{} 个资源	Opened pro
 log_scene_opened	已打开场景 {}	Opened scene {}
 log_scene_saved	已保存场景 {}	Saved scene {}
 log_scene_created	已新建场景 `{}`	Created scene `{}`
-log_scene_autoload_failed	自动载入场景 {} 失败：{}	Failed to auto-load scene {}: {}
+log_scene_autoload_failed	自动载入场景失败：{}	Failed to auto-load scene: {}
 log_scene_autoload_failed_hint	已改为打开一个空白场景。请按上面的错误检查该场景文件，或从资源面板手动打开其他场景。	Opened a blank scene instead. Check that scene file per the error above, or open another scene from the Assets panel.
 log_language_changed	界面语言已切换为 {}	UI language switched to {}
 log_font_installed	已安装中文字体（内置子集 {} MB）	Installed CJK font (built-in subset {} MB)
@@ -288,3 +288,11 @@ log_restored_language	已恢复界面语言：{}	Restored UI language: {}
 log_restored_layout	已恢复上次的窗口布局	Restored the previous window layout
 log_layout_restore_failed	窗口布局无法恢复，改用默认布局：{}	Could not restore the window layout; using the default: {}
 log_project_open_failed	打开项目失败：{}	Failed to open project: {}
+error_scene_read_failed	文件读写失败：{} —— {}	File read/write failed: {} — {}
+error_scene_parse_failed	场景格式解析失败：{} —— {}	Scene format parse failed: {} — {}
+error_scene_struct_invalid	场景结构非法：{}	Invalid scene structure: {}
+error_scene_version_too_new	场景格式版本 {} 高于本编辑器支持的最高版本 {}，请升级 Bevy Studio	Scene format version {} is newer than the highest supported version {}; please upgrade Bevy Studio
+error_scene_path_invalid	路径非法：{}	Invalid path: {}
+error_scene_encode_failed	场景编码失败：{}	Scene encoding failed: {}
+error_scene_save_failed	保存场景失败：{} —— {}	Failed to save scene: {} — {}
+error_scene_registry_failed	组件注册表错误：{}	Component registry error: {}

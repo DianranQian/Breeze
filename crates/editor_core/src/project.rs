@@ -29,8 +29,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use scene_doc::error::{场景错误, 场景结果};
-use scene_doc::path::{项目相对路径, 路径错误};
+use scene_doc::error::{场景结果, 场景错误};
+use scene_doc::path::{路径错误, 项目相对路径};
 use scene_doc::property::资源类别;
 use scene_doc::storage::{场景存储, 文件系统场景存储};
 
@@ -235,12 +235,13 @@ impl 项目描述 {
         // 先探测版本，再完整解析 —— 与场景文档层同样的策略：
         // "版本过新"比"解析失败"对用户有用得多。
         if let Some(版本) = 探测清单版本(&文本)
-            && 版本 > 项目格式版本 {
-                return Err(项目错误::版本过新 {
-                    文件版本: 版本,
-                    支持版本: 项目格式版本,
-                });
-            }
+            && 版本 > 项目格式版本
+        {
+            return Err(项目错误::版本过新 {
+                文件版本: 版本,
+                支持版本: 项目格式版本,
+            });
+        }
 
         let 清单: 项目清单 = ron::from_str(&文本).map_err(|来源| 项目错误::清单解析 {
             路径: 清单路径.clone(),
@@ -255,8 +256,7 @@ impl 项目描述 {
         }
 
         Ok(Self {
-            根目录: 根,
-            清单,
+            根目录: 根, 清单
         })
     }
 
@@ -310,7 +310,9 @@ impl 项目描述 {
 
     /// 创建一个目录（相对项目根）。
     pub fn 建目录(&self, 相对: &str) -> 项目结果<PathBuf> {
-        let 绝对 = self.根目录.join(相对.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let 绝对 = self
+            .根目录
+            .join(相对.replace('/', std::path::MAIN_SEPARATOR_STR));
         std::fs::create_dir_all(&绝对).map_err(|错误| 项目错误::文件错误(&绝对, 错误))?;
         Ok(绝对)
     }
@@ -388,7 +390,9 @@ impl 项目描述 {
             };
             for 项 in 读取.flatten() {
                 let 路径 = 项.path();
-                let Ok(元数据) = 项.metadata() else { continue };
+                let Ok(元数据) = 项.metadata() else {
+                    continue;
+                };
 
                 if 元数据.is_dir() {
                     栈.push(路径);

@@ -152,7 +152,10 @@ impl 项目相对路径 {
     }
 
     /// 换一个文件名，保留所在目录。
-    pub fn 换文件名(&self, 新文件名: impl AsRef<str>) -> Result<项目相对路径, 路径错误> {
+    pub fn 换文件名(
+        &self,
+        新文件名: impl AsRef<str>,
+    ) -> Result<项目相对路径, 路径错误> {
         match self.父目录() {
             Some(父) => 项目相对路径::解析(format!("{}/{}", 父.文本(), 新文件名.as_ref())),
             None => 项目相对路径::解析(新文件名),

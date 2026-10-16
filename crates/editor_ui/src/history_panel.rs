@@ -6,7 +6,7 @@
 
 use egui::{RichText, Ui};
 
-use crate::state::{绘制上下文, UiAction};
+use crate::state::{UiAction, 绘制上下文};
 
 /// 撤销栈里的一条历史记录（用于显示）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,8 +25,7 @@ pub struct 历史项 {
 /// 用户从下往上读就是"我刚刚干了什么"；下半部分是"撤销掉的事"，
 /// 按时间倒序（最近撤销的在最上面），也就是重做会先执行它。
 pub fn 构建历史列表(
-    撤销名列表: &[String],
-    可重做名列表: &[String],
+    撤销名列表: &[String], 可重做名列表: &[String]
 ) -> Vec<历史项> {
     let mut 结果 = Vec::new();
     let 已应用总数 = 撤销名列表.len();
@@ -88,13 +87,13 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 上下文.编辑器.有未保存修改() {
         ui.label(
-            RichText::new("● 相对上次保存已有修改")
+            RichText::new(上下文.语言.取("● 相对上次保存已有修改"))
                 .small()
                 .color(上下文.配色.警告),
         );
     } else {
         ui.label(
-            RichText::new("✓ 与上次保存一致")
+            RichText::new(上下文.语言.取("✓ 与上次保存一致"))
                 .small()
                 .color(上下文.配色.次要文字),
         );
@@ -104,8 +103,7 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 撤销.可撤销步数() == 0 && 撤销.可重做步数() == 0 {
         ui.label(
-            RichText::new("还没有任何可撤销的操作。")
-                .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("还没有任何可撤销的操作。")).color(上下文.配色.次要文字),
         );
         return;
     }
@@ -114,21 +112,19 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     // 这里如实展示：只有完整历史列表才能提供，而完整列表需要
     // 撤销栈暴露条目的显示名（见路线图"历史面板显示完整列表"）。
     ui.label(
-        RichText::new("当前撤销栈不支持列出完整历史，只显示下一步操作：")
-            .small()
-            .color(上下文.配色.次要文字),
+        RichText::new(
+            上下文
+                .语言
+                .取("当前撤销栈不支持列出完整历史，只显示下一步操作："),
+        )
+        .small()
+        .color(上下文.配色.次要文字),
     );
     if let Some(名字) = 可撤销名.first() {
-        ui.label(
-            RichText::new(format!("下一撤销：{名字}"))
-                .color(上下文.配色.文字),
-        );
+        ui.label(RichText::new(format!("下一撤销：{名字}")).color(上下文.配色.文字));
     }
     if let Some(名字) = 可重做名.first() {
-        ui.label(
-            RichText::new(format!("下一重做：{名字}"))
-                .color(上下文.配色.次要文字),
-        );
+        ui.label(RichText::new(format!("下一重做：{名字}")).color(上下文.配色.次要文字));
     }
 }
 
@@ -157,7 +153,16 @@ pub fn 绘制运行时(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         return;
     }
 
-    表格行(ui, 上下文, "状态", if 上下文.已暂停 { "已暂停" } else { "运行中" });
+    表格行(
+        ui,
+        上下文,
+        "状态",
+        if 上下文.已暂停 {
+            "已暂停"
+        } else {
+            "运行中"
+        },
+    );
     表格行(ui, 上下文, "已运行", &format!("{:.1} 秒", 诊断.已运行秒数));
     表格行(ui, 上下文, "实体总数", &诊断.实体总数.to_string());
     表格行(ui, 上下文, "组件类型数", &诊断.组件类型数.to_string());
@@ -165,7 +170,7 @@ pub fn 绘制运行时(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.separator();
     ui.label(
-        RichText::new("运行时世界（只读）")
+        RichText::new(上下文.语言.取("运行时世界（只读）"))
             .strong()
             .color(上下文.配色.文字),
     );
@@ -194,12 +199,7 @@ pub fn 绘制性能(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         );
     } else {
         表格行(ui, 上下文, "帧率", &format!("{:.1} FPS", 诊断.帧率));
-        表格行(
-            ui,
-            上下文,
-            "帧耗时",
-            &format!("{:.2} ms", 诊断.帧耗时毫秒),
-        );
+        表格行(ui, 上下文, "帧耗时", &format!("{:.2} ms", 诊断.帧耗时毫秒));
         if 诊断.帧耗时毫秒 > 0.0 {
             表格行(
                 ui,
@@ -225,7 +225,7 @@ pub fn 绘制性能(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.separator();
     ui.label(
-        RichText::new("编辑器自身开销")
+        RichText::new(上下文.语言.取("编辑器自身开销"))
             .strong()
             .color(上下文.配色.文字),
     );

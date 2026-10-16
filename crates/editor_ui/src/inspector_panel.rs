@@ -15,11 +15,11 @@
 
 use editor_core::state::编辑器状态;
 use egui::{Color32, RichText, Ui};
-use scene_doc::document::{变换数据, 实体标识, 场景实体};
-use scene_doc::property::{属性值, 颜色值, 枚举值};
+use scene_doc::document::{变换数据, 场景实体, 实体标识};
+use scene_doc::property::{属性值, 枚举值, 颜色值};
 use scene_doc::registry::{属性描述, 属性种类};
 
-use crate::state::{属性编辑, 绘制上下文, UiAction};
+use crate::state::{UiAction, 属性编辑, 绘制上下文};
 
 /// 由四元数换算出的欧拉角（度），顺序为 XYZ。
 ///
@@ -77,14 +77,18 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let Some(标识) = 编辑器.选择.主选中() else {
         ui.add_space(12.0);
         ui.label(
-            RichText::new("未选中任何实体。\n在场景树或视口里点选一个实体即可编辑其属性。")
-                .color(上下文.配色.次要文字),
+            RichText::new(
+                上下文
+                    .语言
+                    .取("未选中任何实体。\n在场景树或视口里点选一个实体即可编辑其属性。"),
+            )
+            .color(上下文.配色.次要文字),
         );
         return;
     };
 
     let Some(实体) = 编辑器.会话.文档.取(标识) else {
-        ui.label(RichText::new("选中的实体已不存在").color(上下文.配色.错误));
+        ui.label(RichText::new(上下文.语言.取("选中的实体已不存在")).color(上下文.配色.错误));
         return;
     };
 
@@ -111,13 +115,10 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
 /// 绘制头部：实体名、标识、组件添加按钮。
 fn 绘制头部(
-    ui: &mut Ui,
-    上下文: &mut 绘制上下文<'_>,
-    实体: &场景实体,
-    选择数量: usize,
+    ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 实体: &场景实体, 选择数量: usize
 ) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new("名称").color(上下文.配色.次要文字));
+        ui.label(RichText::new(上下文.语言.取("名称")).color(上下文.配色.次要文字));
         let mut 名称 = 实体.名称.clone();
         let 响应 = ui.add(egui::TextEdit::singleline(&mut 名称).desired_width(160.0));
         if 响应.lost_focus() && ui.input(|输入| 输入.key_pressed(egui::Key::Enter)) {
@@ -133,21 +134,27 @@ fn 绘制头部(
 
     if 选择数量 > 1 {
         ui.label(
-            RichText::new(format!("已选中 {选择数量} 个实体，此处编辑仅作用于主选中项"))
-                .small()
-                .color(上下文.配色.警告),
+            RichText::new(format!(
+                "已选中 {选择数量} 个实体，此处编辑仅作用于主选中项"
+            ))
+            .small()
+            .color(上下文.配色.警告),
         );
     }
 
     ui.horizontal(|ui| {
-        ui.label(RichText::new("标识").color(上下文.配色.次要文字));
+        ui.label(RichText::new(上下文.语言.取("标识")).color(上下文.配色.次要文字));
         ui.label(
             RichText::new(实体.标识.to_string())
                 .small()
                 .monospace()
                 .color(上下文.配色.次要文字),
         )
-        .on_hover_text("实体标识是稳定不变的，重命名或移动层级都不会改变它");
+        .on_hover_text(
+            上下文
+                .语言
+                .取("实体标识是稳定不变的，重命名或移动层级都不会改变它"),
+        );
     });
 
     ui.horizontal(|ui| {
@@ -159,16 +166,17 @@ fn 绘制头部(
             上下文.界面.打开组件选择器 = !上下文.界面.打开组件选择器;
             上下文.界面.组件目标 = Some(实体.标识);
         }
-        if ui.button("复制实体").clicked() {
+        if ui.button(上下文.语言.取("复制实体")).clicked() {
             上下文.动作.推(UiAction::复制实体(实体.标识));
         }
-        if ui.button("删除实体").clicked() {
+        if ui.button(上下文.语言.取("删除实体")).clicked() {
             上下文.动作.推(UiAction::删除实体(实体.标识));
         }
     });
 
     // 组件选择器
-    if 上下文.界面.打开组件选择器 && 上下文.界面.组件目标 == Some(实体.标识) {
+    if 上下文.界面.打开组件选择器 && 上下文.界面.组件目标 == Some(实体.标识)
+    {
         let 已用: Vec<String> = 实体.组件.iter().map(|组件| 组件.类型名.clone()).collect();
         let 候选: Vec<String> = 上下文
             .编辑器
@@ -181,7 +189,7 @@ fn 绘制头部(
         egui::Frame::popup(ui.style()).show(ui, |ui| {
             if 候选.is_empty() {
                 ui.label(
-                    RichText::new("已注册的组件都已添加，或注册表为空")
+                    RichText::new(上下文.语言.取("已注册的组件都已添加，或注册表为空"))
                         .color(上下文.配色.次要文字),
                 );
             }
@@ -194,7 +202,7 @@ fn 绘制头部(
                     上下文.界面.打开组件选择器 = false;
                 }
             }
-            if ui.button("关闭").clicked() {
+            if ui.button(上下文.语言.取("关闭")).clicked() {
                 上下文.界面.打开组件选择器 = false;
             }
         });
@@ -202,9 +210,13 @@ fn 绘制头部(
 }
 
 /// 绘制变换区。
-fn 绘制变换区(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实体标识, 变换: 变换数据) {
+fn 绘制变换区(
+    ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实体标识, 变换: 变换数据
+) {
     let 可折叠 = egui::CollapsingHeader::new(
-        RichText::new("变换").strong().color(上下文.配色.文字),
+        RichText::new(上下文.语言.取("变换"))
+            .strong()
+            .color(上下文.配色.文字),
     )
     .default_open(true)
     .id_salt("变换区");
@@ -213,7 +225,7 @@ fn 绘制变换区(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实
         let mut 新变换 = 变换;
 
         ui.horizontal(|ui| {
-            ui.label("位置");
+            ui.label(上下文.语言.取("位置"));
             let 改变 = 三元拖动(ui, "位置", &mut 新变换.平移, 0.05);
             if 改变 {
                 提交变换(上下文, 标识, 新变换);
@@ -224,20 +236,20 @@ fn 绘制变换区(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实
         let 欧拉 = 四元数转欧拉角(变换.旋转);
         let mut 新欧拉 = 欧拉;
         ui.horizontal(|ui| {
-            ui.label("旋转");
+            ui.label(上下文.语言.取("旋转"));
             if 三元拖动(ui, "旋转", &mut 新欧拉, 0.5) {
                 新变换.旋转 = 欧拉角转四元数(新欧拉);
                 提交变换(上下文, 标识, 新变换);
             }
         });
         ui.label(
-            RichText::new("单位：度（绕 X / Y / Z，顺序 XYZ）")
+            RichText::new(上下文.语言.取("单位：度（绕 X / Y / Z，顺序 XYZ）"))
                 .small()
                 .color(上下文.配色.次要文字),
         );
 
         ui.horizontal(|ui| {
-            ui.label("缩放");
+            ui.label(上下文.语言.取("缩放"));
             if 三元拖动(ui, "缩放", &mut 新变换.缩放, 0.01) {
                 提交变换(上下文, 标识, 新变换);
             }
@@ -246,13 +258,13 @@ fn 绘制变换区(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实
         // 缩放归零会让网格完全退化，给一个快捷修复。
         if 新变换.缩放.0 == 0.0 || 新变换.缩放.1 == 0.0 || 新变换.缩放.2 == 0.0 {
             ui.label(
-                RichText::new("警告：缩放含 0，实体将不可见")
+                RichText::new(上下文.语言.取("警告：缩放含 0，实体将不可见"))
                     .small()
                     .color(上下文.配色.警告),
             );
         }
 
-        if ui.button("重置为单位变换").clicked() {
+        if ui.button(上下文.语言.取("重置为单位变换")).clicked() {
             提交变换(上下文, 标识, 变换数据::单位());
         }
     });
@@ -285,30 +297,31 @@ fn 三元拖动(ui: &mut Ui, 标识前缀: &str, 值: &mut (f32, f32, f32), 步�
 ///
 /// 必须在这里归一化旋转：用户按角度输入、以及四元数乘法累积，
 /// 都会让四元数长度偏离 1，长时间编辑后表现为模型被剪切变形。
-fn 提交变换(上下文: &mut 绘制上下文<'_>, 标识: 实体标识, mut 变换: 变换数据) {
+fn 提交变换(
+    上下文: &mut 绘制上下文<'_>, 标识: 实体标识, mut 变换: 变换数据
+) {
     变换.归一化旋转();
-    上下文
-        .动作
-        .推(UiAction::执行命令(
-            editor_core::command::编辑器命令::设变换 {
-                标识,
-                变换: Some(变换),
-            },
-        ));
+    上下文.动作.推(UiAction::执行命令(
+        editor_core::command::编辑器命令::设变换 {
+            标识,
+            变换: Some(变换),
+        },
+    ));
 }
 
 /// 绘制组件列表。
 fn 绘制组件列表(
-    ui: &mut Ui,
-    上下文: &mut 绘制上下文<'_>,
-    标识: 实体标识,
-    实体: &场景实体,
+    ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实体标识, 实体: &场景实体
 ) {
     if 实体.组件.is_empty() {
         ui.add_space(6.0);
         ui.label(
-            RichText::new("该实体还没有组件。\n点击上方「添加组件」为它添加一个。")
-                .color(上下文.配色.次要文字),
+            RichText::new(
+                上下文
+                    .语言
+                    .取("该实体还没有组件。\n点击上方「添加组件」为它添加一个。"),
+            )
+            .color(上下文.配色.次要文字),
         );
         return;
     }
@@ -331,7 +344,9 @@ fn 绘制组件列表(
             let 描述 = 上下文.编辑器.注册表.查询(&组件.类型名);
             待绘组件 {
                 类型名: 组件.类型名.clone(),
-                字段描述: 描述.map(|描述| 描述.字段描述().to_vec()).unwrap_or_default(),
+                字段描述: 描述
+                    .map(|描述| 描述.字段描述().to_vec())
+                    .unwrap_or_default(),
                 属性: 组件
                     .属性
                     .iter()
@@ -343,7 +358,15 @@ fn 绘制组件列表(
         .collect();
 
     for 组件 in 待绘 {
-        绘制单个组件(ui, 上下文, 标识, &组件.类型名, &组件.字段描述, &组件.属性, 组件.已注册);
+        绘制单个组件(
+            ui,
+            上下文,
+            标识,
+            &组件.类型名,
+            &组件.字段描述,
+            &组件.属性,
+            组件.已注册,
+        );
     }
 }
 
@@ -363,7 +386,7 @@ fn 绘制单个组件(
         .id_salt(format!("组件-{类型名}"))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                if ui.small_button("移除组件").clicked() {
+                if ui.small_button(上下文.语言.取("移除组件")).clicked() {
                     上下文.动作.推(UiAction::删除组件 {
                         实体: 标识,
                         类型名: 类型名.to_string(),
@@ -371,7 +394,7 @@ fn 绘制单个组件(
                 }
                 if !已注册 {
                     ui.label(
-                        RichText::new("未注册：字段可查看但布局未知")
+                        RichText::new(上下文.语言.取("未注册：字段可查看但布局未知"))
                             .small()
                             .color(上下文.配色.警告),
                     );
@@ -393,7 +416,7 @@ fn 绘制单个组件(
                 }
                 if 属性.is_empty() {
                     ui.label(
-                        RichText::new("（无属性）").color(上下文.配色.次要文字),
+                        RichText::new(上下文.语言.取("（无属性）")).color(上下文.配色.次要文字),
                     );
                 }
                 return;
@@ -447,11 +470,7 @@ fn 格式提示(描述: &属性描述) -> String {
 
 /// 提交一个属性修改。
 fn 提交属性(
-    上下文: &mut 绘制上下文<'_>,
-    实体: 实体标识,
-    组件: &str,
-    属性: &str,
-    新值: 属性值,
+    上下文: &mut 绘制上下文<'_>, 实体: 实体标识, 组件: &str, 属性: &str, 新值: 属性值
 ) {
     上下文.动作.推(UiAction::修改属性(属性编辑 {
         实体,
@@ -495,14 +514,10 @@ fn 按描述编辑(
         }
 
         属性种类::浮点 {
-            最小,
-            最大,
-            步进,
+            最小, 最大, 步进
         } => {
             let mut 数值 = 值.取浮点().unwrap_or(0.0);
-            let mut 控件 = egui::DragValue::new(&mut 数值)
-                .speed(*步进)
-                .max_decimals(4);
+            let mut 控件 = egui::DragValue::new(&mut 数值).speed(*步进).max_decimals(4);
             let 下界 = 最小.unwrap_or(f32::NEG_INFINITY);
             let 上界 = 最大.unwrap_or(f32::INFINITY);
             if 下界.is_finite() || 上界.is_finite() {
@@ -549,11 +564,7 @@ fn 按描述编辑(
             ui.push_id(format!("三维-{字段名}"), |ui| {
                 for (标签, 分量) in [("x", &mut x), ("y", &mut y), ("z", &mut z)] {
                     改变 |= ui
-                        .add(
-                            egui::DragValue::new(分量)
-                                .speed(*步进)
-                                .prefix(标签),
-                        )
+                        .add(egui::DragValue::new(分量).speed(*步进).prefix(标签))
                         .changed();
                 }
             });
@@ -586,15 +597,13 @@ fn 按描述编辑(
         }
 
         属性种类::四维 { 步进 } => {
-            let (mut a, mut b, mut c, mut d) =
-                match 值 {
-                   属性值::四维(a, b, c, d) => (*a, *b, *c, *d),
-                    _ => (0.0, 0.0, 0.0, 0.0),
-                };
+            let (mut a, mut b, mut c, mut d) = match 值 {
+                属性值::四维(a, b, c, d) => (*a, *b, *c, *d),
+                _ => (0.0, 0.0, 0.0, 0.0),
+            };
             let mut 改变 = false;
             ui.push_id(format!("四维-{字段名}"), |ui| {
-                for (标签, 分量) in
-                    [("x", &mut a), ("y", &mut b), ("z", &mut c), ("w", &mut d)]
+                for (标签, 分量) in [("x", &mut a), ("y", &mut b), ("z", &mut c), ("w", &mut d)]
                 {
                     改变 |= ui
                         .add(egui::DragValue::new(分量).speed(*步进).prefix(标签))
@@ -658,8 +667,7 @@ fn 按描述编辑(
                         // 有缩略图就画缩略图，否则画一个类型角标。
                         if let Some(纹理) = 上下文.缩略图(&引用.路径) {
                             ui.add(
-                                egui::Image::new(纹理)
-                                    .fit_to_exact_size(egui::vec2(18.0, 18.0)),
+                                egui::Image::new(纹理).fit_to_exact_size(egui::vec2(18.0, 18.0)),
                             );
                         } else {
                             ui.label(
@@ -674,14 +682,14 @@ fn 按描述编辑(
                                 .color(上下文.配色.文字),
                         )
                         .on_hover_text(引用.路径.文本().to_string());
-                        if ui.small_button("清除").clicked() {
+                        if ui.small_button(上下文.语言.取("清除")).clicked() {
                             *值 = 属性值::空;
                             改变 = true;
                         }
                     }
                     None => {
                         ui.label(
-                            RichText::new("（未设置）").color(上下文.配色.次要文字),
+                            RichText::new(上下文.语言.取("（未设置）")).color(上下文.配色.次要文字),
                         );
                     }
                 }
@@ -704,7 +712,8 @@ fn 按描述编辑(
                                 .small()
                                 .color(上下文.配色.次要文字),
                         );
-                        if 按描述编辑(ui, &format!("{字段名}-{下标}"), 元素, 项, 上下文) {
+                        if 按描述编辑(ui, &format!("{字段名}-{下标}"), 元素, 项, 上下文)
+                        {
                             改变 = true;
                         }
                         if ui.small_button("✕").clicked() {
@@ -712,7 +721,7 @@ fn 按描述编辑(
                         }
                     });
                 }
-                if ui.small_button("＋ 添加元素").clicked() {
+                if ui.small_button(上下文.语言.取("＋ 添加元素")).clicked() {
                     列表.push(元素_default(元素));
                     改变 = true;
                 }
@@ -735,9 +744,7 @@ fn 按描述编辑(
             };
             ui.vertical(|ui| {
                 for 子描述 in 字段 {
-                    let 位置 = 当前字段
-                        .iter()
-                        .position(|(名字, _)| 名字 == &子描述.字段名);
+                    let 位置 = 当前字段.iter().position(|(名字, _)| 名字 == &子描述.字段名);
                     let mut 子值 = 位置
                         .map(|位置| 当前字段[位置].1.clone())
                         .unwrap_or_else(|| 子描述.默认值.clone());
@@ -775,14 +782,14 @@ fn 元素_default(元素: &属性种类) -> 属性值 {
         属性种类::浮点 { .. } => 属性值::浮点(0.0),
         属性种类::文本 => 属性值::文本(String::new()),
         属性种类::二维 { .. } => 属性值::二维(0.0, 0.0),
-        属性种类::三维 { .. } | 属性种类::角度三维 => 属性值::三维(0.0, 0.0, 0.0),
+        属性种类::三维 { .. } | 属性种类::角度三维 => {
+            属性值::三维(0.0, 0.0, 0.0)
+        }
         属性种类::四维 { .. } => 属性值::四维(0.0, 0.0, 0.0, 0.0),
         属性种类::颜色 => 属性值::颜色(颜色值::白()),
         属性种类::枚举 { 选项 } => 选项
             .first()
-            .map(|(_, 变体名, 序号)| {
-                属性值::枚举(枚举值::新建(变体名.clone(), *序号))
-            })
+            .map(|(_, 变体名, 序号)| 属性值::枚举(枚举值::新建(变体名.clone(), *序号)))
             .unwrap_or(属性值::空),
         属性种类::资源 { .. } => 属性值::空,
         属性种类::列表 { .. } => 属性值::列表(Vec::new()),
@@ -795,9 +802,7 @@ fn 通用值编辑(ui: &mut Ui, 字段名: &str, 值: &mut 属性值) -> bool {
     match 值 {
         属性值::布尔(开关) => ui.checkbox(开关, "").changed(),
         属性值::整数(数值) => ui.add(egui::DragValue::new(数值)).changed(),
-        属性值::浮点(数值) => ui
-            .add(egui::DragValue::new(数值).max_decimals(4))
-            .changed(),
+        属性值::浮点(数值) => ui.add(egui::DragValue::new(数值).max_decimals(4)).changed(),
         属性值::文本(文本) => ui
             .add(egui::TextEdit::singleline(文本).desired_width(180.0))
             .changed(),
@@ -821,8 +826,12 @@ fn 通用值编辑(ui: &mut Ui, 字段名: &str, 值: &mut 属性值) -> bool {
         属性值::四维(a, b, c, d) => {
             let mut 改变 = false;
             ui.push_id(format!("通用四维-{字段名}"), |ui| {
-                for (标签, 分量) in [("x", &mut *a), ("y", &mut *b), ("z", &mut *c), ("w", &mut *d)]
-                {
+                for (标签, 分量) in [
+                    ("x", &mut *a),
+                    ("y", &mut *b),
+                    ("z", &mut *c),
+                    ("w", &mut *d),
+                ] {
                     改变 |= ui.add(egui::DragValue::new(分量).prefix(标签)).changed();
                 }
             });
@@ -855,11 +864,7 @@ fn 通用值编辑(ui: &mut Ui, 字段名: &str, 值: &mut 属性值) -> bool {
             改变
         }
         属性值::资源(引用) => {
-            ui.label(
-                RichText::new(引用.路径.文本())
-                    .small()
-                    .monospace(),
-            );
+            ui.label(RichText::new(引用.路径.文本()).small().monospace());
             false
         }
         属性值::列表(列表) => {
@@ -934,10 +939,11 @@ mod 测试 {
         for 原角 in 用例 {
             let 四元数 = 欧拉角转四元数(原角);
             // 生成的四元数必须是单位长度，否则会引入缩放
-            let 模长 =
-                (四元数.0 * 四元数.0 + 四元数.1 * 四元数.1 + 四元数.2 * 四元数.2
-                    + 四元数.3 * 四元数.3)
-                    .sqrt();
+            let 模长 = (四元数.0 * 四元数.0
+                + 四元数.1 * 四元数.1
+                + 四元数.2 * 四元数.2
+                + 四元数.3 * 四元数.3)
+                .sqrt();
             assert!(
                 (模长 - 1.0).abs() < 1e-4,
                 "四元数模长应为 1，实际 {模长}（原角 {原角:?}）"

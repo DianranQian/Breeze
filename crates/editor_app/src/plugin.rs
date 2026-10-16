@@ -28,14 +28,18 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use bevy_egui::EguiPlugin;
+use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use editor_core::state::编辑器状态;
 use editor_ui::{
-    state::UiAction, 动作队列, 界面状态, 绘制上下文, 运行时诊断, 编辑器配色,
+    state::UiAction, 动作队列, 界面状态, 绘制上下文, 编辑器配色, 视口渲染结果, 运行时诊断,
 };
 
-use crate::scene_bridge::{默认组件注册表, 运行状态, 运行时宿主};
-use crate::actions;
+use crate::scene_bridge::{运行时宿主, 运行状态, 默认组件注册表};
+use crate::{
+    actions,
+    config::{布局待保存, 编辑器配置, 编辑器配置资源, 配置文件路径},
+    preview,
+};
 
 /// 编辑器状态容器。
 ///
@@ -77,10 +81,8 @@ impl UiStateHolder {
 }
 
 /// 配色资源。
-#[derive(Resource)]
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct 配色资源(pub 编辑器配色);
-
 
 /// 缩略图缓存：资源路径文本 → egui 纹理。
 ///
@@ -237,6 +239,9 @@ pub struct BevyStudio插件;
 
 impl Plugin for BevyStudio插件 {
     fn build(&self, app: &mut App) {
+        // egui 的 primary context 由 `preview::初始化预览资源` 显式管理，
+        // 因为本编辑器有两台相机（预览 + 界面），必须明确指定哪一台
+        // 承载界面。默认行为是"挂到第一台相机上"，那会挂错。
         app.add_plugins(EguiPlugin::default())
             .init_resource::<EditorStateHolder>()
             .insert_resource(UiStateHolder::新建())
@@ -245,6 +250,29 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<诊断资源>()
             .init_resource::<运行时宿主>()
             .init_resource::<文件对话框通道>()
+            // ---- 配置与布局持久化 ----
+            //
+            // 启动时读一次；布局写盘由 `actions::保存窗口布局` 定期完成。
+            // 配置文件放在用户配置目录，与项目/场景文件完全无关。
+            .insert_resource(编辑器配置资源(编辑器配置::载入(&配置文件路径())))
+            .init_resource::<布局待保存>()
+            // ---- 预览视口 ----
+            //
+            // 必须在界面绘制之前创建相机与渲染目标并完成纹理注册，
+            // 否则首帧视口会退化成只有网格。
+            .init_resource::<preview::预览相机状态>()
+            .add_systems(
+                Startup,
+                (
+                    preview::初始化预览资源,
+                    按环境变量打开项目,
+                    恢复窗口布局,
+                    打印启动信息,
+                )
+                    .chain(),
+            )
+            // ---- Update：只改数据，不碰 egui ----
+            //
             // 顺序即数据流，见模块头部说明。
             .add_systems(
                 Update,
@@ -252,16 +280,158 @@ impl Plugin for BevyStudio插件 {
                     actions::处理快捷键,
                     actions::处理文件对话框结果,
                     actions::执行动作队列,
+                    // 紧跟动作执行：本帧产生的日志（含错误）立刻出现在进程日志里。
+                    actions::转发控制台日志到标准错误,
                     actions::读取键盘导航,
                 )
                     .chain(),
             )
             .add_systems(
                 Update,
-                (actions::推进运行时, actions::绘制编辑器界面).chain(),
+                (
+                    // 先把文档投影成渲染实体，再同步相机与纹理尺寸。
+                    // 分成两个三元组再 `chain`：Bevy 的 `chain` 对元组
+                    // 元素个数有上限，6 个直接链会编译不过。
+                    (
+                        preview::同步预览实体,
+                        preview::同步预览相机,
+                        preview::同步渲染尺寸,
+                    )
+                        .chain(),
+                    (actions::推进运行时, actions::收集运行时诊断).chain(),
+                )
+                    .chain(),
             )
-            .add_systems(Update, actions::收集运行时诊断)
-            .add_systems(Startup, 打印启动信息);
+            // ---- EguiPrimaryContextPass：把数据画出来 ----
+            //
+            // 界面绘制必须放在这个调度里。原因见
+            // `actions::绘制编辑器界面` 的文档注释：egui 的字体是在
+            // `Context::run()` 里加载的，而本调度正是在 `Context::run()`
+            // 的闭包内部被执行。放到 `Update` 会因为字体尚未加载而 panic。
+            .add_systems(
+                EguiPrimaryContextPass,
+                (
+                    // 字体必须先于任何文字绘制装好，否则首帧的中文是方框。
+                    确保中文字体已安装,
+                    actions::绘制编辑器界面,
+                    actions::保存窗口布局,
+                )
+                    .chain(),
+            );
+    }
+}
+
+/// 确保中文字体已安装（幂等，只做一次）。
+///
+/// # 为什么放在这里而不是 `Startup`
+///
+/// `egui::Context` 由 `bevy_egui` 在**它自己的** `PreStartup`
+/// （`EguiStartupSet::InitContexts`）里创建，并且创建在我们显式声明
+/// `PrimaryEguiContext` 的那台相机上。跨插件的启动系统执行顺序不容易保证，
+/// 因此改成：在界面绘制之前检查一次，装完打标记，
+/// 之后每帧只判断一个布尔量（代价可以忽略）。
+///
+/// # 为什么不会失败
+///
+/// 字体是用 `include_bytes!` 编进二进制的（见 `editor_ui::fonts`），
+/// 因此不存在"文件找不到"的情况。唯一可能的问题是内置字体本身
+/// 缺少某个字形 —— 那由 `editor_ui` 的
+/// `内置字体覆盖界面源码里的全部汉字` 测试在编译前就挡住。
+pub fn 确保中文字体已安装(mut 上下文: EguiContexts, mut 已安装: Local<bool>) {
+    if *已安装 {
+        return;
+    }
+    let Ok(上下文) = 上下文.ctx_mut() else {
+        // 上下文还没建立，下一帧再试。
+        return;
+    };
+
+    let 结果 = editor_ui::安装中文字体(上下文);
+    info!(
+        "已安装中文字体（内置子集 {:.1} MB）",
+        editor_ui::内置字体大小() as f32 / 1024.0 / 1024.0
+    );
+    if let Some(路径) = 结果.后备字体 {
+        info!(
+            "已追加后备字体：{}（仅在内置子集缺字时使用）",
+            路径.display()
+        );
+    }
+    *已安装 = true;
+
+    // 换字体会让 egui 重建字体图集并重新排版。
+    // 主动请求重绘，避免首帧用旧字体画出的方框被缓存住。
+    上下文.request_repaint();
+}
+/// 允许用环境变量在启动时直接打开一个项目与场景。
+///
+/// # 为什么需要这个入口
+///
+/// 正常流程是「菜单 → 打开项目 → 弹系统目录对话框」。那个对话框是原生窗口，
+/// 自动化脚本点不了，于是**无法在无人值守的情况下验证"有内容的项目长什么样"**
+/// —— 而"视口能不能正确渲染场景里的精灵"恰恰只能这样验证。
+///
+/// 有了它，验证就变成一条命令：
+///
+/// ```powershell
+/// $env:BEVY_STUDIO_OPEN_PROJECT = "C:\path\to\项目"
+/// $env:BEVY_STUDIO_OPEN_SCENE   = "scenes/关卡.scene.ron"   # 可选
+/// .\bevy-studio.exe
+/// ```
+///
+/// 它同时也是 CI 截图、以及用户报 bug 时"打开这个项目就能复现"的入口。
+pub const 打开项目环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT";
+/// 指定要打开的场景（项目相对路径）。留空则用启动场景或第一个场景。
+pub const 打开场景环境变量: &str = "BEVY_STUDIO_OPEN_SCENE";
+
+/// 启动时按环境变量打开项目与场景。未设置时什么都不做。
+fn 按环境变量打开项目(mut 编辑器: ResMut<EditorStateHolder>) {
+    let Ok(项目目录) = std::env::var(打开项目环境变量) else {
+        return;
+    };
+    if 项目目录.trim().is_empty() {
+        return;
+    }
+
+    match 编辑器.状态.打开项目(&项目目录) {
+        Ok(()) => info!("已按环境变量打开项目：{项目目录}"),
+        Err(错误) => {
+            warn!("按环境变量打开项目失败：{错误}");
+            return;
+        }
+    }
+
+    // 显式指定场景时再打开一次（打开项目时已自动载入了启动场景）。
+    if let Ok(场景) = std::env::var(打开场景环境变量)
+        && !场景.trim().is_empty()
+    {
+        match scene_doc::path::项目相对路径::解析(&场景) {
+            Ok(路径) => match 编辑器.状态.打开场景(&路径) {
+                Ok(()) => info!("已按环境变量打开场景：{场景}"),
+                Err(错误) => warn!("按环境变量打开场景失败：{错误}"),
+            },
+            Err(错误) => warn!("环境变量里的场景路径非法：{错误}"),
+        }
+    }
+}
+
+/// 启动时恢复上次的窗口布局。
+fn 恢复窗口布局(mut 界面: ResMut<UiStateHolder>, 配置: Res<编辑器配置资源>) {
+    // 语言先恢复：它不依赖布局，而且越早生效越好 ——
+    // 晚一帧恢复的话，首帧会先按中文画一次，然后闪一下变成英文。
+    if let Some(代号) = 配置.0.偏好.get("语言") {
+        界面.状态.语言 = editor_ui::语言::从代号(代号);
+        info!("已恢复界面语言：{}", 界面.状态.语言.自称());
+    }
+
+    // 布局恢复失败**不能**影响语言：两者互相独立，
+    // 用 `return` 会把语言的恢复一起取消掉。
+    let Some(布局) = 配置.0.布局.as_ref() else {
+        return;
+    };
+    match 界面.状态.从序列化恢复布局(布局) {
+        Ok(()) => info!("已恢复上次的窗口布局"),
+        Err(错误) => warn!("窗口布局无法恢复，改用默认布局：{错误}"),
     }
 }
 
@@ -289,6 +459,8 @@ pub struct 绘制环境<'平台> {
     pub 配色: 编辑器配色,
     /// 资源缩略图纹理表。
     pub 缩略图: &'平台 BTreeMap<String, egui::TextureHandle>,
+    /// 视口的 Bevy 渲染结果。`None` 表示预览尚未就绪。
+    pub 视口纹理: Option<视口渲染结果>,
     /// 运行时宿主。
     pub 运行时: &'平台 运行时宿主,
     /// 运行时诊断信息。
@@ -307,10 +479,14 @@ pub fn 绘制一帧(
 ) {
     let mut 绘制 = 绘制上下文 {
         编辑器: 环境.编辑器,
+        // 语言是界面状态的一部分（用户可在「窗口 → 界面语言」里切换），
+        // 这里读出来放进上下文，各面板才能用 `上下文.语言.取(..)`。
+        语言: 界面.语言,
         界面,
         动作,
         配色: 环境.配色,
         缩略图: 环境.缩略图,
+        视口纹理: 环境.视口纹理,
         正在运行: 环境.运行时.状态.在运行(),
         已暂停: 环境.运行时.状态 == 运行状态::已暂停,
         运行时信息: 环境.诊断,
@@ -361,8 +537,12 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::暂停运行 => "暂停运行".to_string(),
         UiAction::停止运行 => "停止运行".to_string(),
         UiAction::单步一帧 => "单步一帧".to_string(),
-        UiAction::聚焦面板(面板) => format!("聚焦面板({})", 面板.标题()),
+        // 用中文标题而不是当前语言：这是给日志与测试断言用的**诊断名**，
+        // 应当与界面语言无关 —— 否则测试会因为语言设置而变红，
+        // 而日志里换成英文也不便与中文文档对照。
+        UiAction::聚焦面板(面板) => format!("聚焦面板({})", 面板.中文标题()),
         UiAction::恢复默认布局 => "恢复默认布局".to_string(),
+        UiAction::设置语言(语言) => format!("设置语言({})", 语言.自称()),
         UiAction::清空控制台 => "清空控制台".to_string(),
         UiAction::显示关于 => "显示关于".to_string(),
     }

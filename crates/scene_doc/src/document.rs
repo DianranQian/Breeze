@@ -23,8 +23,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::error::{场景错误, 场景结果};
-use crate::path::{项目相对路径, 资源唯一标识};
+use crate::error::{场景结果, 场景错误};
+use crate::path::{资源唯一标识, 项目相对路径};
 use crate::property::属性值;
 
 /// 本编辑器支持的最高场景格式版本。
@@ -418,7 +418,11 @@ impl 场景文档 {
     /// 在指定父实体下生成一个新实体，自动分配 `次序`。
     ///
     /// 返回新实体的标识。
-    pub fn 生成实体(&mut self, 名称: impl Into<String>, 父实体: Option<实体标识>) -> 实体标识 {
+    pub fn 生成实体(
+        &mut self,
+        名称: impl Into<String>,
+        父实体: Option<实体标识>,
+    ) -> 实体标识 {
         let mut 实体 = 场景实体::新建(名称);
         实体.父实体 = 父实体;
         实体.次序 = self.下一个次序(父实体);
@@ -564,9 +568,10 @@ impl 场景文档 {
             self.把子实体移到(新父, 当前下标, 新次序 as usize);
         }
         if let Some(旧父标识) = 旧父
-            && Some(旧父标识) != 新父 {
-                self.修正次序(Some(旧父标识));
-            }
+            && Some(旧父标识) != 新父
+        {
+            self.修正次序(Some(旧父标识));
+        }
         if 新父.is_none() && 旧父.is_some() {
             self.修正次序(None);
         }
@@ -607,7 +612,9 @@ impl 场景文档 {
     }
 
     /// 通用兄弟间移动。`方向` 为 `-1` 上移、`1` 下移。
-    fn 在兄弟间移动(&mut self, 标识: 实体标识, 父: Option<实体标识>, 方向: i32) -> bool {
+    fn 在兄弟间移动(
+        &mut self, 标识: 实体标识, 父: Option<实体标识>, 方向: i32
+    ) -> bool {
         let 列表 = self.子实体列表(父);
         let Some(下标) = 列表.iter().position(|项| 项 == &标识) else {
             return false;
@@ -650,7 +657,11 @@ impl 场景文档 {
 
     /// 生成一个场景内不重复的名称。
     pub fn 去重名称(&self, 期望: &str) -> String {
-        let 已用: BTreeSet<&str> = self.实体表.values().map(|实体| 实体.名称.as_str()).collect();
+        let 已用: BTreeSet<&str> = self
+            .实体表
+            .values()
+            .map(|实体| 实体.名称.as_str())
+            .collect();
         if !已用.contains(期望) {
             return 期望.to_string();
         }
@@ -664,14 +675,15 @@ impl 场景文档 {
     }
 
     /// 登记一个资源引用，并返回登记后的记录。
-    pub fn 登记资源(&mut self, 路径: 项目相对路径, 唯一标识: Option<资源唯一标识>) -> 资源引用 {
-        let 记录 = self
-            .资源表
-            .entry(路径.clone())
-            .or_insert_with(|| 资源引用 {
-                路径: 路径.clone(),
-                唯一标识,
-            });
+    pub fn 登记资源(
+        &mut self,
+        路径: 项目相对路径,
+        唯一标识: Option<资源唯一标识>,
+    ) -> 资源引用 {
+        let 记录 = self.资源表.entry(路径.clone()).or_insert_with(|| 资源引用 {
+            路径: 路径.clone(),
+            唯一标识,
+        });
         if 记录.唯一标识.is_none() {
             记录.唯一标识 = 唯一标识;
         }
@@ -712,24 +724,28 @@ impl 场景文档 {
         for (路径, _) in 收集到 {
             在用.insert(路径.文本().to_string());
         }
-        self.资源表
-            .retain(|路径, _| 在用.contains(路径.文本()));
+        self.资源表.retain(|路径, _| 在用.contains(路径.文本()));
     }
 
     /// 把资源路径改指向新位置。返回受影响的资源表条目数。
     ///
     /// 用途：在资源浏览器里重命名或移动文件后，**同步更新所有引用**。
     /// 这是"不得随意移动文件后破坏场景引用"这条要求的实现基础。
-    pub fn 改资源路径(&mut self, 旧路径: &项目相对路径, 新路径: &项目相对路径) -> usize {
+    pub fn 改资源路径(
+        &mut self, 旧路径: &项目相对路径, 新路径: &项目相对路径
+    ) -> usize {
         let mut 数量 = 0;
 
         // 资源表
         if let Some(记录) = self.资源表.remove(旧路径) {
             let 唯一标识 = 记录.唯一标识;
-            self.资源表.insert(新路径.clone(), 资源引用 {
-                路径: 新路径.clone(),
-                唯一标识,
-            });
+            self.资源表.insert(
+                新路径.clone(),
+                资源引用 {
+                    路径: 新路径.clone(),
+                    唯一标识,
+                },
+            );
             数量 += 1;
         }
 
@@ -782,9 +798,10 @@ impl 场景文档 {
         // 父实体存在性
         for (标识, 实体) in &self.实体表 {
             if let Some(父) = 实体.父实体
-                && !self.实体表.contains_key(&父) {
-                    报告.悬空父实体.push(*标识);
-                }
+                && !self.实体表.contains_key(&父)
+            {
+                报告.悬空父实体.push(*标识);
+            }
         }
 
         // 循环层级：从每个实体向上走，若步数超过实体总数则必然处于环中。
@@ -894,7 +911,9 @@ impl 场景文档 {
 }
 
 /// 递归收集属性值里内嵌的资源引用。
-fn 收集资源引用(值: &属性值, 输出: &mut Vec<(项目相对路径, Option<资源唯一标识>)>) {
+fn 收集资源引用(
+    值: &属性值, 输出: &mut Vec<(项目相对路径, Option<资源唯一标识>)>
+) {
     match 值 {
         属性值::资源(引用) => {
             输出.push((引用.路径.clone(), 引用.唯一标识.map(资源唯一标识::从)));
@@ -931,7 +950,9 @@ fn 含路径(值: &属性值, 目标: &项目相对路径) -> Option<()> {
 }
 
 /// 把属性值里指向旧路径的资源引用改写为新路径。
-fn 替换路径(值: &mut 属性值, 旧路径: &项目相对路径, 新路径: &项目相对路径) {
+fn 替换路径(
+    值: &mut 属性值, 旧路径: &项目相对路径, 新路径: &项目相对路径
+) {
     match 值 {
         属性值::资源(引用) => {
             if &引用.路径 == 旧路径 {

@@ -22,13 +22,21 @@
 //! 而只有 `editor_app` 需要拉起真正的 Bevy 应用。
 
 pub mod actions;
+pub mod config;
 pub mod plugin;
+pub mod preview;
 pub mod scene_bridge;
 
+pub use config::{
+    布局待保存, 编辑器配置, 编辑器配置资源, 配置文件路径, 配置目录
+};
 pub use plugin::{
-    BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 绘制一帧, 绘制环境,
-    文件对话框通道, 文件对话框结果, 文件对话框请求, 缩略图缓存, 诊断资源, 配色资源,
+    BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 文件对话框结果, 文件对话框请求,
+    文件对话框通道, 绘制一帧, 绘制环境, 缩略图缓存, 诊断资源, 配色资源,
+};
+pub use preview::{
+    编辑器界面相机, 预览实体, 预览来源, 预览渲染目标, 预览相机, 预览相机状态
 };
 pub use scene_bridge::{
-    实体映射表, 构建世界, 构建统计, 运行时宿主, 运行状态, 默认组件注册表,
+    实体映射表, 构建世界, 构建统计, 运行时宿主, 运行状态, 默认组件注册表
 };

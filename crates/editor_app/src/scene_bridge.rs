@@ -24,9 +24,9 @@
 //! 这样"运行时乱改不污染编辑器"不是靠约定或小心，而是靠**数据被物理隔离**
 //! ——两个世界，两份数据，中间只有一条单向通道。
 
-use bevy::prelude::*;
 use bevy::platform::collections::HashMap;
-use scene_doc::document::{变换数据, 实体标识, 场景文档};
+use bevy::prelude::*;
+use scene_doc::document::{变换数据, 场景文档, 实体标识};
 use scene_doc::property::{属性值, 颜色值};
 use scene_doc::registry::{属性描述, 属性种类, 组件注册表, 组件类型};
 
@@ -328,7 +328,8 @@ pub fn 构建世界(
 
     // ---- 第二趟：父子关系 ----
     for (子, 父) in 待建父子 {
-        let (Some(父实体), Some(子实体)) = (映射.取运行时(父), 映射.取运行时(子)) else {
+        let (Some(父实体), Some(子实体)) = (映射.取运行时(父), 映射.取运行时(子))
+        else {
             // 父实体不在映射表里，说明文档里有悬空父实体。
             // 这种情况下保持子实体为顶层实体，而不是丢弃它 ——
             // 丢掉会让"场景里有 10 个实体，运行时只有 9 个"难以解释。
@@ -373,7 +374,9 @@ fn 实例化并插入(
 /// 统计上它会被算作"跳过"，运行时的表现是这个组件彻底无效。
 ///
 /// 底部的测试 `注册表与插入分支一一对应` 专门守住这条不变量。
-fn 插入已知组件(世界: &mut World, 运行时实体: Entity, 实例: &dyn std::any::Any) -> bool {
+fn 插入已知组件(
+    世界: &mut World, 运行时实体: Entity, 实例: &dyn std::any::Any
+) -> bool {
     // 变换
     if let Some(值) = 实例.downcast_ref::<Transform>() {
         世界.entity_mut(运行时实体).insert(*值);
@@ -445,7 +448,9 @@ pub fn bevy转_变换数据(变换: &Transform) -> 变换数据 {
 // 与项目自定义组件（Sprite属性、编辑器相机2d）走的是**完全相同**的路径。
 
 /// 属性描述构造辅助：浮点。
-fn 浮点(字段: &str, 显示: &str, 默认: f32, 最小: f32, 最大: f32, 步进: f32) -> 属性描述 {
+fn 浮点(
+    字段: &str, 显示: &str, 默认: f32, 最小: f32, 最大: f32, 步进: f32
+) -> 属性描述 {
     属性描述::新建(
         字段,
         显示,
@@ -480,23 +485,13 @@ fn 颜色(字段: &str, 显示: &str, 默认: 颜色值) -> 属性描述 {
 
 /// 属性描述构造辅助：资源。
 fn 资源(字段: &str, 显示: &str, 类别: scene_doc::property::资源类别) -> 属性描述 {
-    属性描述::新建(
-        字段,
-        显示,
-        属性种类::资源 { 类别 },
-        属性值::空,
-    )
+    属性描述::新建(字段, 显示, 属性种类::资源 { 类别 }, 属性值::空)
 }
 
 /// 属性描述构造辅助：字符串。当前内置组件尚未用到，保留供后续组件使用。
 #[allow(dead_code)]
 fn 文本(字段: &str, 显示: &str, 默认: &str) -> 属性描述 {
-    属性描述::新建(
-        字段,
-        显示,
-        属性种类::文本,
-        属性值::文本(默认.to_string()),
-    )
+    属性描述::新建(字段, 显示, 属性种类::文本, 属性值::文本(默认.to_string()))
 }
 
 /// Bevy 的 `Visibility` 在编辑器里的表示。
@@ -563,7 +558,9 @@ pub struct 编辑器相机2d {
 
 impl Default for 编辑器相机2d {
     fn default() -> Self {
-        Self { 正交半高: 360.0 }
+        Self {
+            正交半高: 360.0
+        }
     }
 }
 
@@ -583,7 +580,10 @@ impl 组件类型 for 变换组件类型 {
         变换字段描述()
     }
 
-    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<std::collections::BTreeMap<String, 属性值>> {
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
         let 变换 = 实例.downcast_ref::<Transform>()?;
         let 数据 = bevy转_变换数据(变换);
         let mut 结果 = std::collections::BTreeMap::new();
@@ -690,7 +690,10 @@ impl 组件类型 for 可见性组件类型 {
         可见性字段描述()
     }
 
-    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<std::collections::BTreeMap<String, 属性值>> {
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
         let 属性 = 实例.downcast_ref::<可见性属性>()?;
         let mut 结果 = std::collections::BTreeMap::new();
         结果.insert("可见".to_string(), 属性值::布尔(属性.可见));
@@ -716,9 +719,12 @@ impl 组件类型 for 可见性组件类型 {
 fn 可见性字段描述() -> &'static [属性描述] {
     use std::sync::OnceLock;
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
-    列表.get_or_init(|| vec![布尔("可见", "可见", true).带提示(
-        "对应 Bevy 的 Visibility：开启映射为 Inherited，关闭映射为 Hidden",
-    )])
+    列表.get_or_init(|| {
+        vec![
+            布尔("可见", "可见", true)
+                .带提示("对应 Bevy 的 Visibility：开启映射为 Inherited，关闭映射为 Hidden"),
+        ]
+    })
 }
 
 /// `Sprite属性` 的编辑器适配。
@@ -737,13 +743,18 @@ impl 组件类型 for Sprite组件类型 {
         sprite字段描述()
     }
 
-    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<std::collections::BTreeMap<String, 属性值>> {
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
         let 属性 = 实例.downcast_ref::<Sprite属性>()?;
         let mut 结果 = std::collections::BTreeMap::new();
         结果.insert(
             "贴图".to_string(),
             match &属性.贴图路径 {
-                Some(路径) => 属性值::资源(scene_doc::property::资源引用值::按路径(路径.clone())),
+                Some(路径) => 属性值::资源(scene_doc::property::资源引用值::按路径(
+                    路径.clone(),
+                )),
                 None => 属性值::空,
             },
         );
@@ -797,12 +808,8 @@ fn sprite字段描述() -> &'static [属性描述] {
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
         vec![
-            资源(
-                "贴图",
-                "贴图",
-                scene_doc::property::资源类别::图片,
-            )
-            .带提示("指向 assets 下的图片资源"),
+            资源("贴图", "贴图", scene_doc::property::资源类别::图片)
+                .带提示("指向 assets 下的图片资源"),
             颜色("颜色", "着色", 颜色值::白()),
             布尔("水平翻转", "水平翻转", false),
             布尔("垂直翻转", "垂直翻转", false),
@@ -828,7 +835,10 @@ impl 组件类型 for 相机组件类型 {
         相机字段描述()
     }
 
-    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<std::collections::BTreeMap<String, 属性值>> {
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
         let 属性 = 实例.downcast_ref::<编辑器相机2d>()?;
         let mut 结果 = std::collections::BTreeMap::new();
         结果.insert("正交半高".to_string(), 属性值::浮点(属性.正交半高));
@@ -858,15 +868,10 @@ fn 相机字段描述() -> &'static [属性描述] {
     use std::sync::OnceLock;
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
-        vec![浮点(
-            "正交半高",
-            "正交半高",
-            360.0,
-            1.0,
-            100000.0,
-            1.0,
-        )
-        .带提示("正交投影可见区域的垂直半高（世界单位）")]
+        vec![
+            浮点("正交半高", "正交半高", 360.0, 1.0, 100000.0, 1.0)
+                .带提示("正交投影可见区域的垂直半高（世界单位）"),
+        ]
     })
 }
 
@@ -908,10 +913,7 @@ mod 测试 {
     fn 默认注册表包含全部内置组件() {
         let 注册表 = 默认组件注册表();
         for 名字 in ["Transform", "Visibility", "Sprite", "Camera2d"] {
-            assert!(
-                注册表.已注册(名字),
-                "内置组件 `{名字}` 应当被注册"
-            );
+            assert!(注册表.已注册(名字), "内置组件 `{名字}` 应当被注册");
         }
         assert_eq!(注册表.数量(), 4);
     }
@@ -999,7 +1001,10 @@ mod 测试 {
         let 标识 = 建带组件的实体(&mut 文档, "带精灵的实体");
 
         let mut 属性 = std::collections::BTreeMap::new();
-        属性.insert("颜色".to_string(), 属性值::颜色(颜色值::srgb(1.0, 0.0, 0.0, 1.0)));
+        属性.insert(
+            "颜色".to_string(),
+            属性值::颜色(颜色值::srgb(1.0, 0.0, 0.0, 1.0)),
+        );
         属性.insert("水平翻转".to_string(), 属性值::布尔(true));
         属性.insert("自定义尺寸".to_string(), 属性值::二维(32.0, 48.0));
         if let Some(实体) = 文档.取可变(标识) {
@@ -1244,10 +1249,7 @@ mod 测试 {
 
         数据.insert("正交半高".to_string(), 属性值::浮点(720.0));
         assert!(类型.实例化(实例.as_mut(), &数据));
-        assert_eq!(
-            实例.downcast_ref::<编辑器相机2d>().unwrap().正交半高,
-            720.0
-        );
+        assert_eq!(实例.downcast_ref::<编辑器相机2d>().unwrap().正交半高, 720.0);
     }
 
     #[test]
@@ -1257,13 +1259,16 @@ mod 测试 {
 
         let mut 实例 = 类型.默认实例();
         let mut 数据 = std::collections::BTreeMap::new();
-        数据.insert("颜色".to_string(), 属性值::颜色(颜色值::srgb(0.2, 0.4, 0.6, 1.0)));
+        数据.insert(
+            "颜色".to_string(),
+            属性值::颜色(颜色值::srgb(0.2, 0.4, 0.6, 1.0)),
+        );
         数据.insert("垂直翻转".to_string(), 属性值::布尔(true));
         数据.insert("自定义尺寸".to_string(), 属性值::二维(100.0, 200.0));
         数据.insert(
             "贴图".to_string(),
             属性值::资源(scene_doc::property::资源引用值::按路径(
-                 scene_doc::path::项目相对路径::解析("assets/textures/a.png").unwrap(),
+                scene_doc::path::项目相对路径::解析("assets/textures/a.png").unwrap(),
             )),
         );
 
@@ -1273,15 +1278,12 @@ mod 测试 {
         let 导出 = 类型.导出(实例.as_ref()).unwrap();
         assert_eq!(导出.get("颜色").unwrap().取颜色().unwrap().绿, 0.4);
         assert_eq!(导出.get("垂直翻转").unwrap().取布尔(), Some(true));
-        assert_eq!(导出.get("自定义尺寸").unwrap().取二维(), Some((100.0, 200.0)));
         assert_eq!(
-            导出
-                .get("贴图")
-                .unwrap()
-                .取资源()
-                .unwrap()
-                .路径
-                .文本(),
+            导出.get("自定义尺寸").unwrap().取二维(),
+            Some((100.0, 200.0))
+        );
+        assert_eq!(
+            导出.get("贴图").unwrap().取资源().unwrap().路径.文本(),
             "assets/textures/a.png"
         );
     }

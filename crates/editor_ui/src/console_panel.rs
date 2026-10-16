@@ -3,7 +3,7 @@
 use editor_core::state::{日志级别, 编辑器状态};
 use egui::{RichText, Ui};
 
-use crate::state::{绘制上下文, UiAction};
+use crate::state::{UiAction, 绘制上下文};
 
 /// 一条用于显示的日志行。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,12 +69,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         let mut 关键字 = std::mem::take(&mut 上下文.界面.控制台搜索);
         ui.add(
             egui::TextEdit::singleline(&mut 关键字)
-                .hint_text("搜索日志")
+                .hint_text(上下文.语言.取("搜索日志"))
                 .desired_width(140.0),
         );
         上下文.界面.控制台搜索 = 关键字;
 
-        if ui.small_button("清空").clicked() {
+        if ui.small_button(上下文.语言.取("清空")).clicked() {
             上下文.动作.推(UiAction::清空控制台);
         }
     });
@@ -88,9 +88,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     );
 
     if 显示列表.is_empty() {
-        ui.label(
-            RichText::new("暂无日志").color(上下文.配色.次要文字),
-        );
+        ui.label(RichText::new(上下文.语言.取("暂无日志")).color(上下文.配色.次要文字));
         return;
     }
 
@@ -106,20 +104,11 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     日志级别::错误 => 上下文.配色.错误,
                 };
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(
-                        RichText::new(条目.级别.前缀())
-                            .small()
-                            .color(颜色),
-                    );
+                    ui.label(RichText::new(条目.级别.前缀()).small().color(颜色));
                     ui.label(RichText::new(&条目.消息).color(颜色));
                 });
             }
         });
-}
-
-/// 面板标题。
-pub fn 标题() -> &'static str {
-    crate::docks::Tab::控制台.标题()
 }
 
 /// 编辑器是否有需要注意的问题。供菜单栏显示角标。

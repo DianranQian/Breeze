@@ -6,7 +6,12 @@ use egui_dock::{DockState, NodeIndex};
 ///
 /// 用枚举而不是字符串标识：这样"新增面板"是一个编译器会强制处理的变更，
 /// 不会出现"面板加进布局了但绘制分发忘了加分支"这种只在运行时暴露的问题。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+///
+/// 派生 `Serialize` / `Deserialize` 是为了把用户的布局持久化到磁盘。
+/// 用枚举还有一个额外好处：布局文件里存的是 `场景树` 这样的**变体名**，
+/// 而不是依赖声明顺序的索引 —— 将来在枚举中间插入一个新面板，
+/// 也不会让旧布局文件里的面板错位成别的面板。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Tab {
     /// 场景树。
     场景树,
@@ -27,8 +32,19 @@ pub enum Tab {
 }
 
 impl Tab {
-    /// 面板标题。
-    pub fn 标题(&self) -> &'static str {
+    /// 面板标题（按当前语言）。
+    ///
+    /// 语言作为参数传入而不是读全局状态：标题是纯展示数据，
+    /// 保持成纯函数才好写单元测试。
+    pub fn 标题(&self, 语言: crate::i18n::语言) -> &'static str {
+        语言.取(self.中文标题())
+    }
+
+    /// 标题的中文原文。
+    ///
+    /// 它同时是翻译表的键、以及「窗口」菜单里按文本反查面板的依据，
+    /// 因此必须与表里的键逐字一致，不要改这里的字符串。
+    pub fn 中文标题(&self) -> &'static str {
         match self {
             Tab::场景树 => "场景树",
             Tab::检查器 => "检查器",
@@ -74,16 +90,12 @@ pub fn 默认布局() -> DockState<Tab> {
     let 主表面 = 布局.main_surface_mut();
 
     // 左侧：场景树，占 22% 宽度。
-    let [_视口, 左列] =
-        主表面.split_left(NodeIndex::root(), 0.22, vec![Tab::场景树]);
+    let [_视口, 左列] = 主表面.split_left(NodeIndex::root(), 0.22, vec![Tab::场景树]);
 
     // 在"视口 + 场景树"这一层下方切出底部区域，占 28% 高度。
     // 注意切分的是根节点，因此底部横跨左右两侧，与 Godot 一致。
-    let [_上方, 底部] = 主表面.split_below(
-        NodeIndex::root(),
-        0.72,
-        vec![Tab::资源浏览器, Tab::控制台],
-    );
+    let [_上方, 底部] =
+        主表面.split_below(NodeIndex::root(), 0.72, vec![Tab::资源浏览器, Tab::控制台]);
     let _ = 底部;
 
     // 右侧：检查器等，占 26% 宽度。
@@ -108,7 +120,7 @@ mod 测试 {
             assert!(
                 布局.find_tab(面板).is_some(),
                 "面板 `{}` 应当出现在默认布局里",
-                面板.标题()
+                面板.标题(crate::i18n::语言::中文)
             );
         }
         assert!(!Tab::视口.可关闭(), "视口不允许关闭");
@@ -118,7 +130,10 @@ mod 测试 {
     #[test]
     fn 面板标题互不相同() {
         // 标题重名会让用户无法分辨两个标签页，也会让基于标题的定位失效。
-        let mut 标题: Vec<&str> = Tab::全部().iter().map(|面板| 面板.标题()).collect();
+        let mut 标题: Vec<&str> = Tab::全部()
+            .iter()
+            .map(|面板| 面板.标题(crate::i18n::语言::中文))
+            .collect();
         let 原数量 = 标题.len();
         标题.sort_unstable();
         标题.dedup();

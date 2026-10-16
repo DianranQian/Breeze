@@ -19,8 +19,8 @@
 
 use std::collections::BTreeMap;
 
-use scene_doc::document::{场景文档, 实体标识, 变换数据, 组件数据};
-use scene_doc::error::{场景错误, 场景结果};
+use scene_doc::document::{变换数据, 场景文档, 实体标识, 组件数据};
+use scene_doc::error::{场景结果, 场景错误};
 use scene_doc::property::属性值;
 
 /// 命令执行结果。
@@ -207,9 +207,10 @@ impl 编辑器命令 {
                 指定标识,
             } => {
                 if let Some(父) = 父实体
-                    && !文档.存在(*父) {
-                        return Err(场景错误::非法(format!("父实体 {父} 不存在")));
-                    }
+                    && !文档.存在(*父)
+                {
+                    return Err(场景错误::非法(format!("父实体 {父} 不存在")));
+                }
                 let 名称 = 文档.去重名称(名称);
                 let 标识 = 指定标识.unwrap_or_else(实体标识::新建);
 
@@ -323,9 +324,9 @@ impl 编辑器命令 {
                     .取可变(*标识)
                     .ok_or_else(|| 场景错误::非法(format!("实体 {标识} 不存在")))?;
                 if !实体.删组件(类型名) {
-                    return Err(场景错误::非法(format!(
-                        "实体 {标识} 没有组件 `{类型名}`"
-                    )));
+                    return Err(场景错误::非法(
+                        format!("实体 {标识} 没有组件 `{类型名}`"),
+                    ));
                 }
                 // 组件没了，可能连带资源引用也没了，同步清理资源表。
                 文档.清理资源表();
@@ -357,22 +358,23 @@ impl 编辑器命令 {
 
             Self::批量设属性 { 项 } => {
                 for (标识, 类型名, _, _) in 项 {
-                    let 实体 = 文档.取(*标识).ok_or_else(|| {
-                        场景错误::非法(format!("实体 {标识} 不存在"))
-                    })?;
+                    let 实体 = 文档
+                        .取(*标识)
+                        .ok_or_else(|| 场景错误::非法(format!("实体 {标识} 不存在")))?;
                     if !实体.有组件(类型名) {
-                        return Err(场景错误::非法(format!(
-                            "实体 {标识} 没有组件 `{类型名}`"
-                        )));
+                        return Err(场景错误::非法(
+                            format!("实体 {标识} 没有组件 `{类型名}`"),
+                        ));
                     }
                 }
                 for (标识, 类型名, 属性名, 新值) in 项 {
                     if let Some(实体) = 文档.取可变(*标识)
-                        && let Some(组件) = 实体.取组件可变(类型名) {
-                            let mut 新值 = 新值.clone();
-                            新值.收拢();
-                            组件.属性.insert(属性名.clone(), 新值);
-                        }
+                        && let Some(组件) = 实体.取组件可变(类型名)
+                    {
+                        let mut 新值 = 新值.clone();
+                        新值.收拢();
+                        组件.属性.insert(属性名.clone(), 新值);
+                    }
                 }
                 文档.同步资源表();
                 Ok(命令结果 {
@@ -405,6 +407,8 @@ impl 编辑器命令 {
 /// 从属性表构造一个组件数据。
 ///
 /// 这是一个便捷构造器，避免调用点重复写 `BTreeMap` 类型标注。
-pub fn 构造组件(类型名: impl Into<String>, 属性: BTreeMap<String, 属性值>) -> 组件数据 {
+pub fn 构造组件(
+    类型名: impl Into<String>, 属性: BTreeMap<String, 属性值>
+) -> 组件数据 {
     组件数据::新建(类型名, 属性)
 }

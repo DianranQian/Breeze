@@ -23,6 +23,9 @@ bevy.workspace = true
 bevy_egui.workspace = true
 egui.workspace = true
 serde.workspace = true
+# 编辑器配置（窗口布局）与场景文件用同一套 RON 序列化，
+# 但存在完全不同的位置，两者互不干扰。
+ron.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
 rfd.workspace = true
@@ -35,3 +38,7 @@ opener = "0.8"
 
 [dev-dependencies]
 tempfile = "3.13"
+# 布局持久化的测试需要直接构造/检查 `DockState`
+# （例如验证"不含视口的布局会被拒绝"），
+# 因此测试里需要直接使用 egui_dock。
+egui_dock.workspace = true

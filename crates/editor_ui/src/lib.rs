@@ -14,8 +14,10 @@
 pub mod assets_panel;
 pub mod console_panel;
 pub mod docks;
+pub mod fonts;
 pub mod hierarchy_panel;
 pub mod history_panel;
+pub mod i18n;
 pub mod inspector_panel;
 pub mod menu_bar;
 pub mod state;
@@ -23,9 +25,13 @@ pub mod theme;
 pub mod viewport_panel;
 
 pub use docks::Tab;
+pub use fonts::{
+    内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
+};
+pub use i18n::语言;
 pub use state::{
-    动作队列, 属性编辑, 文本编辑目标, 界面状态, 绘制上下文, 控制台过滤, 运行时诊断,
-    视口相机, 视口拖拽, 资源排序, 选择意图, UiAction,
+    UiAction, 动作队列, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态, 绘制上下文, 视口拖拽,
+    视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
 };
 pub use theme::编辑器配色;
 
@@ -84,7 +90,9 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
                 egui_dock::DockState::new(Vec::new()),
             );
 
-            let mut 查看器 = 面板查看器 { 上下文: 绘制上下文 };
+            let mut 查看器 = 面板查看器 {
+                上下文: 绘制上下文
+            };
 
             // 顶部：菜单栏
             egui::Panel::top("bevy_studio_菜单栏")
@@ -114,8 +122,17 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
             // 其余区域：可停靠面板
             egui_dock::DockArea::new(&mut 停靠)
                 .style(egui_dock::Style::from_egui(界面ui.style().as_ref()))
+                // 关闭按钮：让用户能把面板收起来，再从「窗口」菜单打开。
                 .show_close_buttons(true)
+                // 折叠按钮：把整个面板折成一条标题栏，腾出屏幕空间做编辑。
+                // 这是"面板可以折叠"这条要求的实现。
+                .show_leaf_collapse_buttons(true)
+                // 标签可拖动、可重新停靠、可拖成独立窗口。
                 .draggable_tabs(true)
+                // 隐藏标签栏：给视口这类"单独占一个面板"的标签腾出高度。
+                .hidable_tab_bars(true)
+                // 不加号按钮：新面板统一从「窗口」菜单打开，
+                // 避免用户在一个面板组里堆出十几个标签。
                 .show_add_buttons(false)
                 .show_inside(界面ui, &mut 查看器);
 
@@ -125,17 +142,18 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
 
     // 处理"新建项目"对话框的确认结果。
     if let Some(绘制上下文) = 待用.as_mut()
-        && 绘制上下文.界面.显示新建项目确认 {
-            绘制上下文.界面.显示新建项目确认 = false;
-            let 名称 = 绘制上下文.界面.新建项目名.trim().to_string();
-            let 名称 = if 名称.is_empty() {
-                "我的游戏".to_string()
-            } else {
-                名称
-            };
-            绘制上下文.动作.推(UiAction::新建项目 { 名称 });
-            绘制上下文.界面.显示新建项目 = false;
-        }
+        && 绘制上下文.界面.显示新建项目确认
+    {
+        绘制上下文.界面.显示新建项目确认 = false;
+        let 名称 = 绘制上下文.界面.新建项目名.trim().to_string();
+        let 名称 = if 名称.is_empty() {
+            "我的游戏".to_string()
+        } else {
+            名称
+        };
+        绘制上下文.动作.推(UiAction::新建项目 { 名称 });
+        绘制上下文.界面.显示新建项目 = false;
+    }
 }
 
 /// 底部状态栏。
@@ -212,8 +230,9 @@ fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
 /// 这样对话框本身是纯展示 + 取输入的，易于推理。
 fn 绘制_新建项目对话框(
     egui上下文: &egui::Context,
-   界面: &mut 界面状态,
-   配色: 编辑器配色,
+    界面: &mut 界面状态,
+    配色: 编辑器配色,
+    语言: crate::i18n::语言,
 ) {
     if !界面.显示新建项目 {
         return;
@@ -233,21 +252,21 @@ fn 绘制_新建项目对话框(
         .resizable(false)
         .open(&mut 打开值)
         .show(egui上下文, |ui| {
-            ui.label("项目名称");
+            ui.label(语言.取("项目名称"));
             ui.add(egui::TextEdit::singleline(&mut 编辑中名称).desired_width(240.0));
             ui.label(
                 egui::RichText::new(
-                    "项目会创建在接下来选择的目标目录中，且该目录必须是空的。",
+                    语言.取("项目会创建在接下来选择的目标目录中，且该目录必须是空的。"),
                 )
                 .small()
                 .color(配色.次要文字),
             );
             ui.separator();
             ui.horizontal(|ui| {
-                if ui.button("选择目录并创建").clicked() {
+                if ui.button(语言.取("选择目录并创建")).clicked() {
                     确认 = true;
                 }
-                if ui.button("取消").clicked() {
+                if ui.button(语言.取("取消")).clicked() {
                     打开给关闭按钮.set(false);
                 }
             });
@@ -272,12 +291,13 @@ fn 绘制_关于窗口(
     界面: &mut 界面状态,
     配色: 编辑器配色,
     场景名: &str,
+    语言: crate::i18n::语言,
 ) {
     if !界面.显示关于 {
         return;
     }
     let mut 打开 = true;
-    egui::Window::new("关于 Bevy Studio")
+    egui::Window::new(语言.取("关于 Bevy Studio"))
         .collapsible(false)
         .resizable(false)
         .open(&mut 打开)
@@ -285,12 +305,18 @@ fn 绘制_关于窗口(
             ui.heading("Bevy Studio");
             ui.label(format!("版本 {}", env!("CARGO_PKG_VERSION")));
             ui.separator();
-            ui.label("一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。");
+            ui.label(
+                语言.取("一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。"),
+            );
             ui.add_space(6.0);
-            ui.label(egui::RichText::new("技术栈").strong().color(配色.文字));
+            ui.label(
+                egui::RichText::new(语言.取("技术栈"))
+                    .strong()
+                    .color(配色.文字),
+            );
             ui.label("Bevy 0.20 / bevy_egui 0.43");
-            ui.label("egui 0.36 + egui_dock 0.21（界面与可停靠布局）");
-            ui.label("RON（场景与项目清单的序列化格式）");
+            ui.label(语言.取("egui 0.36 + egui_dock 0.21（界面与可停靠布局）"));
+            ui.label(语言.取("RON（场景与项目清单的序列化格式）"));
             ui.separator();
             ui.label(
                 egui::RichText::new(format!("当前场景：{场景名}"))
@@ -339,10 +365,12 @@ impl 面板查看器<'_, '_> {
     fn 视图(&mut self) -> 绘制上下文<'_> {
         绘制上下文 {
             编辑器: self.上下文.编辑器,
+            语言: self.上下文.语言,
             界面: self.上下文.界面,
             动作: self.上下文.动作,
             配色: self.上下文.配色,
             缩略图: self.上下文.缩略图,
+            视口纹理: self.上下文.视口纹理,
             正在运行: self.上下文.正在运行,
             已暂停: self.上下文.已暂停,
             运行时信息: self.上下文.运行时信息,
@@ -364,12 +392,14 @@ impl 面板查看器<'_, '_> {
     /// 绘制两个浮层窗口。
     fn 绘制浮层(&mut self, egui上下文: &egui::Context) {
         let 配色 = self.上下文.配色;
-        绘制_新建项目对话框(egui上下文, self.上下文.界面, 配色);
+        let 语言 = self.上下文.语言;
+        绘制_新建项目对话框(egui上下文, self.上下文.界面, 配色, 语言);
         绘制_关于窗口(
             egui上下文,
             self.上下文.界面,
             配色,
             self.上下文.编辑器.场景名(),
+            语言,
         );
     }
 }
@@ -387,12 +417,11 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             let 问题数 = self.上下文.编辑器.问题数量();
             if 问题数 > 0 {
                 return WidgetText::from(
-                    egui::RichText::new(format!("控制台 ({问题数})"))
-                        .color(self.上下文.配色.警告),
+                    egui::RichText::new(format!("控制台 ({问题数})")).color(self.上下文.配色.警告),
                 );
             }
         }
-        WidgetText::from(tab.标题())
+        WidgetText::from(tab.标题(self.上下文.语言))
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
@@ -425,10 +454,7 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
         tab.可关闭()
     }
 
-    fn on_close(
-        &mut self,
-        tab: &mut Self::Tab,
-    ) -> egui_dock::widgets::tab_viewer::OnCloseResponse {
+    fn on_close(&mut self, tab: &mut Self::Tab) -> egui_dock::widgets::tab_viewer::OnCloseResponse {
         use egui_dock::widgets::tab_viewer::OnCloseResponse;
         // 关闭不可关闭的面板时保持打开，避免用户误操作把视口关掉。
         if tab.可关闭() {
@@ -451,7 +477,7 @@ mod 测试 {
             assert!(
                 界面.面板可见(*面板),
                 "默认布局应当包含面板 `{}`",
-                面板.标题()
+                面板.标题(crate::i18n::语言::中文)
             );
         }
     }

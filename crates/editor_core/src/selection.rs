@@ -117,9 +117,10 @@ impl 选择集 {
         let 原数量 = self.选中.len();
         self.选中.retain(|标识| 文档.存在(*标识));
         if let Some(主) = self.主选中
-            && !self.选中.contains(&主) {
-                self.主选中 = self.选中.iter().next().copied();
-            }
+            && !self.选中.contains(&主)
+        {
+            self.主选中 = self.选中.iter().next().copied();
+        }
         if self.选中.is_empty() {
             self.主选中 = None;
         }

@@ -30,3 +30,17 @@
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 验证用的截图与中间产物（可随时重新生成）
+/.verify/*.png
+/.verify/*.raw
+/.verify/*.size
+/.verify/示例项目/
+shot.png
+proj.png
+en.png
+
+# 仓库根目录下的截图中间产物（可随时重新生成）
+/*.raw
+/*.size
+/*.png

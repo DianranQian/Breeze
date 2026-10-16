@@ -14,10 +14,7 @@ use editor_core::state::编辑器状态;
 use egui::{Color32, RichText, Sense, Ui};
 use scene_doc::document::{场景文档, 实体标识};
 
-use crate::docks::Tab;
-use crate::state::{
-    文本编辑目标, 选择意图, 绘制上下文, UiAction,
-};
+use crate::state::{UiAction, 文本编辑目标, 绘制上下文, 选择意图};
 
 /// 场景树里的一行。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,12 +106,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         );
         if 编辑器.有未保存修改() {
             ui.label(RichText::new("●").color(上下文.配色.警告))
-                .on_hover_text("有未保存的修改");
+                .on_hover_text(上下文.语言.取("有未保存的修改"));
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui
                 .small_button("＋")
-                .on_hover_text("在选中实体下新建子实体")
+                .on_hover_text(上下文.语言.取("在选中实体下新建子实体"))
                 .clicked()
             {
                 let 父 = 上下文.主选中();
@@ -122,11 +119,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             }
             if ui
                 .small_button("🗑")
-                .on_hover_text("删除选中实体")
+                .on_hover_text(上下文.语言.取("删除选中实体"))
                 .clicked()
-                && let Some(目标) = 上下文.主选中() {
-                    上下文.动作.推(UiAction::删除实体(目标));
-                }
+                && let Some(目标) = 上下文.主选中()
+            {
+                上下文.动作.推(UiAction::删除实体(目标));
+            }
         });
     });
 
@@ -138,10 +136,10 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     // 这里先把字段"借出来"单独用，绘制结束后再放回去。
     let mut 关键字 = std::mem::take(&mut 上下文.界面.实体搜索);
     ui.horizontal(|ui| {
-        ui.label("搜索");
+        ui.label(上下文.语言.取("搜索"));
         ui.add(
             egui::TextEdit::singleline(&mut 关键字)
-                .hint_text("实体名称")
+                .hint_text(上下文.语言.取("实体名称"))
                 .desired_width(f32::INFINITY),
         );
     });
@@ -149,11 +147,11 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     上下文.界面.实体搜索 = 关键字.clone();
     if 有搜索 {
         ui.horizontal(|ui| {
-            if ui.small_button("清除搜索").clicked() {
+            if ui.small_button(上下文.语言.取("清除搜索")).clicked() {
                 上下文.界面.实体搜索.clear();
             }
             ui.label(
-                RichText::new("已按名称过滤，匹配项的祖先会一并显示")
+                RichText::new(上下文.语言.取("已按名称过滤，匹配项的祖先会一并显示"))
                     .small()
                     .color(上下文.配色.次要文字),
             );
@@ -168,8 +166,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     if 全部行.is_empty() {
         ui.add_space(8.0);
         ui.label(
-            RichText::new("场景是空的。\n点击上方 ＋ 新建实体，或从资源面板拖入图片。")
-                .color(上下文.配色.次要文字),
+            RichText::new(
+                上下文
+                    .语言
+                    .取("场景是空的。\n点击上方 ＋ 新建实体，或从资源面板拖入图片。"),
+            )
+            .color(上下文.配色.次要文字),
         );
         return;
     }
@@ -194,13 +196,16 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 }
 
 /// 绘制一行。
-fn 绘制行(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行, 主选中: Option<实体标识>) {
+fn 绘制行(
+    ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行, 主选中: Option<实体标识>
+) {
     // 正在重命名这一行时，显示输入框而不是标签。
     if let Some(文本编辑目标::实体(目标)) = 上下文.界面.文本编辑.clone()
-        && 目标 == 行.标识 {
-            绘制重命名输入(ui, 上下文, 行);
-            return;
-        }
+        && 目标 == 行.标识
+    {
+        绘制重命名输入(ui, 上下文, 行);
+        return;
+    }
 
     let 选中 = 上下文.编辑器.选择.包含(行.标识);
     let 行高 = ui.spacing().interact_size.y;
@@ -300,32 +305,32 @@ fn 绘制行(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行, 
 
     // 右键菜单
     响应.context_menu(|ui| {
-        if ui.button("重命名").clicked() {
+        if ui.button(上下文.语言.取("重命名")).clicked() {
             上下文.界面.开始重命名(行.标识, 行.名称.clone());
             ui.close();
         }
-        if ui.button("复制").clicked() {
+        if ui.button(上下文.语言.取("复制")).clicked() {
             上下文.动作.推(UiAction::复制实体(行.标识));
             ui.close();
         }
-        if ui.button("在此新建子实体").clicked() {
+        if ui.button(上下文.语言.取("在此新建子实体")).clicked() {
             上下文.界面.开始新建实体(Some(行.标识));
             ui.close();
         }
         ui.separator();
-        if ui.button("上移").clicked() {
+        if ui.button(上下文.语言.取("上移")).clicked() {
             上下文.动作.推(UiAction::执行命令(
                 editor_core::command::编辑器命令::上移实体 { 标识: 行.标识 },
             ));
             ui.close();
         }
-        if ui.button("下移").clicked() {
+        if ui.button(上下文.语言.取("下移")).clicked() {
             上下文.动作.推(UiAction::执行命令(
                 editor_core::command::编辑器命令::下移实体 { 标识: 行.标识 },
             ));
             ui.close();
         }
-        if ui.button("移到顶层").clicked() {
+        if ui.button(上下文.语言.取("移到顶层")).clicked() {
             上下文.动作.推(UiAction::执行命令(
                 editor_core::command::编辑器命令::重设父子 {
                     标识: 行.标识,
@@ -336,7 +341,7 @@ fn 绘制行(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行, 
             ui.close();
         }
         ui.separator();
-        if ui.button("删除").clicked() {
+        if ui.button(上下文.语言.取("删除")).clicked() {
             上下文.动作.推(UiAction::删除实体(行.标识));
             ui.close();
         }
@@ -365,22 +370,19 @@ fn 切换实体标记(上下文: &mut 绘制上下文<'_>, 标识: 实体标识,
         标记项::隐藏 => 新实体.编辑器隐藏 = !新实体.编辑器隐藏,
         标记项::锁定 => 新实体.编辑器锁定 = !新实体.编辑器锁定,
     }
-    上下文
-        .动作
-        .推(UiAction::执行命令(
-            editor_core::command::编辑器命令::替换实体 {
-                实体: Box::new(新实体),
-            },
-        ));
+    上下文.动作.推(UiAction::执行命令(
+        editor_core::command::编辑器命令::替换实体 {
+            实体: Box::new(新实体),
+        },
+    ));
 }
 
 /// 绘制重命名输入框。
 fn 绘制重命名输入(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行) {
     ui.horizontal(|ui| {
         ui.add_space(行.深度 as f32 * ui.spacing().indent + 14.0);
-        let 响应 = ui.add(
-            egui::TextEdit::singleline(&mut 上下文.界面.文本缓冲).desired_width(160.0),
-        );
+        let 响应 =
+            ui.add(egui::TextEdit::singleline(&mut 上下文.界面.文本缓冲).desired_width(160.0));
         响应.request_focus();
 
         let 按下回车 = 响应.lost_focus() && ui.input(|输入| 输入.key_pressed(egui::Key::Enter));
@@ -412,15 +414,7 @@ pub fn 解析新建父实体(编辑器: &编辑器状态) -> Option<实体标识
 
 /// 判断某个实体在当前文档中是否可被选择（未被锁定）。
 pub fn 可选(文档: &场景文档, 标识: 实体标识) -> bool {
-    文档
-        .取(标识)
-        .map(|实体| !实体.编辑器锁定)
-        .unwrap_or(false)
-}
-
-/// 面板标题（供停靠标签使用）。
-pub fn 标题() -> &'static str {
-    Tab::场景树.标题()
+    文档.取(标识).map(|实体| !实体.编辑器锁定).unwrap_or(false)
 }
 
 /// 未使用但保留：让 `Color32` 导入在后续扩展中有意义。

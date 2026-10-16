@@ -12,6 +12,11 @@ editor_core.workspace = true
 egui.workspace = true
 egui_dock.workspace = true
 serde.workspace = true
+# 窗口布局的序列化格式与场景文件一致用 RON：
+# 人可读、可手工修、进版本控制也不难读。
+ron.workspace = true
+# 字体加载错误的定义。
+thiserror.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

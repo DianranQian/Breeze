@@ -29,11 +29,11 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::plugin::{
-    EditorStateHolder, UiStateHolder, 文件对话框通道, 诊断资源, 缩略图缓存,
+    EditorStateHolder, UiStateHolder, 文件对话框通道, 缩略图缓存, 诊断资源
 };
 use editor_app::scene_bridge::运行时宿主;
 use editor_core::project::项目描述;
-use editor_ui::state::{选择意图, UiAction};
+use editor_ui::state::{UiAction, 选择意图};
 use scene_doc::path::项目相对路径;
 use scene_doc::property::{属性值, 颜色值};
 
@@ -50,6 +50,9 @@ fn 建测试世界() -> World {
     世界.insert_resource(文件对话框通道::default());
     世界.insert_resource(诊断资源::default());
     世界.insert_resource(缩略图缓存::default());
+    // `执行动作队列` 现在也处理"只改界面状态"的动作（恢复默认布局、
+    // 聚焦面板、显示关于），因此它需要布局脏标记资源。
+    世界.insert_resource(editor_app::config::布局待保存::default());
     世界
 }
 
@@ -79,10 +82,7 @@ fn 建项目(世界: &mut World, 名称: &str) -> tempfile::TempDir {
     let 根 = 目录.path().join(名称);
 
     let mut 编辑器 = 世界.resource_mut::<EditorStateHolder>();
-    编辑器
-        .状态
-        .创建项目(&根, 名称)
-        .expect("创建项目应当成功");
+    编辑器.状态.创建项目(&根, 名称).expect("创建项目应当成功");
     目录
 }
 
@@ -110,11 +110,13 @@ fn 通过动作队列可以新建实体并被自动选中() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "玩家".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "玩家".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
 
@@ -136,23 +138,23 @@ fn 通过动作队列可以修改属性并立刻反映到文档() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "精灵".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "精灵".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 实体 = 唯一实体(&世界);
 
     推动作(
         &mut 世界,
-        vec![
-            UiAction::添加组件 {
-                实体,
-                类型名: "Sprite".to_string(),
-            },
-        ],
+        vec![UiAction::添加组件 {
+            实体,
+            类型名: "Sprite".to_string(),
+        }],
     );
     执行动作(&mut 世界);
 
@@ -218,11 +220,13 @@ fn 通过动作队列可以撤销重做且标识保持不变() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "甲".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "甲".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 实体 = 唯一实体(&世界);
@@ -231,13 +235,15 @@ fn 通过动作队列可以撤销重做且标识保持不变() {
     for x in [1.0f32, 2.0, 3.0] {
         推动作(
             &mut 世界,
-            vec![UiAction::执行命令(editor_core::command::编辑器命令::设变换 {
-                标识: 实体,
-                变换: Some(scene_doc::document::变换数据 {
-                    平移: (x, 0.0, 0.0),
-                    ..scene_doc::document::变换数据::单位()
-                }),
-            })],
+            vec![UiAction::执行命令(
+                editor_core::command::编辑器命令::设变换 {
+                    标识: 实体,
+                    变换: Some(scene_doc::document::变换数据 {
+                        平移: (x, 0.0, 0.0),
+                        ..scene_doc::document::变换数据::单位()
+                    }),
+                },
+            )],
         );
         执行动作(&mut 世界);
     }
@@ -290,7 +296,10 @@ fn 通过动作队列可以撤销重做且标识保持不变() {
     );
 
     // 一路撤销到底：实体应当消失，且标识不再存在
-    推动作(&mut 世界, vec![UiAction::撤销, UiAction::撤销, UiAction::撤销]);
+    推动作(
+        &mut 世界,
+        vec![UiAction::撤销, UiAction::撤销, UiAction::撤销],
+    );
     执行动作(&mut 世界);
     assert!(
         !取编辑器(&世界).状态.会话.文档.存在(实体),
@@ -313,11 +322,13 @@ fn 通过动作队列可以删除实体() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "待删除".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "待删除".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 实体 = 唯一实体(&世界);
@@ -377,10 +388,7 @@ fn 选择动作会正确改变选择集() {
     执行动作(&mut 世界);
     assert_eq!(取编辑器(&世界).状态.选择.数量(), 0);
 
-    推动作(
-        &mut 世界,
-        vec![UiAction::选择(选择意图::单选(标识列表[0]))],
-    );
+    推动作(&mut 世界, vec![UiAction::选择(选择意图::单选(标识列表[0]))]);
     执行动作(&mut 世界);
     assert_eq!(取编辑器(&世界).状态.选择.主选中(), Some(标识列表[0]));
 }
@@ -403,11 +411,13 @@ fn 完整闭环_通过动作搭场景保存到磁盘再重新打开() {
     // ---- 1. 通过动作搭一个三层场景 ----
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "关卡".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "关卡".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 关卡 = 取编辑器(&世界)
@@ -422,11 +432,13 @@ fn 完整闭环_通过动作搭场景保存到磁盘再重新打开() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "玩家".to_string(),
-            父实体: Some(关卡),
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "玩家".to_string(),
+                父实体: Some(关卡),
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 玩家 = 取编辑器(&世界)
@@ -504,11 +516,7 @@ fn 完整闭环_通过动作搭场景保存到磁盘再重新打开() {
     let 重开文档 = &新编辑器.状态.会话.文档;
 
     // ---- 4. 逐项核对 ----
-    assert_eq!(
-        重开文档.实体数量(),
-        2,
-        "重新打开后实体数量必须一致"
-    );
+    assert_eq!(重开文档.实体数量(), 2, "重新打开后实体数量必须一致");
     assert_eq!(重开文档.顶层顺序, 保存前文档.顶层顺序);
     assert_eq!(
         重开文档.实体表, 保存前文档.实体表,
@@ -517,9 +525,7 @@ fn 完整闭环_通过动作搭场景保存到磁盘再重新打开() {
     assert_eq!(重开文档.资源表, 保存前文档.资源表);
 
     // 层级必须保持
-    let 重开玩家 = 重开文档
-        .取(玩家)
-        .expect("重新打开后玩家标识必须保持不变");
+    let 重开玩家 = 重开文档.取(玩家).expect("重新打开后玩家标识必须保持不变");
     assert_eq!(重开玩家.父实体, Some(关卡), "父子关系必须被保存与恢复");
     assert_eq!(重开玩家.名称, "玩家");
 
@@ -564,11 +570,13 @@ fn 运行与停止不会改动编辑器文档() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "玩家".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "玩家".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 实体 = 唯一实体(&世界);
@@ -654,11 +662,13 @@ fn 添加未注册组件会记录错误而不是假装成功() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "甲".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "甲".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 实体 = 唯一实体(&世界);
@@ -728,11 +738,13 @@ fn 拖动会以按下位置为基准移动实体() {
 
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::新建实体 {
-            名称: "可拖动".to_string(),
-            父实体: None,
-            指定标识: None,
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::新建实体 {
+                名称: "可拖动".to_string(),
+                父实体: None,
+                指定标识: None,
+            },
+        )],
     );
     执行动作(&mut 世界);
     let 实体 = 唯一实体(&世界);
@@ -740,13 +752,15 @@ fn 拖动会以按下位置为基准移动实体() {
     // 起始位置设为 (10, 10)
     推动作(
         &mut 世界,
-        vec![UiAction::执行命令(editor_core::command::编辑器命令::设变换 {
-            标识: 实体,
-            变换: Some(scene_doc::document::变换数据 {
-                平移: (10.0, 10.0, 0.0),
-                ..scene_doc::document::变换数据::单位()
-            }),
-        })],
+        vec![UiAction::执行命令(
+            editor_core::command::编辑器命令::设变换 {
+                标识: 实体,
+                变换: Some(scene_doc::document::变换数据 {
+                    平移: (10.0, 10.0, 0.0),
+                    ..scene_doc::document::变换数据::单位()
+                }),
+            },
+        )],
     );
     执行动作(&mut 世界);
 

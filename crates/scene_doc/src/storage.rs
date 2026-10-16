@@ -32,7 +32,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::document::{场景文档, 当前格式版本};
-use crate::error::{场景错误, 场景结果};
+use crate::error::{场景结果, 场景错误};
 
 /// 场景文件的默认扩展名。
 pub const 默认场景扩展名: &str = "scene.ron";
@@ -87,12 +87,13 @@ pub fn 解码场景(文本: &str, 路径: &Path) -> 场景结果<场景文档> {
     // 先用一个宽松的结构读出格式版本，这样即使后续字段解析失败，
     // 也能给出"版本过新"这种更有价值的错误，而不是笼统的解析失败。
     if let Some(文件版本) = 探测格式版本(文本)
-        && 文件版本 > 当前格式版本 {
-            return Err(场景错误::版本过新 {
-                文件版本,
-                支持版本: 当前格式版本,
-            });
-        }
+        && 文件版本 > 当前格式版本
+    {
+        return Err(场景错误::版本过新 {
+            文件版本,
+            支持版本: 当前格式版本,
+        });
+    }
 
     let 文档: 场景文档 = ron::from_str(文本).map_err(|来源| 场景错误::格式解析 {
         路径: 路径.to_path_buf(),
@@ -133,7 +134,7 @@ impl 文件系统场景存储 {
     /// 创建默认配置的存储。
     pub fn 新建() -> Self {
         Self {
-            保留备份: false,
+            保留备份: false
         }
     }
 
@@ -209,10 +210,10 @@ impl 场景存储 for 文件系统场景存储 {
         let 文本 = 编码场景(文档)?;
 
         if let Some(父目录) = 路径.parent()
-            && !父目录.as_os_str().is_empty() {
-                std::fs::create_dir_all(父目录)
-                    .map_err(|错误| 场景错误::文件(父目录, 错误))?;
-            }
+            && !父目录.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(父目录).map_err(|错误| 场景错误::文件(父目录, 错误))?;
+        }
 
         let 临时 = Self::临时路径(路径);
         let 备份 = Self::备份路径(路径);
@@ -376,10 +377,7 @@ impl 临时存储 {
 
 /// 把路径规范化为存储键。
 fn 键(路径: &Path) -> String {
-    路径
-        .to_string_lossy()
-        .replace('\\', "/")
-        .to_lowercase()
+    路径.to_string_lossy().replace('\\', "/").to_lowercase()
 }
 
 impl 场景存储 for 临时存储 {

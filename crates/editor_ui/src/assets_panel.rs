@@ -11,7 +11,7 @@ use egui::{Color32, RichText, Sense, Ui};
 use scene_doc::path::项目相对路径;
 use scene_doc::property::资源类别;
 
-use crate::state::{绘制上下文, 资源排序, UiAction};
+use crate::state::{UiAction, 绘制上下文, 资源排序};
 
 /// 资源树节点。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,12 +116,10 @@ pub fn 构建资源树(条目列表: &[资源条目]) -> Vec<资源节点> {
     }
 
     // 目录按名排在前，文件按名排在后，与常见文件管理器一致。
-    转换(根, "")
-        .into_iter()
-        .fold(Vec::new(), |mut 累计, 节点| {
-            累计.push(节点);
-            累计
-        })
+    转换(根, "").into_iter().fold(Vec::new(), |mut 累计, 节点| {
+        累计.push(节点);
+        累计
+    })
 }
 
 /// 按关键字过滤资源树，保留匹配的文件及其所在目录。
@@ -139,7 +137,9 @@ pub fn 过滤资源树(节点列表: &[资源节点], 关键字: &str) -> Vec<�
                     结果.push(节点.clone());
                 }
             }
-            资源节点::目录 { 名称, 路径, 子项 } => {
+            资源节点::目录 {
+                名称, 路径, 子项
+            } => {
                 let 过滤后 = 过滤资源树(子项, 关键字);
                 // 目录自身名称命中，或子项里有命中，都保留。
                 if !过滤后.is_empty() || 名称.contains(关键字) {
@@ -184,11 +184,15 @@ pub fn 排序资源树(节点列表: &mut [资源节点], 方式: 资源排序) 
         }),
         资源排序::类型 => 节点列表.sort_by(|左, 右| {
             let 左键 = match 左 {
-                资源节点::文件 { 类别, 名称, .. } => (0u8, format!("{类别:?}"), 名称.clone()),
+                资源节点::文件 { 类别, 名称, .. } => {
+                    (0u8, format!("{类别:?}"), 名称.clone())
+                }
                 资源节点::目录 { 名称, .. } => (1, String::new(), 名称.clone()),
             };
             let 右键 = match 右 {
-                资源节点::文件 { 类别, 名称, .. } => (0u8, format!("{类别:?}"), 名称.clone()),
+                资源节点::文件 { 类别, 名称, .. } => {
+                    (0u8, format!("{类别:?}"), 名称.clone())
+                }
                 资源节点::目录 { 名称, .. } => (1, String::new(), 名称.clone()),
             };
             左键.cmp(&右键)
@@ -201,8 +205,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let Some(项目) = 上下文.编辑器.项目.as_ref() else {
         ui.add_space(12.0);
         ui.label(
-            RichText::new("尚未打开项目。\n请在「文件 → 打开项目」里选择一个项目目录。")
-                .color(上下文.配色.次要文字),
+            RichText::new(
+                上下文
+                    .语言
+                    .取("尚未打开项目。\n请在「文件 → 打开项目」里选择一个项目目录。"),
+            )
+            .color(上下文.配色.次要文字),
         );
         return;
     };
@@ -212,7 +220,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         let mut 关键字 = std::mem::take(&mut 上下文.界面.资源搜索);
         ui.add(
             egui::TextEdit::singleline(&mut 关键字)
-                .hint_text("搜索资源")
+                .hint_text(上下文.语言.取("搜索资源"))
                 .desired_width(140.0),
         );
         上下文.界面.资源搜索 = 关键字;
@@ -239,7 +247,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 }
             });
 
-        if ui.small_button("刷新").clicked() {
+        if ui.small_button(上下文.语言.取("刷新")).clicked() {
             // 资源列表是每次绘制时现场扫描的，因此"刷新"只需要重绘。
             // 这里请求一次重绘，让按钮有即时反馈。
             ui.ctx().request_repaint();
@@ -267,7 +275,9 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         ui.add_space(8.0);
         ui.label(
             RichText::new(
-                "没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。",
+                上下文
+                    .语言
+                    .取("没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。"),
             )
             .color(上下文.配色.次要文字),
         );
@@ -282,10 +292,17 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 }
 
 /// 递归绘制资源树。
-fn 绘制节点列表(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 节点列表: &[资源节点], 深度: usize) {
+fn 绘制节点列表(
+    ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    节点列表: &[资源节点],
+    深度: usize,
+) {
     for 节点 in 节点列表 {
         match 节点 {
-            资源节点::目录 { 名称, 路径, 子项 } => {
+            资源节点::目录 {
+                名称, 路径, 子项
+            } => {
                 ui.horizontal(|ui| {
                     ui.add_space(深度 as f32 * 12.0);
                     egui::CollapsingHeader::new(
@@ -362,7 +379,7 @@ fn 绘制文件行(
         ));
 
         // 双击：场景文件打开场景，图片资源创建精灵。
-         if 响应.double_clicked() {
+        if 响应.double_clicked() {
             if 类别 == 资源类别::场景 {
                 上下文.动作.推(UiAction::打开场景(路径.clone()));
             } else {
@@ -374,25 +391,23 @@ fn 绘制文件行(
         }
 
         响应.context_menu(|ui| {
-            if ui.button("在场景中添加此资源").clicked() {
+            if ui.button(上下文.语言.取("在场景中添加此资源")).clicked() {
                 上下文.动作.推(UiAction::从资源创建实体 {
                     资源: 路径.clone(),
                     父实体: 上下文.主选中(),
                 });
                 ui.close();
             }
-            if ui.button("在文件管理器中显示").clicked() {
-                上下文
-                     .动作
-                    .推(UiAction::在资源管理器中显示(路径.clone()));
+            if ui.button(上下文.语言.取("在文件管理器中显示")).clicked() {
+                上下文.动作.推(UiAction::在资源管理器中显示(路径.clone()));
                 ui.close();
             }
             ui.separator();
-            if ui.button("重命名").clicked() {
+            if ui.button(上下文.语言.取("重命名")).clicked() {
                 上下文.动作.推(UiAction::请求重命名资源(路径.clone()));
                 ui.close();
             }
-            if ui.button("删除").clicked() {
+            if ui.button(上下文.语言.取("删除")).clicked() {
                 上下文.动作.推(UiAction::请求删除资源(路径.clone()));
                 ui.close();
             }
@@ -418,11 +433,6 @@ pub fn 人类可读大小(字节: u64) -> String {
     } else {
         format!("{值:.1} {}", 单位[下标])
     }
-}
-
-/// 面板标题。
-pub fn 标题() -> &'static str {
-    crate::docks::Tab::资源浏览器.标题()
 }
 
 /// 未使用占位，保持导入完整。
@@ -466,7 +476,10 @@ mod 测试 {
         // assets 下应当有 audio 与 textures 两个子目录
         let 子目录名: Vec<&str> = 子项.iter().map(资源节点::名称).collect();
         assert!(子目录名.contains(&"audio"), "缺少 audio：{子目录名:?}");
-        assert!(子目录名.contains(&"textures"), "缺少 textures：{子目录名:?}");
+        assert!(
+            子目录名.contains(&"textures"),
+            "缺少 textures：{子目录名:?}"
+        );
 
         assert_eq!(树[0].文件数量(), 3, "应当统计到 3 个文件");
     }
@@ -505,7 +518,11 @@ mod 测试 {
         let 资源节点::目录 { 子项, .. } = &过滤后[0] else {
             panic!("应当保留顶层目录");
         };
-        let 资源节点::目录 { 名称, 子项: 文件, .. } = &子项[0] else {
+        let 资源节点::目录 {
+            名称, 子项: 文件,
+        ..
+        } = &子项[0]
+        else {
             panic!("应当保留 textures 目录");
         };
         assert_eq!(名称, "textures");

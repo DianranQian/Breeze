@@ -106,12 +106,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         );
         if 编辑器.有未保存修改() {
             ui.label(RichText::new("●").color(上下文.配色.警告))
-                .on_hover_text(上下文.语言.取("有未保存的修改"));
+                .on_hover_text(上下文.语言.取("has_unsaved_changes"));
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui
                 .small_button("＋")
-                .on_hover_text(上下文.语言.取("在选中实体下新建子实体"))
+                .on_hover_text(上下文.语言.取("new_child_entity_under_selection"))
                 .clicked()
             {
                 let 父 = 上下文.主选中();
@@ -119,7 +119,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             }
             if ui
                 .small_button("🗑")
-                .on_hover_text(上下文.语言.取("删除选中实体"))
+                .on_hover_text(上下文.语言.取("delete_selected_entities"))
                 .clicked()
                 && let Some(目标) = 上下文.主选中()
             {
@@ -136,10 +136,10 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     // 这里先把字段"借出来"单独用，绘制结束后再放回去。
     let mut 关键字 = std::mem::take(&mut 上下文.界面.实体搜索);
     ui.horizontal(|ui| {
-        ui.label(上下文.语言.取("搜索"));
+        ui.label(上下文.语言.取("search"));
         ui.add(
             egui::TextEdit::singleline(&mut 关键字)
-                .hint_text(上下文.语言.取("实体名称"))
+                .hint_text(上下文.语言.取("entity_name"))
                 .desired_width(f32::INFINITY),
         );
     });
@@ -147,11 +147,11 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     上下文.界面.实体搜索 = 关键字.clone();
     if 有搜索 {
         ui.horizontal(|ui| {
-            if ui.small_button(上下文.语言.取("清除搜索")).clicked() {
+            if ui.small_button(上下文.语言.取("clear_search")).clicked() {
                 上下文.界面.实体搜索.clear();
             }
             ui.label(
-                RichText::new(上下文.语言.取("已按名称过滤，匹配项的祖先会一并显示"))
+                RichText::new(上下文.语言.取("hierarchy_filter_ancestors_hint"))
                     .small()
                     .color(上下文.配色.次要文字),
             );
@@ -305,32 +305,32 @@ fn 绘制行(
 
     // 右键菜单
     响应.context_menu(|ui| {
-        if ui.button(上下文.语言.取("重命名")).clicked() {
+        if ui.button(上下文.语言.取("rename")).clicked() {
             上下文.界面.开始重命名(行.标识, 行.名称.clone());
             ui.close();
         }
-        if ui.button(上下文.语言.取("复制")).clicked() {
+        if ui.button(上下文.语言.取("duplicate")).clicked() {
             上下文.动作.推(UiAction::复制实体(行.标识));
             ui.close();
         }
-        if ui.button(上下文.语言.取("在此新建子实体")).clicked() {
+        if ui.button(上下文.语言.取("new_child_entity_here")).clicked() {
             上下文.界面.开始新建实体(Some(行.标识));
             ui.close();
         }
         ui.separator();
-        if ui.button(上下文.语言.取("上移")).clicked() {
+        if ui.button(上下文.语言.取("move_up")).clicked() {
             上下文.动作.推(UiAction::执行命令(
                 editor_core::command::编辑器命令::上移实体 { 标识: 行.标识 },
             ));
             ui.close();
         }
-        if ui.button(上下文.语言.取("下移")).clicked() {
+        if ui.button(上下文.语言.取("move_down")).clicked() {
             上下文.动作.推(UiAction::执行命令(
                 editor_core::command::编辑器命令::下移实体 { 标识: 行.标识 },
             ));
             ui.close();
         }
-        if ui.button(上下文.语言.取("移到顶层")).clicked() {
+        if ui.button(上下文.语言.取("move_to_top_level")).clicked() {
             上下文.动作.推(UiAction::执行命令(
                 editor_core::command::编辑器命令::重设父子 {
                     标识: 行.标识,
@@ -341,7 +341,7 @@ fn 绘制行(
             ui.close();
         }
         ui.separator();
-        if ui.button(上下文.语言.取("删除")).clicked() {
+        if ui.button(上下文.语言.取("delete")).clicked() {
             上下文.动作.推(UiAction::删除实体(行.标识));
             ui.close();
         }

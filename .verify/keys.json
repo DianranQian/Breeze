@@ -1,0 +1,2104 @@
+[
+ {
+  "键": "2d_viewport_entities",
+  "中": "2D 视口 · {} 个实体",
+  "英": "2D Viewport · {} entities",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "text",
+  "中": "[{下标}]",
+  "英": "[{下标}]",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "bevy_studio_toolbar",
+  "中": "bevy_studio_工具栏",
+  "英": "bevy_studio_toolbar",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "bevy_studio_root_ui",
+  "中": "bevy_studio_根界面",
+  "英": "bevy_studio_root_ui",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "bevy_studio_status_bar",
+  "中": "bevy_studio_状态栏",
+  "英": "bevy_studio_status_bar",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "bevy_studio_menu_bar",
+  "中": "bevy_studio_菜单栏",
+  "英": "bevy_studio_menu_bar",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "1_s",
+  "中": "{:.1} 秒",
+  "英": "{:.1} s",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "type",
+  "中": "{} · 类型 {}",
+  "英": "{} · Type {}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "fields",
+  "中": "{} 个字段",
+  "英": "{} fields",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "asset_files",
+  "中": "{} 个资源文件",
+  "英": "{} asset files",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "items",
+  "中": "{} 项",
+  "英": "{} items",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "modified",
+  "中": "{}_改",
+  "英": "{}_modified",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "unknown",
+  "中": "{}（未知）",
+  "英": "{} (unknown)",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "1",
+  "中": "{值:.1} {}",
+  "英": "{值:.1} {}",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "4",
+  "中": "{值:.4}",
+  "英": "{值:.4}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "text_2",
+  "中": "{前缀}/{名称}",
+  "英": "{前缀}/{名称}",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "text_3",
+  "中": "{场景名} *",
+  "英": "{场景名} *",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "text_4",
+  "中": "{字段名}-{下标}",
+  "英": "{字段名}-{下标}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "text_5",
+  "中": "{字节} {}",
+  "英": "{字节} {}",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "text_6",
+  "中": "{类别:?}",
+  "英": "{类别:?}",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "undo",
+  "中": "↶ 撤销",
+  "英": "↶ Undo",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "redo",
+  "中": "↷ 重做",
+  "英": "↷ Redo",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "step",
+  "中": "⏭ 单步",
+  "英": "⏭ Step",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "paused",
+  "中": "⏸ 已暂停",
+  "英": "⏸ Paused",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "pause",
+  "中": "⏸ 暂停",
+  "英": "⏸ Pause",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "stop",
+  "中": "⏹ 停止",
+  "英": "⏹ Stop",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "resume",
+  "中": "▶ 继续",
+  "英": "▶ Resume",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "run",
+  "中": "▶ 运行",
+  "英": "▶ Run",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "running",
+  "中": "▶ 运行中",
+  "英": "▶ Running",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "preview_not_ready",
+  "中": "○ 预览未就绪",
+  "英": "○ Preview not ready",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "unsaved",
+  "中": "● 未保存",
+  "英": "● Unsaved",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "modified_since_last_save",
+  "中": "● 相对上次保存已有修改",
+  "英": "● Modified since last save",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "preview",
+  "中": "● 预览 {}×{}",
+  "英": "● Preview {}×{}",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "problems",
+  "中": "⚠ {问题数} 条问题",
+  "英": "⚠ {问题数} problems",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "matches_last_save",
+  "中": "✓ 与上次保存一致",
+  "英": "✓ Matches last save",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "saved",
+  "中": "✓ 已保存",
+  "英": "✓ Saved",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "vec3",
+  "中": "三维-{字段名}",
+  "英": "Vec3-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "move_up",
+  "中": "上移",
+  "英": "Move Up",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "next_undo",
+  "中": "下一撤销：{名字}",
+  "英": "Next Undo: {名字}",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "next_redo",
+  "中": "下一重做：{名字}",
+  "英": "Next Redo: {名字}",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "move_down",
+  "中": "下移",
+  "英": "Move Down",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "vec2",
+  "中": "二维-{字段名}",
+  "英": "Vec2-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "position",
+  "中": "位置",
+  "英": "Position",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "save_scene",
+  "中": "保存场景",
+  "英": "Save Scene",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "info",
+  "中": "信息 {信息数}",
+  "英": "Info {信息数}",
+  "来源": [
+   "crates/editor_ui/src/console_panel.rs"
+  ]
+ },
+ {
+  "键": "stop_2",
+  "中": "停止",
+  "英": "Stop",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "select_all",
+  "中": "全选",
+  "英": "Select All",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "about_bevy_studio",
+  "中": "关于 Bevy Studio",
+  "英": "About Bevy Studio",
+  "来源": [
+   "crates/editor_ui/src/lib.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "close",
+  "中": "关闭",
+  "英": "Close",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "close_project",
+  "中": "关闭项目",
+  "英": "Close Project",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "delete",
+  "中": "删除",
+  "英": "Delete",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs",
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "delete_entity",
+  "中": "删除实体",
+  "英": "Delete Entity",
+  "来源": [
+   "crates/editor_core/src/command.rs",
+   "crates/editor_ui/src/inspector_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "remove_component",
+  "中": "删除组件",
+  "英": "Remove Component",
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": "delete_selected_entities",
+  "中": "删除选中实体",
+  "英": "Delete Selected Entities",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "refresh",
+  "中": "刷新",
+  "英": "Refresh",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "refresh_the_asset_list",
+  "中": "刷新资源列表",
+  "英": "Refresh the asset list",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "bounds",
+  "中": "包围框",
+  "英": "Bounds",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "step_one_frame",
+  "中": "单步一帧",
+  "英": "Step one frame",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "history",
+  "中": "历史",
+  "英": "History",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "cancel",
+  "中": "取消",
+  "英": "Cancel",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "transform",
+  "中": "变换",
+  "英": "Transform",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "transform_section",
+  "中": "变换区",
+  "英": "Transform Section",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "name",
+  "中": "名称",
+  "英": "Name",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "vec4",
+  "中": "四维-{字段名}",
+  "英": "Vec4-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "add_this_asset_to_the_scene",
+  "中": "在场景中添加此资源",
+  "英": "Add this asset to the scene",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "create_an_entity_in_the_scene_tree",
+  "中": "在场景树中新建实体",
+  "英": "Create an entity in the Scene Tree",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "show_in_file_manager",
+  "中": "在文件管理器中显示",
+  "英": "Show in File Manager",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "new_child_entity_here",
+  "中": "在此新建子实体",
+  "英": "New Child Entity Here",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "new_child_entity_under_selection",
+  "中": "在选中实体下新建子实体",
+  "英": "New Child Entity Under Selection",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "scene",
+  "中": "场景",
+  "英": "Scene",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "save_scene_as",
+  "中": "场景另存为…",
+  "英": "Save Scene As…",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "scene_tree",
+  "中": "场景树",
+  "英": "Scene Tree",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "duplicate",
+  "中": "复制",
+  "英": "Duplicate",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "duplicate_entity",
+  "中": "复制实体",
+  "英": "Duplicate Entity",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "entity",
+  "中": "实体",
+  "英": "Entity",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "entities",
+  "中": "实体 {}",
+  "英": "Entities {}",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "entity_name",
+  "中": "实体名称",
+  "英": "Entity Name",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "entities_2",
+  "中": "实体总数",
+  "英": "Entities",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "assets_loaded",
+  "中": "已加载资源数",
+  "英": "Assets Loaded",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "paused_2",
+  "中": "已暂停",
+  "英": "Paused",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs",
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "registered_component_types",
+  "中": "已注册组件类型",
+  "英": "Registered Component Types",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "uptime",
+  "中": "已运行",
+  "英": "Uptime",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "selected",
+  "中": "已选 {}",
+  "英": "Selected {}",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "failed_to_parse_layout",
+  "中": "布局解析失败：{错误}",
+  "英": "Failed to parse layout: {错误}",
+  "来源": [
+   "crates/editor_ui/src/state.rs"
+  ]
+ },
+ {
+  "键": "fps",
+  "中": "帧率",
+  "英": "FPS",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "frame_time",
+  "中": "帧耗时",
+  "英": "Frame Time",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "help",
+  "中": "帮助",
+  "英": "Help",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "pan",
+  "中": "平移",
+  "英": "Pan",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": "current_scene",
+  "中": "当前场景：{场景名}",
+  "英": "Current scene: {场景名}",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "performance",
+  "中": "性能",
+  "英": "Performance",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "restore_default_layout",
+  "中": "恢复默认布局",
+  "英": "Restore Default Layout",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "my_game",
+  "中": "我的游戏",
+  "英": "My Game",
+  "来源": [
+   "crates/editor_ui/src/lib.rs",
+   "crates/editor_ui/src/menu_bar.rs",
+   "crates/editor_ui/src/state.rs"
+  ]
+ },
+ {
+  "键": "open_scene",
+  "中": "打开场景…",
+  "英": "Open Scene…",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "open_project",
+  "中": "打开项目…",
+  "英": "Open Project…",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "tech_stack",
+  "中": "技术栈",
+  "英": "Tech Stack",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "by_name",
+  "中": "按名称",
+  "英": "By Name",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "by_size",
+  "中": "按大小",
+  "英": "By Size",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "by_type",
+  "中": "按类型",
+  "英": "By Type",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "console",
+  "中": "控制台",
+  "英": "Console",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "console_2",
+  "中": "控制台 ({问题数})",
+  "英": "Console ({问题数})",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "search",
+  "中": "搜索",
+  "英": "Search",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "search_log",
+  "中": "搜索日志",
+  "英": "Search log",
+  "来源": [
+   "crates/editor_ui/src/console_panel.rs"
+  ]
+ },
+ {
+  "键": "search_assets",
+  "中": "搜索资源",
+  "英": "Search assets",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "undo_2",
+  "中": "撤销",
+  "英": "Undo",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "undo_the_previous_step_ctrl_z",
+  "中": "撤销上一步（Ctrl+Z）",
+  "英": "Undo the previous step (Ctrl+Z)",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "undo_stack_usage_est",
+  "中": "撤销栈估算占用",
+  "英": "Undo Stack Usage (est.)",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "file",
+  "中": "文件",
+  "英": "File",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "new_entity",
+  "中": "新实体",
+  "英": "New Entity",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs",
+   "crates/editor_ui/src/state.rs"
+  ]
+ },
+ {
+  "键": "new_scene",
+  "中": "新建场景",
+  "英": "New Scene",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "new_entity_2",
+  "中": "新建实体",
+  "英": "New Entity",
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": "new_project",
+  "中": "新建项目",
+  "英": "New Project",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "new_project_2",
+  "中": "新建项目…",
+  "英": "New Project…",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "rotate",
+  "中": "旋转",
+  "英": "Rotate",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs",
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "show",
+  "中": "显示",
+  "英": "Show",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "show_performance_statistics",
+  "中": "显示性能统计",
+  "英": "Show performance statistics",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "show_runtime_ecs",
+  "中": "显示运行时 ECS",
+  "英": "Show Runtime ECS",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "pause_resume",
+  "中": "暂停/继续",
+  "英": "Pause/Resume",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "pause_or_resume_running_f6",
+  "中": "暂停或继续运行（F6）",
+  "英": "Pause or resume running (F6)",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "advance_one_frame_while_paused",
+  "中": "暂停状态下前进一帧",
+  "英": "Advance one frame while paused",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "no_log_entries",
+  "中": "暂无日志",
+  "英": "No log entries",
+  "来源": [
+   "crates/editor_ui/src/console_panel.rs"
+  ]
+ },
+ {
+  "键": "has_unsaved_changes",
+  "中": "有未保存的修改",
+  "英": "Has unsaved changes",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "enum",
+  "中": "枚举-{字段名}",
+  "英": "Enum-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "id",
+  "中": "标识",
+  "英": "ID",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "inspector",
+  "中": "检查器",
+  "英": "Inspector",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "flip_horizontal",
+  "中": "水平翻转",
+  "英": "Flip Horizontal",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": "add_component",
+  "中": "添加组件",
+  "英": "Add Component",
+  "来源": [
+   "crates/editor_core/src/command.rs",
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "add_component_2",
+  "中": "添加组件…",
+  "英": "Add Component…",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "clear",
+  "中": "清空",
+  "英": "Clear",
+  "来源": [
+   "crates/editor_ui/src/console_panel.rs"
+  ]
+ },
+ {
+  "键": "clear_console",
+  "中": "清空控制台",
+  "英": "Clear Console",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "clear_2",
+  "中": "清除",
+  "英": "Clear",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "clear_search",
+  "中": "清除搜索",
+  "英": "Clear Search",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "version",
+  "中": "版本 {}",
+  "英": "Version {}",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "status",
+  "中": "状态",
+  "英": "Status",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "theoretical_max",
+  "中": "理论上限",
+  "英": "Theoretical Max",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "move_to_top_level",
+  "中": "移到顶层",
+  "英": "Move to Top Level",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "remove_component_2",
+  "中": "移除组件",
+  "英": "Remove Component",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "empty",
+  "中": "空",
+  "英": "Empty",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "window",
+  "中": "窗口",
+  "英": "Window",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "text_7",
+  "中": "简体中文",
+  "英": "简体中文",
+  "来源": [
+   "crates/editor_ui/src/i18n.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "component",
+  "中": "组件-{类型名}",
+  "英": "Component-{类型名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "component_types",
+  "中": "组件类型数",
+  "英": "Component Types",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "edit",
+  "中": "编辑",
+  "英": "Edit",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "editor_entities",
+  "中": "编辑器中实体数",
+  "英": "Editor Entities",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "editor_overhead",
+  "中": "编辑器自身开销",
+  "英": "Editor Overhead",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "zoom",
+  "中": "缩放",
+  "英": "Zoom",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs",
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "zoom_0",
+  "中": "缩放 {:.0}%",
+  "英": "Zoom {:.0}%",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "grid",
+  "中": "网格",
+  "英": "Grid",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "focus_selection",
+  "中": "聚焦选中项",
+  "英": "Focus Selection",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "custom_size",
+  "中": "自定义尺寸",
+  "英": "Custom Size",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs",
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "viewport",
+  "中": "视口",
+  "英": "Viewport",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "angle",
+  "中": "角度-{字段名}",
+  "英": "Angle-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "unlock",
+  "中": "解锁",
+  "英": "Unlock",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "warnings",
+  "中": "警告 {警告数}",
+  "英": "Warnings {警告数}",
+  "来源": [
+   "crates/editor_ui/src/console_panel.rs"
+  ]
+ },
+ {
+  "键": "debug",
+  "中": "调试",
+  "英": "Debug",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "assets",
+  "中": "资源",
+  "英": "Assets",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "sort_assets",
+  "中": "资源排序",
+  "英": "Sort Assets",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "asset_browser",
+  "中": "资源浏览器",
+  "英": "Asset Browser",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "asset_folder",
+  "中": "资源目录-{路径}",
+  "英": "Asset Folder - {路径}",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "run_2",
+  "中": "运行",
+  "英": "Run",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "running_2",
+  "中": "运行中",
+  "英": "Running",
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs",
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "run_the_current_scene",
+  "中": "运行当前场景",
+  "英": "Run the current scene",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "runtime_ecs",
+  "中": "运行时 ECS",
+  "英": "Runtime ECS",
+  "来源": [
+   "crates/editor_ui/src/docks.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "runtime_world_read_only",
+  "中": "运行时世界（只读）",
+  "英": "Runtime World (read-only)",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "there_is_nothing_to_undo_yet",
+  "中": "还没有任何可撤销的操作。",
+  "英": "There is nothing to undo yet.",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": "quit",
+  "中": "退出",
+  "英": "Quit",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "fit_to_window_f",
+  "中": "适应窗口 (F)",
+  "英": "Fit to Window (F)",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "the_selected_entity_no_longer_exists",
+  "中": "选中的实体已不存在",
+  "英": "The selected entity no longer exists",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "choose_directory_and_create",
+  "中": "选择目录并创建",
+  "英": "Choose Directory and Create",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "generic_vec3",
+  "中": "通用三维-{字段名}",
+  "英": "Generic Vec3-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "generic_vec2",
+  "中": "通用二维-{字段名}",
+  "英": "Generic Vec2-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "generic_vec4",
+  "中": "通用四维-{字段名}",
+  "英": "Generic Vec4-{字段名}",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "redo_2",
+  "中": "重做",
+  "英": "Redo",
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "redo_ctrl_y",
+  "中": "重做（Ctrl+Y）",
+  "英": "Redo (Ctrl+Y)",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "rename",
+  "中": "重命名",
+  "英": "Rename",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs",
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "rename_entity",
+  "中": "重命名实体",
+  "英": "Rename Entity",
+  "来源": [
+   "crates/editor_core/src/command.rs",
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "reset_to_identity_transform",
+  "中": "重置为单位变换",
+  "英": "Reset to Identity Transform",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "reset_view",
+  "中": "重置视图",
+  "英": "Reset View",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "lock",
+  "中": "锁定",
+  "英": "Lock",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "errors",
+  "中": "错误 {错误数}",
+  "英": "Errors {错误数}",
+  "来源": [
+   "crates/editor_ui/src/console_panel.rs"
+  ]
+ },
+ {
+  "键": "hide",
+  "中": "隐藏",
+  "英": "Hide",
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": "project",
+  "中": "项目",
+  "英": "Project",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "project_name",
+  "中": "项目名称",
+  "英": "Project Name",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "project_settings",
+  "中": "项目设置…",
+  "英": "Project Settings…",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "preview_render_is_not_ready_yet",
+  "中": "预览渲染尚未就绪",
+  "英": "Preview render is not ready yet",
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": "not_saved_to_a_file_yet",
+  "中": "（尚未保存到文件）",
+  "英": "(not saved to a file yet)",
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": "no_properties",
+  "中": "（无属性）",
+  "英": "(no properties)",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "not_set",
+  "中": "（未设置）",
+  "英": "(not set)",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "empty_2",
+  "中": "（空）",
+  "英": "(empty)",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "new_entity_3",
+  "中": "＋ 新建实体",
+  "英": "＋ New Entity",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "add_element",
+  "中": "＋ 添加元素",
+  "英": "＋ Add Element",
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": "save_scene_2",
+  "中": "💾 保存场景",
+  "英": "💾 Save Scene",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": "text_8",
+  "中": "📁 {名称}",
+  "英": "📁 {名称}",
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": "delete_2",
+  "中": "🗑 删除",
+  "英": "🗑 Delete",
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "   {标题}",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "RON（场景与项目清单的序列化格式）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "egui 0.36 + egui_dock 0.21（界面与可停靠布局）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "{}\\n字段名 {} · 类型 {}",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "{}\\n类别：{}\\n大小：{}",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "{标题}    {快捷键}",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "✓ {标题}",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "上移实体",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "下移实体",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "世界坐标下的位置。2D 场景里通常只用到 X 与 Y",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "从编辑器启动游戏，运行当前场景（F5）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "以四元数存储，保证插值与组合的正确性。Inspector 里可用角度编辑",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "保存当前场景到文件（Ctrl+S）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "修改变换",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "修改属性",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "停止运行并回到编辑状态（F7）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "内置组件的描述与默认值必须自洽；注册失败说明代码有错",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "分量含 0 会让实体在该轴上不可见",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "删除选中实体及其子树（Delete）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "单位：度（绕 X / Y / Z，顺序 XYZ）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "可撤销 {} 步 · 可重做 {} 步",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "可见",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "在文件管理器中打开 assets/",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "在选中实体下新建子实体；未选中时建在顶层",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "场景是空的。\\n点击上方 ＋ 新建实体，或从资源面板拖入图片。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "垂直翻转",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "实体 {标识} 不存在",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "实体 {标识} 已有组件 `{}`",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "实体 {标识} 没有组件 `{类型名}`",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "实体标识是稳定不变的，重命名或移动层级都不会改变它",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "对应 Bevy 的 Visibility：开启映射为 Inherited，关闭映射为 Hidden",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "尚未打开项目。\\n请在「文件 → 打开项目」里选择一个项目目录。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "已停止",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "已按名称过滤，匹配项的祖先会一并显示",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "已注册的组件都已添加，或注册表为空",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "已选中 {选择数量} 个实体，此处编辑仅作用于主选中项",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "布局序列化失败：{错误}",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/state.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "布局里没有视口面板，视为无效",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/state.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "应用快照",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "当前撤销栈不支持列出完整历史，只显示下一步操作：",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/history_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "批量修改变换",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "批量修改属性",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "指向 assets 下的图片资源",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "旋转（四元数）",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "替换实体",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "未注册：字段可查看但布局未知",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "未选中任何实体。\\n在场景树或视口里点选一个实体即可编辑其属性。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "正交半高",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "正交投影可见区域的垂直半高（世界单位）",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "没有名称包含 `{}` 的实体",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/hierarchy_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "没有资源。\\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/assets_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "游戏场景实体由 Bevy 渲染到纹理后显示在这里；网格与选中框由编辑器叠加绘制",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "滚轮缩放 · 中键/空格拖动平移 · 左键选择与拖动 · F 聚焦 · Delete 删除 · Esc 取消选择",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "父实体 {父} 不存在",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "界面语言",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "留空则使用贴图原始尺寸；视口按此值绘制包围框",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "着色",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "警告：缩放含 0，实体将不可见",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "该功能尚未实现（本版本不提供）",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/menu_bar.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "该实体还没有组件。\\n点击上方「添加组件」为它添加一个。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/inspector_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "调整层级",
+  "英": null,
+  "来源": [
+   "crates/editor_core/src/command.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "贴图",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "项目会创建在接下来选择的目标目录中，且该目录必须是空的。",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/lib.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "预览渲染尚未就绪：视口只显示网格与包围框，场景数据本身完好",
+  "英": null,
+  "来源": [
+   "crates/editor_ui/src/viewport_panel.rs"
+  ]
+ },
+ {
+  "键": null,
+  "中": "颜色",
+  "英": null,
+  "来源": [
+   "crates/editor_app/src/scene_bridge.rs"
+  ]
+ }
+]

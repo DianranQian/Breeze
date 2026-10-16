@@ -88,7 +88,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     };
 
     let Some(实体) = 编辑器.会话.文档.取(标识) else {
-        ui.label(RichText::new(上下文.语言.取("选中的实体已不存在")).color(上下文.配色.错误));
+        ui.label(RichText::new(上下文.语言.取("the_selected_entity_no_longer_exists")).color(上下文.配色.错误));
         return;
     };
 
@@ -118,7 +118,7 @@ fn 绘制头部(
     ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 实体: &场景实体, 选择数量: usize
 ) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new(上下文.语言.取("名称")).color(上下文.配色.次要文字));
+        ui.label(RichText::new(上下文.语言.取("name")).color(上下文.配色.次要文字));
         let mut 名称 = 实体.名称.clone();
         let 响应 = ui.add(egui::TextEdit::singleline(&mut 名称).desired_width(160.0));
         if 响应.lost_focus() && ui.input(|输入| 输入.key_pressed(egui::Key::Enter)) {
@@ -143,7 +143,7 @@ fn 绘制头部(
     }
 
     ui.horizontal(|ui| {
-        ui.label(RichText::new(上下文.语言.取("标识")).color(上下文.配色.次要文字));
+        ui.label(RichText::new(上下文.语言.取("id")).color(上下文.配色.次要文字));
         ui.label(
             RichText::new(实体.标识.to_string())
                 .small()
@@ -166,10 +166,10 @@ fn 绘制头部(
             上下文.界面.打开组件选择器 = !上下文.界面.打开组件选择器;
             上下文.界面.组件目标 = Some(实体.标识);
         }
-        if ui.button(上下文.语言.取("复制实体")).clicked() {
+        if ui.button(上下文.语言.取("duplicate_entity")).clicked() {
             上下文.动作.推(UiAction::复制实体(实体.标识));
         }
-        if ui.button(上下文.语言.取("删除实体")).clicked() {
+        if ui.button(上下文.语言.取("delete_entity")).clicked() {
             上下文.动作.推(UiAction::删除实体(实体.标识));
         }
     });
@@ -189,7 +189,7 @@ fn 绘制头部(
         egui::Frame::popup(ui.style()).show(ui, |ui| {
             if 候选.is_empty() {
                 ui.label(
-                    RichText::new(上下文.语言.取("已注册的组件都已添加，或注册表为空"))
+                    RichText::new(上下文.语言.取("inspector_all_components_added"))
                         .color(上下文.配色.次要文字),
                 );
             }
@@ -202,7 +202,7 @@ fn 绘制头部(
                     上下文.界面.打开组件选择器 = false;
                 }
             }
-            if ui.button(上下文.语言.取("关闭")).clicked() {
+            if ui.button(上下文.语言.取("close")).clicked() {
                 上下文.界面.打开组件选择器 = false;
             }
         });
@@ -214,7 +214,7 @@ fn 绘制变换区(
     ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实体标识, 变换: 变换数据
 ) {
     let 可折叠 = egui::CollapsingHeader::new(
-        RichText::new(上下文.语言.取("变换"))
+        RichText::new(上下文.语言.取("transform"))
             .strong()
             .color(上下文.配色.文字),
     )
@@ -225,7 +225,7 @@ fn 绘制变换区(
         let mut 新变换 = 变换;
 
         ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("位置"));
+            ui.label(上下文.语言.取("position"));
             let 改变 = 三元拖动(ui, "位置", &mut 新变换.平移, 0.05);
             if 改变 {
                 提交变换(上下文, 标识, 新变换);
@@ -236,20 +236,20 @@ fn 绘制变换区(
         let 欧拉 = 四元数转欧拉角(变换.旋转);
         let mut 新欧拉 = 欧拉;
         ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("旋转"));
+            ui.label(上下文.语言.取("rotate"));
             if 三元拖动(ui, "旋转", &mut 新欧拉, 0.5) {
                 新变换.旋转 = 欧拉角转四元数(新欧拉);
                 提交变换(上下文, 标识, 新变换);
             }
         });
         ui.label(
-            RichText::new(上下文.语言.取("单位：度（绕 X / Y / Z，顺序 XYZ）"))
+            RichText::new(上下文.语言.取("transform_rotation_units_hint"))
                 .small()
                 .color(上下文.配色.次要文字),
         );
 
         ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("缩放"));
+            ui.label(上下文.语言.取("zoom"));
             if 三元拖动(ui, "缩放", &mut 新变换.缩放, 0.01) {
                 提交变换(上下文, 标识, 新变换);
             }
@@ -258,13 +258,13 @@ fn 绘制变换区(
         // 缩放归零会让网格完全退化，给一个快捷修复。
         if 新变换.缩放.0 == 0.0 || 新变换.缩放.1 == 0.0 || 新变换.缩放.2 == 0.0 {
             ui.label(
-                RichText::new(上下文.语言.取("警告：缩放含 0，实体将不可见"))
+                RichText::new(上下文.语言.取("inspector_scale_zero_warning"))
                     .small()
                     .color(上下文.配色.警告),
             );
         }
 
-        if ui.button(上下文.语言.取("重置为单位变换")).clicked() {
+        if ui.button(上下文.语言.取("reset_to_identity_transform")).clicked() {
             提交变换(上下文, 标识, 变换数据::单位());
         }
     });
@@ -386,7 +386,7 @@ fn 绘制单个组件(
         .id_salt(format!("组件-{类型名}"))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                if ui.small_button(上下文.语言.取("移除组件")).clicked() {
+                if ui.small_button(上下文.语言.取("remove_component_2")).clicked() {
                     上下文.动作.推(UiAction::删除组件 {
                         实体: 标识,
                         类型名: 类型名.to_string(),
@@ -394,7 +394,7 @@ fn 绘制单个组件(
                 }
                 if !已注册 {
                     ui.label(
-                        RichText::new(上下文.语言.取("未注册：字段可查看但布局未知"))
+                        RichText::new(上下文.语言.取("inspector_component_unregistered_hint"))
                             .small()
                             .color(上下文.配色.警告),
                     );
@@ -416,7 +416,7 @@ fn 绘制单个组件(
                 }
                 if 属性.is_empty() {
                     ui.label(
-                        RichText::new(上下文.语言.取("（无属性）")).color(上下文.配色.次要文字),
+                        RichText::new(上下文.语言.取("no_properties")).color(上下文.配色.次要文字),
                     );
                 }
                 return;
@@ -682,14 +682,14 @@ fn 按描述编辑(
                                 .color(上下文.配色.文字),
                         )
                         .on_hover_text(引用.路径.文本().to_string());
-                        if ui.small_button(上下文.语言.取("清除")).clicked() {
+                        if ui.small_button(上下文.语言.取("clear_2")).clicked() {
                             *值 = 属性值::空;
                             改变 = true;
                         }
                     }
                     None => {
                         ui.label(
-                            RichText::new(上下文.语言.取("（未设置）")).color(上下文.配色.次要文字),
+                            RichText::new(上下文.语言.取("not_set")).color(上下文.配色.次要文字),
                         );
                     }
                 }
@@ -721,7 +721,7 @@ fn 按描述编辑(
                         }
                     });
                 }
-                if ui.small_button(上下文.语言.取("＋ 添加元素")).clicked() {
+                if ui.small_button(上下文.语言.取("add_element")).clicked() {
                     列表.push(元素_default(元素));
                     改变 = true;
                 }

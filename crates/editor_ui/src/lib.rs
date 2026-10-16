@@ -17,18 +17,21 @@ pub mod docks;
 pub mod fonts;
 pub mod hierarchy_panel;
 pub mod history_panel;
-pub mod i18n;
 pub mod inspector_panel;
 pub mod menu_bar;
 pub mod state;
 pub mod theme;
 pub mod viewport_panel;
 
+// 多语言入口定义在 `editor_core`（它需要给命令显示名做本地化），
+// 这里把模块整个再导出，于是界面代码仍可写 `crate::i18n::语言`。
+pub use editor_core::i18n;
+// 常用类型的便捷再导出，避免调用方到处写 `i18n::`。
+pub use editor_core::i18n::语言;
 pub use docks::Tab;
 pub use fonts::{
     内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
 };
-pub use i18n::语言;
 pub use state::{
     UiAction, 动作队列, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态, 绘制上下文, 视口拖拽,
     视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
@@ -252,21 +255,21 @@ fn 绘制_新建项目对话框(
         .resizable(false)
         .open(&mut 打开值)
         .show(egui上下文, |ui| {
-            ui.label(语言.取("项目名称"));
+            ui.label(语言.取("project_name"));
             ui.add(egui::TextEdit::singleline(&mut 编辑中名称).desired_width(240.0));
             ui.label(
                 egui::RichText::new(
-                    语言.取("项目会创建在接下来选择的目标目录中，且该目录必须是空的。"),
+                    语言.取("new_project_target_dir_hint"),
                 )
                 .small()
                 .color(配色.次要文字),
             );
             ui.separator();
             ui.horizontal(|ui| {
-                if ui.button(语言.取("选择目录并创建")).clicked() {
+                if ui.button(语言.取("choose_directory_and_create")).clicked() {
                     确认 = true;
                 }
-                if ui.button(语言.取("取消")).clicked() {
+                if ui.button(语言.取("cancel")).clicked() {
                     打开给关闭按钮.set(false);
                 }
             });
@@ -297,7 +300,7 @@ fn 绘制_关于窗口(
         return;
     }
     let mut 打开 = true;
-    egui::Window::new(语言.取("关于 Bevy Studio"))
+    egui::Window::new(语言.取("about_bevy_studio"))
         .collapsible(false)
         .resizable(false)
         .open(&mut 打开)
@@ -306,17 +309,17 @@ fn 绘制_关于窗口(
             ui.label(format!("版本 {}", env!("CARGO_PKG_VERSION")));
             ui.separator();
             ui.label(
-                语言.取("一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。"),
+                语言.取("about_tagline"),
             );
             ui.add_space(6.0);
             ui.label(
-                egui::RichText::new(语言.取("技术栈"))
+                egui::RichText::new(语言.取("tech_stack"))
                     .strong()
                     .color(配色.文字),
             );
             ui.label("Bevy 0.20 / bevy_egui 0.43");
-            ui.label(语言.取("egui 0.36 + egui_dock 0.21（界面与可停靠布局）"));
-            ui.label(语言.取("RON（场景与项目清单的序列化格式）"));
+            ui.label(语言.取("about_ui_stack"));
+            ui.label(语言.取("about_scene_format"));
             ui.separator();
             ui.label(
                 egui::RichText::new(format!("当前场景：{场景名}"))

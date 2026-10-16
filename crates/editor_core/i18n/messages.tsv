@@ -1,0 +1,259 @@
+# 键	中文	英文   —— 由 tools/gen_messages.py 读取并生成 Rust 词表
+# 新增界面文案：在代码里用 语言.取("键")，然后在这里加一行。
+number_one_decimal_with_unit	{} {}	{} {}
+number_one_decimal_seconds	{} 秒	{} s
+viewport_2d_entity_count	2D 视口 · {} 个实体	2D Viewport · {} entities
+number_four_decimals	{}	{}
+about_bevy_studio	关于 Bevy Studio	About Bevy Studio
+about_scene_format	RON（场景与项目清单的序列化格式）	RON (serialization format for scenes and project manifests)
+about_tagline	一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。	A visual game editor built on Bevy, using the Godot Editor as its workflow reference.
+about_ui_stack	egui 0.36 + egui_dock 0.21（界面与可停靠布局）	egui 0.36 + egui_dock 0.21 (UI and dockable layout)
+add_component	添加组件	Add Component
+add_component_2	添加组件…	Add Component…
+add_element	＋ 添加元素	＋ Add Element
+add_this_asset_to_the_scene	在场景中添加此资源	Add this asset to the scene
+advance_one_frame_while_paused	暂停状态下前进一帧	Advance one frame while paused
+angle	角度-{}	Angle-{}
+asset_browser	资源浏览器	Asset Browser
+asset_files	{} 个资源文件	{} asset files
+asset_folder	资源目录-{}	Asset Folder - {}
+assets	资源	Assets
+assets_empty_hint	没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。	No assets.\nDrop images, audio, and other files into the project's assets/ directory and they will be detected.
+assets_loaded	已加载资源数	Assets Loaded
+assets_no_project_hint	尚未打开项目。\n请在「文件 → 打开项目」里选择一个项目目录。	No project is open yet.\nUse "File -> Open Project" to choose a project directory.
+bevy_studio_menu_bar	bevy_studio_菜单栏	bevy_studio_menu_bar
+bevy_studio_root_ui	bevy_studio_根界面	bevy_studio_root_ui
+bevy_studio_status_bar	bevy_studio_状态栏	bevy_studio_status_bar
+bevy_studio_toolbar	bevy_studio_工具栏	bevy_studio_toolbar
+bounds	包围框	Bounds
+builtin_component_registry_panic	内置组件的描述与默认值必须自洽；注册失败说明代码有错	Built-in component descriptions and default values must be self-consistent; a failed registration means the code is wrong
+by_name	按名称	By Name
+by_size	按大小	By Size
+by_type	按类型	By Type
+camera_field_ortho_half_height	正交半高	Ortho Half Height
+camera_ortho_half_height_tooltip	正交投影可见区域的垂直半高（世界单位）	Vertical half-height of the visible area of the orthographic projection (world units)
+cancel	取消	Cancel
+choose_directory_and_create	选择目录并创建	Choose Directory and Create
+clear	清空	Clear
+clear_2	清除	Clear
+clear_console	清空控制台	Clear Console
+clear_search	清除搜索	Clear Search
+close	关闭	Close
+close_project	关闭项目	Close Project
+command_apply_snapshot	应用快照	Apply Snapshot
+command_batch_set_property	批量修改属性	Batch Set Property
+command_batch_set_transform	批量修改变换	Batch Set Transform
+command_move_entity_down	下移实体	Move Entity Down
+command_move_entity_up	上移实体	Move Entity Up
+command_reparent	调整层级	Reparent
+command_replace_entity	替换实体	Replace Entity
+command_set_property	修改属性	Set Property
+command_set_transform	修改变换	Set Transform
+component	组件-{}	Component-{}
+component_types	组件类型数	Component Types
+console	控制台	Console
+console_2	控制台 ({})	Console ({})
+create_an_entity_in_the_scene_tree	在场景树中新建实体	Create an entity in the Scene Tree
+current_scene	当前场景：{}	Current scene: {}
+custom_size	自定义尺寸	Custom Size
+debug	调试	Debug
+delete	删除	Delete
+delete_2	🗑 删除	🗑 Delete
+delete_entity	删除实体	Delete Entity
+delete_selected_entities	删除选中实体	Delete Selected Entities
+duplicate	复制	Duplicate
+duplicate_entity	复制实体	Duplicate Entity
+edit	编辑	Edit
+editor_entities	编辑器中实体数	Editor Entities
+editor_overhead	编辑器自身开销	Editor Overhead
+empty	空	Empty
+empty_2	（空）	(empty)
+entities	实体 {}	Entities {}
+entities_2	实体总数	Entities
+entity	实体	Entity
+entity_id_stable_tooltip	实体标识是稳定不变的，重命名或移动层级都不会改变它	An entity's identifier is stable; renaming it or moving it in the hierarchy will not change it
+entity_name	实体名称	Entity Name
+enum	枚举-{}	Enum-{}
+error_entity_already_has_component	实体 {} 已有组件 `{}`	Entity {} already has component `{}`
+error_entity_component_by_name_not_found	实体 {} 没有组件 `{}`	Entity {} has no component `{}`
+error_entity_not_found	实体 {} 不存在	Entity {} does not exist
+error_layout_missing_viewport	布局里没有视口面板，视为无效	The layout has no Viewport panel, so it is treated as invalid
+error_layout_serialize_failed	布局序列化失败：{}	Failed to serialize layout: {}
+error_parent_entity_not_found	父实体 {} 不存在	Parent entity {} does not exist
+errors	错误 {}	Errors {}
+failed_to_parse_layout	布局解析失败：{}	Failed to parse layout: {}
+fields	{} 个字段	{} fields
+file	文件	File
+fit_to_window_f	适应窗口 (F)	Fit to Window (F)
+flip_horizontal	水平翻转	Flip Horizontal
+focus_selection	聚焦选中项	Focus Selection
+fps	帧率	FPS
+frame_time	帧耗时	Frame Time
+generic_vec2	通用二维-{}	Generic Vec2-{}
+generic_vec3	通用三维-{}	Generic Vec3-{}
+generic_vec4	通用四维-{}	Generic Vec4-{}
+grid	网格	Grid
+has_unsaved_changes	有未保存的修改	Has unsaved changes
+help	帮助	Help
+hide	隐藏	Hide
+hierarchy_empty_hint	场景是空的。\n点击上方 ＋ 新建实体，或从资源面板拖入图片。	The scene is empty.\nClick + New Entity above, or drag an image in from the Assets panel.
+hierarchy_filter_ancestors_hint	已按名称过滤，匹配项的祖先会一并显示	Filtered by name; ancestors of matches are shown as well
+hierarchy_no_name_match	没有名称包含 `{}` 的实体	No entity whose name contains `{}`
+history	历史	History
+history_next_step_only_hint	当前撤销栈不支持列出完整历史，只显示下一步操作：	The current undo stack cannot list its full history; only the next operation is shown:
+history_steps_summary	可撤销 {} 步 · 可重做 {} 步	{} undo steps · {} redo steps
+id	标识	ID
+info	信息 {}	Info {}
+inspector	检查器	Inspector
+inspector_all_components_added	已注册的组件都已添加，或注册表为空	All registered components have been added, or the registry is empty
+inspector_component_unregistered_hint	未注册：字段可查看但布局未知	Not registered: fields are viewable but the layout is unknown
+inspector_entity_has_no_components_hint	该实体还没有组件。\n点击上方「添加组件」为它添加一个。	This entity has no components yet.\nClick "Add Component" above to add one.
+inspector_multi_selection_hint	已选中 {} 个实体，此处编辑仅作用于主选中项	{} entities selected; edits here only affect the primary selection
+inspector_no_entity_selected_hint	未选中任何实体。\n在场景树或视口里点选一个实体即可编辑其属性。	No entity selected.\nClick an entity in the Scene Tree or Viewport to edit its properties.
+inspector_scale_zero_warning	警告：缩放含 0，实体将不可见	Warning: the scale contains 0, so the entity will be invisible
+items	{} 项	{} items
+lock	锁定	Lock
+matches_last_save	✓ 与上次保存一致	✓ Matches last save
+menu_group_ui_language	界面语言	UI Language
+entity_duplicate_name	{}_改	{}_modified
+modified_since_last_save	● 相对上次保存已有修改	● Modified since last save
+move_down	下移	Move Down
+move_to_top_level	移到顶层	Move to Top Level
+move_up	上移	Move Up
+my_game	我的游戏	My Game
+name	名称	Name
+new_child_entity_here	在此新建子实体	New Child Entity Here
+new_child_entity_under_selection	在选中实体下新建子实体	New Child Entity Under Selection
+new_entity	新实体	New Entity
+new_entity_2	新建实体	New Entity
+new_entity_3	＋ 新建实体	＋ New Entity
+new_project	新建项目	New Project
+new_project_2	新建项目…	New Project…
+new_project_target_dir_hint	项目会创建在接下来选择的目标目录中，且该目录必须是空的。	The project will be created in the target directory you pick next, and that directory must be empty.
+new_scene	新建场景	New Scene
+next_redo	下一重做：{}	Next Redo: {}
+next_undo	下一撤销：{}	Next Undo: {}
+no_log_entries	暂无日志	No log entries
+no_properties	（无属性）	(no properties)
+not_saved_to_a_file_yet	（尚未保存到文件）	(not saved to a file yet)
+not_set	（未设置）	(not set)
+open_project	打开项目…	Open Project…
+open_scene	打开场景…	Open Scene…
+pan	平移	Pan
+pause	⏸ 暂停	⏸ Pause
+pause_or_resume_running_f6	暂停或继续运行（F6）	Pause or resume running (F6)
+pause_resume	暂停/继续	Pause/Resume
+paused	⏸ 已暂停	⏸ Paused
+paused_2	已暂停	Paused
+performance	性能	Performance
+position	位置	Position
+preview	● 预览 {}×{}	● Preview {}×{}
+preview_not_ready	○ 预览未就绪	○ Preview not ready
+preview_render_is_not_ready_yet	预览渲染尚未就绪	Preview render is not ready yet
+problems	⚠ {} 条问题	⚠ {} problems
+project	项目	Project
+project_name	项目名称	Project Name
+project_settings	项目设置…	Project Settings…
+quit	退出	Quit
+redo	↷ 重做	↷ Redo
+redo_2	重做	Redo
+redo_ctrl_y	重做（Ctrl+Y）	Redo (Ctrl+Y)
+refresh	刷新	Refresh
+refresh_the_asset_list	刷新资源列表	Refresh the asset list
+registered_component_types	已注册组件类型	Registered Component Types
+remove_component	删除组件	Remove Component
+remove_component_2	移除组件	Remove Component
+rename	重命名	Rename
+rename_entity	重命名实体	Rename Entity
+reset_to_identity_transform	重置为单位变换	Reset to Identity Transform
+reset_view	重置视图	Reset View
+restore_default_layout	恢复默认布局	Restore Default Layout
+resume	▶ 继续	▶ Resume
+rotate	旋转	Rotate
+run	▶ 运行	▶ Run
+run_2	运行	Run
+run_state_stopped	已停止	Stopped
+run_the_current_scene	运行当前场景	Run the current scene
+running	▶ 运行中	▶ Running
+running_2	运行中	Running
+runtime_ecs	运行时 ECS	Runtime ECS
+runtime_world_read_only	运行时世界（只读）	Runtime World (read-only)
+save_scene	保存场景	Save Scene
+save_scene_2	💾 保存场景	💾 Save Scene
+save_scene_as	场景另存为…	Save Scene As…
+saved	✓ 已保存	✓ Saved
+scene	场景	Scene
+scene_tree	场景树	Scene Tree
+search	搜索	Search
+search_assets	搜索资源	Search assets
+search_log	搜索日志	Search log
+select_all	全选	Select All
+selected	已选 {}	Selected {}
+show	显示	Show
+show_in_file_manager	在文件管理器中显示	Show in File Manager
+show_performance_statistics	显示性能统计	Show performance statistics
+show_runtime_ecs	显示运行时 ECS	Show Runtime ECS
+sort_assets	资源排序	Sort Assets
+sprite_field_color	颜色	Color
+sprite_field_custom_size_tooltip	留空则使用贴图原始尺寸；视口按此值绘制包围框	Leave empty to use the texture's original size; the viewport draws the bounding box from this value
+sprite_field_flip_vertical	垂直翻转	Flip Vertical
+sprite_field_texture	贴图	Texture
+sprite_field_texture_tooltip	指向 assets 下的图片资源	Points to an image asset under assets
+sprite_field_tint	着色	Tint
+status	状态	Status
+step	⏭ 单步	⏭ Step
+step_one_frame	单步一帧	Step one frame
+stop	⏹ 停止	⏹ Stop
+stop_2	停止	Stop
+tech_stack	技术栈	Tech Stack
+text	[{}]	[{}]
+text_2	{}/{}	{}/{}
+window_title_unsaved_marker	{} *	{} *
+text_4	{}-{}	{}-{}
+text_5	{} {}	{} {}
+text_6	{}	{}
+language_self_zh_cn	简体中文	简体中文
+text_8	📁 {}	📁 {}
+the_selected_entity_no_longer_exists	选中的实体已不存在	The selected entity no longer exists
+theoretical_max	理论上限	Theoretical Max
+there_is_nothing_to_undo_yet	还没有任何可撤销的操作。	There is nothing to undo yet.
+tooltip_asset_category_and_size	{}\n类别：{}\n大小：{}	{}\nCategory: {}\nSize: {}
+tooltip_delete_entity_subtree	删除选中实体及其子树（Delete）	Delete the selected entity and its subtree (Delete)
+tooltip_feature_not_implemented	该功能尚未实现（本版本不提供）	This feature is not implemented yet (not available in this version)
+tooltip_field_name_and_type	{}\n字段名 {} · 类型 {}	{}\nField name {} · Type {}
+tooltip_new_child_entity	在选中实体下新建子实体；未选中时建在顶层	Create a child entity under the selection; created at the top level when nothing is selected
+tooltip_open_assets_folder	在文件管理器中打开 assets/	Open assets/ in the file manager
+tooltip_run_current_scene	从编辑器启动游戏，运行当前场景（F5）	Launch the game from the editor and run the current scene (F5)
+tooltip_save_current_scene	保存当前场景到文件（Ctrl+S）	Save the current scene to a file (Ctrl+S)
+tooltip_stop_running	停止运行并回到编辑状态（F7）	Stop running and return to editing (F7)
+transform	变换	Transform
+transform_field_rotation_quat	旋转（四元数）	Rotation (Quaternion)
+transform_rotation_tooltip	以四元数存储，保证插值与组合的正确性。Inspector 里可用角度编辑	Stored as a quaternion to keep interpolation and composition correct. Edit it in degrees in the Inspector
+transform_rotation_units_hint	单位：度（绕 X / Y / Z，顺序 XYZ）	Units: degrees (around X / Y / Z, in XYZ order)
+transform_scale_tooltip	分量含 0 会让实体在该轴上不可见	A component of 0 makes the entity invisible along that axis
+transform_section	变换区	Transform Section
+transform_translation_tooltip	世界坐标下的位置。2D 场景里通常只用到 X 与 Y	Position in world coordinates. 2D scenes usually only use X and Y
+type	{} · 类型 {}	{} · Type {}
+undo	↶ 撤销	↶ Undo
+undo_2	撤销	Undo
+undo_stack_usage_est	撤销栈估算占用	Undo Stack Usage (est.)
+undo_the_previous_step_ctrl_z	撤销上一步（Ctrl+Z）	Undo the previous step (Ctrl+Z)
+unknown	{}（未知）	{} (unknown)
+unlock	解锁	Unlock
+unsaved	● 未保存	● Unsaved
+uptime	已运行	Uptime
+vec2	二维-{}	Vec2-{}
+vec3	三维-{}	Vec3-{}
+vec4	四维-{}	Vec4-{}
+version	版本 {}	Version {}
+viewport	视口	Viewport
+viewport_input_hint	滚轮缩放 · 中键/空格拖动平移 · 左键选择与拖动 · F 聚焦 · Delete 删除 · Esc 取消选择	Wheel to zoom · Middle-drag/Space-drag to pan · Left-click to select and drag · F to focus · Delete to remove · Esc to deselect
+viewport_preview_not_ready_hint	预览渲染尚未就绪：视口只显示网格与包围框，场景数据本身完好	Preview render is not ready yet: the viewport only shows the grid and bounds; the scene data itself is intact
+viewport_render_pipeline_hint	游戏场景实体由 Bevy 渲染到纹理后显示在这里；网格与选中框由编辑器叠加绘制	Game scene entities are rendered to a texture by Bevy and shown here; the grid and selection outline are drawn on top by the editor
+visibility_field_tooltip	对应 Bevy 的 Visibility：开启映射为 Inherited，关闭映射为 Hidden	Maps to Bevy's Visibility: on maps to Inherited, off maps to Hidden
+visibility_field_visible	可见	Visible
+warnings	警告 {}	Warnings {}
+window	窗口	Window
+zoom	缩放	Zoom
+zoom_0	缩放 {}%	Zoom {}%
+language_self_en	English	English

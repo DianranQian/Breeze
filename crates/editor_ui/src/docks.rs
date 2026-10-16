@@ -57,6 +57,23 @@ impl Tab {
         }
     }
 
+    /// 该面板在「窗口」菜单里的词条键。
+    ///
+    /// 菜单定义与"文本 → 面板"的反映射都以它为准，
+    /// 避免菜单文案一改就两边对不上。
+    pub fn 菜单键(&self) -> &'static str {
+        match self {
+            Tab::场景树 => "scene_tree",
+            Tab::检查器 => "inspector",
+            Tab::视口 => "viewport",
+            Tab::资源浏览器 => "asset_browser",
+            Tab::控制台 => "console",
+            Tab::历史 => "history",
+            Tab::运行时ecs => "runtime_ecs",
+            Tab::性能 => "performance",
+        }
+    }
+
     /// 是否可以关闭。
     ///
     /// 视口是编辑器的主体，关掉它用户就没有任何办法编辑场景了，

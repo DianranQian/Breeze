@@ -631,22 +631,22 @@ fn 绘制状态栏(
                 );
             }
             ui.separator();
-            if ui.small_button(上下文.语言.取("适应窗口 (F)")).clicked()
+            if ui.small_button(上下文.语言.取("fit_to_window_f")).clicked()
                 && let Some((最小, 最大)) = 世界包围盒(&上下文.编辑器.会话.文档)
             {
                 上下文.界面.相机.适应包围盒(最小, 最大, 内容矩形.size());
             }
-            if ui.small_button(上下文.语言.取("重置视图")).clicked() {
+            if ui.small_button(上下文.语言.取("reset_view")).clicked() {
                 // 复用一个来源：默认值只写在 `视口相机::default()` 里，
                 // 避免"默认缩放"在两处各写一个数字、改一处漏一处。
                 上下文.界面.相机 = crate::state::视口相机::default();
             }
             let mut 网格 = 上下文.界面.相机.显示网格;
-            if ui.checkbox(&mut 网格, 上下文.语言.取("网格")).changed() {
+            if ui.checkbox(&mut 网格, 上下文.语言.取("grid")).changed() {
                 上下文.界面.相机.显示网格 = 网格;
             }
             let mut 包围框 = 上下文.界面.相机.显示包围框;
-            if ui.checkbox(&mut 包围框, 上下文.语言.取("包围框")).changed() {
+            if ui.checkbox(&mut 包围框, 上下文.语言.取("bounds")).changed() {
                 上下文.界面.相机.显示包围框 = 包围框;
             }
         });
@@ -657,7 +657,7 @@ pub fn 绘制提示(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
     ui.horizontal(|ui| {
         ui.label(
             RichText::new(
-                上下文.语言.取("滚轮缩放 · 中键/空格拖动平移 · 左键选择与拖动 · F 聚焦 · Delete 删除 · Esc 取消选择"),
+                上下文.语言.取("viewport_input_hint"),
             )
             .small()
             .color(上下文.配色.次要文字),

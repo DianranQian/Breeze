@@ -87,13 +87,13 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 上下文.编辑器.有未保存修改() {
         ui.label(
-            RichText::new(上下文.语言.取("● 相对上次保存已有修改"))
+            RichText::new(上下文.语言.取("modified_since_last_save"))
                 .small()
                 .color(上下文.配色.警告),
         );
     } else {
         ui.label(
-            RichText::new(上下文.语言.取("✓ 与上次保存一致"))
+            RichText::new(上下文.语言.取("matches_last_save"))
                 .small()
                 .color(上下文.配色.次要文字),
         );
@@ -103,7 +103,7 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 撤销.可撤销步数() == 0 && 撤销.可重做步数() == 0 {
         ui.label(
-            RichText::new(上下文.语言.取("还没有任何可撤销的操作。")).color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("there_is_nothing_to_undo_yet")).color(上下文.配色.次要文字),
         );
         return;
     }
@@ -170,7 +170,7 @@ pub fn 绘制运行时(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.separator();
     ui.label(
-        RichText::new(上下文.语言.取("运行时世界（只读）"))
+        RichText::new(上下文.语言.取("runtime_world_read_only"))
             .strong()
             .color(上下文.配色.文字),
     );
@@ -225,7 +225,7 @@ pub fn 绘制性能(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.separator();
     ui.label(
-        RichText::new(上下文.语言.取("编辑器自身开销"))
+        RichText::new(上下文.语言.取("editor_overhead"))
             .strong()
             .color(上下文.配色.文字),
     );

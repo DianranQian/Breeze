@@ -69,12 +69,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         let mut 关键字 = std::mem::take(&mut 上下文.界面.控制台搜索);
         ui.add(
             egui::TextEdit::singleline(&mut 关键字)
-                .hint_text(上下文.语言.取("搜索日志"))
+                .hint_text(上下文.语言.取("search_log"))
                 .desired_width(140.0),
         );
         上下文.界面.控制台搜索 = 关键字;
 
-        if ui.small_button(上下文.语言.取("清空")).clicked() {
+        if ui.small_button(上下文.语言.取("clear")).clicked() {
             上下文.动作.推(UiAction::清空控制台);
         }
     });
@@ -88,7 +88,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     );
 
     if 显示列表.is_empty() {
-        ui.label(RichText::new(上下文.语言.取("暂无日志")).color(上下文.配色.次要文字));
+        ui.label(RichText::new(上下文.语言.取("no_log_entries")).color(上下文.配色.次要文字));
         return;
     }
 

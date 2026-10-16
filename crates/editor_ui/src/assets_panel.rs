@@ -220,7 +220,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         let mut 关键字 = std::mem::take(&mut 上下文.界面.资源搜索);
         ui.add(
             egui::TextEdit::singleline(&mut 关键字)
-                .hint_text(上下文.语言.取("搜索资源"))
+                .hint_text(上下文.语言.取("search_assets"))
                 .desired_width(140.0),
         );
         上下文.界面.资源搜索 = 关键字;
@@ -247,7 +247,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 }
             });
 
-        if ui.small_button(上下文.语言.取("刷新")).clicked() {
+        if ui.small_button(上下文.语言.取("refresh")).clicked() {
             // 资源列表是每次绘制时现场扫描的，因此"刷新"只需要重绘。
             // 这里请求一次重绘，让按钮有即时反馈。
             ui.ctx().request_repaint();
@@ -391,23 +391,23 @@ fn 绘制文件行(
         }
 
         响应.context_menu(|ui| {
-            if ui.button(上下文.语言.取("在场景中添加此资源")).clicked() {
+            if ui.button(上下文.语言.取("add_this_asset_to_the_scene")).clicked() {
                 上下文.动作.推(UiAction::从资源创建实体 {
                     资源: 路径.clone(),
                     父实体: 上下文.主选中(),
                 });
                 ui.close();
             }
-            if ui.button(上下文.语言.取("在文件管理器中显示")).clicked() {
+            if ui.button(上下文.语言.取("show_in_file_manager")).clicked() {
                 上下文.动作.推(UiAction::在资源管理器中显示(路径.clone()));
                 ui.close();
             }
             ui.separator();
-            if ui.button(上下文.语言.取("重命名")).clicked() {
+            if ui.button(上下文.语言.取("rename")).clicked() {
                 上下文.动作.推(UiAction::请求重命名资源(路径.clone()));
                 ui.close();
             }
-            if ui.button(上下文.语言.取("删除")).clicked() {
+            if ui.button(上下文.语言.取("delete")).clicked() {
                 上下文.动作.推(UiAction::请求删除资源(路径.clone()));
                 ui.close();
             }

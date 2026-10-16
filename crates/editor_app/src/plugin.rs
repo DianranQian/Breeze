@@ -509,7 +509,10 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::在资源管理器中显示(路径) => {
             format!("在资源管理器中显示({})", 路径.文本())
         }
-        UiAction::执行命令(命令) => format!("执行命令({})", 命令.显示名()),
+        // 动作摘要只用于日志与测试断言，固定用中文。
+        UiAction::执行命令(命令) => {
+            format!("执行命令({})", 命令.显示名(editor_ui::i18n::语言::中文))
+        }
         UiAction::撤销 => "撤销".to_string(),
         UiAction::重做 => "重做".to_string(),
         UiAction::修改属性(编辑) => {

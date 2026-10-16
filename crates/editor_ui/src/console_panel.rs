@@ -60,9 +60,9 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.horizontal(|ui| {
         let mut 过滤 = 上下文.界面.控制台过滤;
-        ui.checkbox(&mut 过滤.显示信息, format!("信息 {信息数}"));
-        ui.checkbox(&mut 过滤.显示警告, format!("警告 {警告数}"));
-        ui.checkbox(&mut 过滤.显示错误, format!("错误 {错误数}"));
+        ui.checkbox(&mut 过滤.显示信息, 上下文.语言.填充("info", &[&信息数]));
+        ui.checkbox(&mut 过滤.显示警告, 上下文.语言.填充("warnings", &[&警告数]));
+        ui.checkbox(&mut 过滤.显示错误, 上下文.语言.填充("errors", &[&错误数]));
         上下文.界面.控制台过滤 = 过滤;
 
         ui.separator();

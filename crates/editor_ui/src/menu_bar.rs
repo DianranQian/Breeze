@@ -470,11 +470,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         // 右侧状态区
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if 正在运行 {
-                let 文本 = if 已暂停 {
-                    "paused"
-                } else {
-                    "running"
-                };
+                let 文本 = if 已暂停 { "paused" } else { "running" };
                 let 颜色 = if 已暂停 {
                     配色.警告
                 } else {
@@ -509,8 +505,8 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     ui.horizontal(|ui| {
         // 运行控制
         if ui
-            .add_enabled(!正在运行, egui::Button::new("run").small())
-            .on_hover_text("tooltip_run_current_scene")
+            .add_enabled(!正在运行, egui::Button::new(上下文.语言.取("run")).small())
+            .on_hover_text(上下文.语言.取("tooltip_run_current_scene"))
             .clicked()
         {
             上下文.动作.推(UiAction::运行场景);
@@ -518,28 +514,23 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         if ui
             .add_enabled(
                 正在运行,
-                egui::Button::new(if 已暂停 {
-                    "resume"
-                } else {
-                    "pause"
-                })
-                .small(),
+                egui::Button::new(上下文.语言.取(if 已暂停 { "resume" } else { "pause" })).small(),
             )
-            .on_hover_text("pause_or_resume_running_f6")
+            .on_hover_text(上下文.语言.取("pause_or_resume_running_f6"))
             .clicked()
         {
             上下文.动作.推(UiAction::暂停运行);
         }
         if ui
-            .add_enabled(已暂停, egui::Button::new("step").small())
-            .on_hover_text("advance_one_frame_while_paused")
+            .add_enabled(已暂停, egui::Button::new(上下文.语言.取("step")).small())
+            .on_hover_text(上下文.语言.取("advance_one_frame_while_paused"))
             .clicked()
         {
             上下文.动作.推(UiAction::单步一帧);
         }
         if ui
-            .add_enabled(正在运行, egui::Button::new("stop").small())
-            .on_hover_text("tooltip_stop_running")
+            .add_enabled(正在运行, egui::Button::new(上下文.语言.取("stop")).small())
+            .on_hover_text(上下文.语言.取("tooltip_stop_running"))
             .clicked()
         {
             上下文.动作.推(UiAction::停止运行);
@@ -551,9 +542,9 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         if ui
             .add_enabled(
                 编辑器.撤销.可撤销步数() > 0,
-                egui::Button::new("undo").small(),
+                egui::Button::new(上下文.语言.取("undo")).small(),
             )
-            .on_hover_text("undo_the_previous_step_ctrl_z")
+            .on_hover_text(上下文.语言.取("undo_the_previous_step_ctrl_z"))
             .clicked()
         {
             上下文.动作.推(UiAction::撤销);
@@ -561,9 +552,9 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         if ui
             .add_enabled(
                 编辑器.撤销.可重做步数() > 0,
-                egui::Button::new("redo").small(),
+                egui::Button::new(上下文.语言.取("redo")).small(),
             )
-            .on_hover_text("redo_ctrl_y")
+            .on_hover_text(上下文.语言.取("redo_ctrl_y"))
             .clicked()
         {
             上下文.动作.推(UiAction::重做);
@@ -575,9 +566,9 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         if ui
             .add_enabled(
                 编辑器.项目.is_some(),
-                egui::Button::new("save_scene_2").small(),
+                egui::Button::new(上下文.语言.取("save_scene_2")).small(),
             )
-            .on_hover_text("tooltip_save_current_scene")
+            .on_hover_text(上下文.语言.取("tooltip_save_current_scene"))
             .clicked()
         {
             上下文.动作.推(UiAction::保存场景);
@@ -587,16 +578,19 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
         // 新建实体
         if ui
-            .button("new_entity_3")
-            .on_hover_text("tooltip_new_child_entity")
+            .button(上下文.语言.取("new_entity_3"))
+            .on_hover_text(上下文.语言.取("tooltip_new_child_entity"))
             .clicked()
         {
             let 父 = 编辑器.选择.主选中();
             上下文.界面.开始新建实体(父);
         }
         if ui
-            .add_enabled(!编辑器.选择.为空(), egui::Button::new("delete_2"))
-            .on_hover_text("tooltip_delete_entity_subtree")
+            .add_enabled(
+                !编辑器.选择.为空(),
+                egui::Button::new(上下文.语言.取("delete_2")),
+            )
+            .on_hover_text(上下文.语言.取("tooltip_delete_entity_subtree"))
             .clicked()
             && let Some(标识) = 编辑器.选择.主选中()
         {
@@ -606,13 +600,13 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         ui.separator();
 
         // 面板快捷方式
-        if ui.small_button("scene_tree").clicked() {
+        if ui.small_button(上下文.语言.取("scene_tree")).clicked() {
             上下文.动作.推(UiAction::聚焦面板(Tab::场景树));
         }
-        if ui.small_button("assets").clicked() {
+        if ui.small_button(上下文.语言.取("assets")).clicked() {
             上下文.动作.推(UiAction::聚焦面板(Tab::资源浏览器));
         }
-        if ui.small_button("console").clicked() {
+        if ui.small_button(上下文.语言.取("console")).clicked() {
             上下文.动作.推(UiAction::聚焦面板(Tab::控制台));
         }
     });
@@ -629,7 +623,8 @@ mod 测试 {
         // 需求里点名的十个菜单必须都在
         let 名字: Vec<&str> = 定义.iter().map(|(名字, _)| *名字).collect();
         for 必须 in [
-            "project", "file", "edit", "scene", "entity", "assets", "run_2", "debug", "window", "help",
+            "project", "file", "edit", "scene", "entity", "assets", "run_2", "debug", "window",
+            "help",
         ] {
             assert!(名字.contains(&必须), "缺少菜单 `{必须}`，实际：{名字:?}");
         }
@@ -646,7 +641,13 @@ mod 测试 {
         let 编辑器 = 编辑器状态::新建();
 
         // 无需任何前置条件的项应当有动作
-        for 文本 in ["new_project_2", "open_project", "new_scene", "undo_2", "redo_2"] {
+        for 文本 in [
+            "new_project_2",
+            "open_project",
+            "new_scene",
+            "undo_2",
+            "redo_2",
+        ] {
             assert!(
                 菜单项动作(文本, crate::i18n::语言::中文, &编辑器).is_some(),
                 "`{文本}` 应当有对应动作"

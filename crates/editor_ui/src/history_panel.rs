@@ -52,23 +52,29 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 撤销 = &上下文.编辑器.撤销;
 
     let 可撤销名: Vec<String> = 撤销
-        .下一次撤销名()
+        .下一次撤销名(上下文.语言)
         .map(|名字| vec![名字.to_string()])
         .unwrap_or_default();
     let 可重做名: Vec<String> = 撤销
-        .下一次重做名()
+        .下一次重做名(上下文.语言)
         .map(|名字| vec![名字.to_string()])
         .unwrap_or_default();
 
     ui.horizontal(|ui| {
         if ui
-            .add_enabled(撤销.可撤销步数() > 0, egui::Button::new("撤销"))
+            .add_enabled(
+                撤销.可撤销步数() > 0,
+                egui::Button::new(上下文.语言.取("undo_2")),
+            )
             .clicked()
         {
             上下文.动作.推(UiAction::撤销);
         }
         if ui
-            .add_enabled(撤销.可重做步数() > 0, egui::Button::new("重做"))
+            .add_enabled(
+                撤销.可重做步数() > 0,
+                egui::Button::new(上下文.语言.取("redo_2")),
+            )
             .clicked()
         {
             上下文.动作.推(UiAction::重做);
@@ -76,10 +82,9 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     });
 
     ui.label(
-        RichText::new(format!(
-            "可撤销 {} 步 · 可重做 {} 步",
-            撤销.可撤销步数(),
-            撤销.可重做步数()
+        RichText::new(上下文.语言.填充(
+            "history_steps_summary",
+            &[&撤销.可撤销步数(), &撤销.可重做步数()],
         ))
         .small()
         .color(上下文.配色.次要文字),
@@ -103,7 +108,8 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 撤销.可撤销步数() == 0 && 撤销.可重做步数() == 0 {
         ui.label(
-            RichText::new(上下文.语言.取("there_is_nothing_to_undo_yet")).color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("there_is_nothing_to_undo_yet"))
+                .color(上下文.配色.次要文字),
         );
         return;
     }
@@ -112,19 +118,15 @@ pub fn 绘制历史(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     // 这里如实展示：只有完整历史列表才能提供，而完整列表需要
     // 撤销栈暴露条目的显示名（见路线图"历史面板显示完整列表"）。
     ui.label(
-        RichText::new(
-            上下文
-                .语言
-                .取("当前撤销栈不支持列出完整历史，只显示下一步操作："),
-        )
-        .small()
-        .color(上下文.配色.次要文字),
+        RichText::new(上下文.语言.取("history_next_step_only_hint"))
+            .small()
+            .color(上下文.配色.次要文字),
     );
     if let Some(名字) = 可撤销名.first() {
-        ui.label(RichText::new(format!("下一撤销：{名字}")).color(上下文.配色.文字));
+        ui.label(RichText::new(上下文.语言.填充("next_undo", &[名字])).color(上下文.配色.文字));
     }
     if let Some(名字) = 可重做名.first() {
-        ui.label(RichText::new(format!("下一重做：{名字}")).color(上下文.配色.次要文字));
+        ui.label(RichText::new(上下文.语言.填充("next_redo", &[名字])).color(上下文.配色.次要文字));
     }
 }
 
@@ -156,17 +158,40 @@ pub fn 绘制运行时(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     表格行(
         ui,
         上下文,
-        "状态",
+        上下文.语言.取("status"),
         if 上下文.已暂停 {
-            "已暂停"
+            上下文.语言.取("paused_2")
         } else {
-            "运行中"
+            上下文.语言.取("running_2")
         },
     );
-    表格行(ui, 上下文, "已运行", &format!("{:.1} 秒", 诊断.已运行秒数));
-    表格行(ui, 上下文, "实体总数", &诊断.实体总数.to_string());
-    表格行(ui, 上下文, "组件类型数", &诊断.组件类型数.to_string());
-    表格行(ui, 上下文, "已加载资源数", &诊断.资源数.to_string());
+    表格行(
+        ui,
+        上下文,
+        上下文.语言.取("uptime"),
+        &上下文.语言.填充(
+            "number_one_decimal_seconds",
+            &[&format!("{:.1}", 诊断.已运行秒数)],
+        ),
+    );
+    表格行(
+        ui,
+        上下文,
+        上下文.语言.取("entities_2"),
+        &诊断.实体总数.to_string(),
+    );
+    表格行(
+        ui,
+        上下文,
+        上下文.语言.取("component_types"),
+        &诊断.组件类型数.to_string(),
+    );
+    表格行(
+        ui,
+        上下文,
+        上下文.语言.取("assets_loaded"),
+        &诊断.资源数.to_string(),
+    );
 
     ui.separator();
     ui.label(
@@ -198,13 +223,23 @@ pub fn 绘制性能(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             .color(上下文.配色.次要文字),
         );
     } else {
-        表格行(ui, 上下文, "帧率", &format!("{:.1} FPS", 诊断.帧率));
-        表格行(ui, 上下文, "帧耗时", &format!("{:.2} ms", 诊断.帧耗时毫秒));
+        表格行(
+            ui,
+            上下文,
+            上下文.语言.取("fps"),
+            &format!("{:.1} FPS", 诊断.帧率),
+        );
+        表格行(
+            ui,
+            上下文,
+            上下文.语言.取("frame_time"),
+            &format!("{:.2} ms", 诊断.帧耗时毫秒),
+        );
         if 诊断.帧耗时毫秒 > 0.0 {
             表格行(
                 ui,
                 上下文,
-                "理论上限",
+                上下文.语言.取("theoretical_max"),
                 &format!("{:.0} FPS", 1000.0 / 诊断.帧耗时毫秒),
             );
         }
@@ -230,17 +265,22 @@ pub fn 绘制性能(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             .color(上下文.配色.文字),
     );
     let 场景实体 = 上下文.编辑器.会话.文档.实体数量();
-    表格行(ui, 上下文, "编辑器中实体数", &场景实体.to_string());
     表格行(
         ui,
         上下文,
-        "撤销栈估算占用",
+        上下文.语言.取("editor_entities"),
+        &场景实体.to_string(),
+    );
+    表格行(
+        ui,
+        上下文,
+        上下文.语言.取("undo_stack_usage_est"),
         &crate::assets_panel::人类可读大小(上下文.编辑器.撤销.估算字节() as u64),
     );
     表格行(
         ui,
         上下文,
-        "已注册组件类型",
+        上下文.语言.取("registered_component_types"),
         &上下文.编辑器.注册表.数量().to_string(),
     );
 }

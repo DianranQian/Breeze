@@ -165,21 +165,18 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 全部行.is_empty() {
         ui.add_space(8.0);
-        ui.label(
-            RichText::new(
-                上下文
-                    .语言
-                    .取("场景是空的。\n点击上方 ＋ 新建实体，或从资源面板拖入图片。"),
-            )
-            .color(上下文.配色.次要文字),
-        );
+        ui.label(RichText::new(上下文.语言.取("hierarchy_empty_hint")).color(上下文.配色.次要文字));
         return;
     }
     if 显示行列表.is_empty() {
         ui.add_space(8.0);
         ui.label(
-            RichText::new(format!("没有名称包含 `{}` 的实体", 关键字.trim()))
-                .color(上下文.配色.次要文字),
+            RichText::new(
+                上下文
+                    .语言
+                    .填充("hierarchy_no_name_match", &[&关键字.trim()]),
+            )
+            .color(上下文.配色.次要文字),
         );
         return;
     }
@@ -268,7 +265,11 @@ fn 绘制行(
             let 眼睛 = if 行.隐藏 { "🚫" } else { "👁" };
             if ui
                 .add(egui::Button::new(眼睛).frame(false).small())
-                .on_hover_text(if 行.隐藏 { "显示" } else { "隐藏" })
+                .on_hover_text(if 行.隐藏 {
+                    上下文.语言.取("show")
+                } else {
+                    上下文.语言.取("hide")
+                })
                 .clicked()
             {
                 切换实体标记(上下文, 行.标识, 标记项::隐藏);
@@ -276,7 +277,11 @@ fn 绘制行(
             let 锁 = if 行.锁定 { "🔒" } else { "🔓" };
             if ui
                 .add(egui::Button::new(锁).frame(false).small())
-                .on_hover_text(if 行.锁定 { "解锁" } else { "锁定" })
+                .on_hover_text(if 行.锁定 {
+                    上下文.语言.取("unlock")
+                } else {
+                    上下文.语言.取("lock")
+                })
                 .clicked()
             {
                 切换实体标记(上下文, 行.标识, 标记项::锁定);

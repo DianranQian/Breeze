@@ -369,7 +369,7 @@ fn 绘制预览纹理(ui: &mut Ui, 上下文: &绘制上下文<'_>, 内容矩形
         ui.painter_at(内容矩形).text(
             内容矩形.center(),
             egui::Align2::CENTER_CENTER,
-            "预览渲染尚未就绪",
+            上下文.语言.取("preview_render_is_not_ready_yet"),
             egui::FontId::proportional(13.0),
             上下文.配色.次要文字,
         );
@@ -597,29 +597,41 @@ fn 绘制状态栏(
             // 否则会以为自己的场景丢了。
             let (预览文本, 预览色) = match &上下文.视口纹理 {
                 Some(结果) => (
-                    format!("● 预览 {}×{}", 结果.像素尺寸.0, 结果.像素尺寸.1),
+                    上下文
+                        .语言
+                        .填充("preview", &[&结果.像素尺寸.0, &结果.像素尺寸.1]),
                     上下文.配色.强调,
                 ),
-                None => ("○ 预览未就绪".to_string(), 上下文.配色.警告),
+                None => (
+                    上下文.语言.取("preview_not_ready").to_string(),
+                    上下文.配色.警告,
+                ),
             };
             ui.label(RichText::new(预览文本).small().color(预览色))
                 .on_hover_text(if 上下文.视口纹理.is_some() {
-                    "游戏场景实体由 Bevy 渲染到纹理后显示在这里；网格与选中框由编辑器叠加绘制"
+                    上下文.语言.取("viewport_render_pipeline_hint")
                 } else {
-                    "预览渲染尚未就绪：视口只显示网格与包围框，场景数据本身完好"
+                    上下文.语言.取("viewport_preview_not_ready_hint")
                 });
 
             ui.separator();
             ui.label(
-                RichText::new(format!("2D 视口 · {} 个实体", 所有框.len()))
-                    .small()
-                    .color(上下文.配色.次要文字),
+                RichText::new(
+                    上下文
+                        .语言
+                        .填充("viewport_2d_entity_count", &[&所有框.len()]),
+                )
+                .small()
+                .color(上下文.配色.次要文字),
             );
             ui.separator();
             ui.label(
-                RichText::new(format!("缩放 {:.0}%", 上下文.界面.相机.缩放 * 100.0))
-                    .small()
-                    .color(上下文.配色.次要文字),
+                RichText::new(上下文.语言.填充(
+                    "zoom_0",
+                    &[&format!("{:.0}", 上下文.界面.相机.缩放 * 100.0)],
+                ))
+                .small()
+                .color(上下文.配色.次要文字),
             );
             if let Some(世界) = 指针世界 {
                 ui.separator();
@@ -656,11 +668,9 @@ fn 绘制状态栏(
 pub fn 绘制提示(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
     ui.horizontal(|ui| {
         ui.label(
-            RichText::new(
-                上下文.语言.取("viewport_input_hint"),
-            )
-            .small()
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("viewport_input_hint"))
+                .small()
+                .color(上下文.配色.次要文字),
         );
     });
 }

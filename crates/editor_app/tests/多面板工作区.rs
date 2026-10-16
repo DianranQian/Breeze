@@ -250,6 +250,122 @@ fn 恢复默认布局动作能真正生效() {
     }
 }
 
+/// 语言偏好必须能写进配置并读回来。
+///
+/// 覆盖需求里的两条：配置读写、以及"切换语言后重启仍生效"。
+#[test]
+fn 语言偏好能持久化并恢复() {
+    let 目录 = tempfile::tempdir().unwrap();
+    let 配置路径 = 目录.path().join("config.ron");
+
+    // 写：模拟用户在设置菜单里选了英文
+    let mut 配置 = editor_app::config::编辑器配置::default();
+    配置.偏好.insert(
+        "语言".to_string(),
+        editor_ui::i18n::语言::英文.代号().to_string(),
+    );
+    配置.保存(&配置路径).expect("应当能写出配置");
+
+    // 读：重启后应当拿到英文
+    let 读回 = editor_app::config::编辑器配置::载入(&配置路径);
+    let 代号 = 读回.偏好.get("语言").expect("配置里应当有语言偏好");
+    assert_eq!(
+        editor_ui::i18n::语言::从代号(代号),
+        editor_ui::i18n::语言::英文,
+        "语言偏好应当能原样恢复"
+    );
+}
+
+/// 配置里出现**未知语言**时必须安全回退，而不是崩溃或卡在空值。
+#[test]
+fn 未知语言回退到中文() {
+    let 目录 = tempfile::tempdir().unwrap();
+    let 配置路径 = 目录.path().join("config.ron");
+    // 手写一个含未知语言的配置（模拟被手工改坏、或来自更新版本）
+    std::fs::write(
+        &配置路径,
+        "(格式版本: 1, 布局: None, 最近项目: None, 偏好: {\"语言\": \"klingon\"})",
+    )
+    .unwrap();
+
+    let 配置 = editor_app::config::编辑器配置::载入(&配置路径);
+    let 代号 = 配置.偏好.get("语言").map(String::as_str).unwrap_or("");
+    assert_eq!(
+        editor_ui::i18n::语言::从代号(代号),
+        editor_ui::i18n::语言::中文,
+        "未知语言必须回退到中文，保证编辑器仍可用"
+    );
+}
+
+/// 配置被损坏时，读取不能失败 —— 用户只是丢了一次布局，不该连编辑器都开不了。
+#[test]
+fn 损坏的配置回退到默认值且语言回到中文() {
+    let 目录 = tempfile::tempdir().unwrap();
+    let 配置路径 = 目录.path().join("config.ron");
+    std::fs::write(&配置路径, "这不是合法的 RON {{{").unwrap();
+
+    let 配置 = editor_app::config::编辑器配置::载入(&配置路径);
+    assert!(
+        !配置.偏好.contains_key("语言"),
+        "损坏的配置应当整体回退到默认值"
+    );
+    assert_eq!(
+        editor_ui::i18n::语言::从代号(配置.偏好.get("语言").map(String::as_str).unwrap_or("")),
+        editor_ui::i18n::语言::中文
+    );
+}
+
+/// 语言切换动作必须真的改到界面状态，并且触发配置写盘。
+#[test]
+fn 语言切换动作改变界面语言并标记配置待写() {
+    let mut 世界 = 建测试世界();
+    // 先清掉脏标记，避免把别的原因造成的脏算到本动作头上
+    世界.resource_mut::<editor_app::config::布局待保存>().脏 = false;
+
+    推动作(
+        &mut 世界,
+        vec![UiAction::设置语言(editor_ui::i18n::语言::英文)],
+    );
+    执行动作(&mut 世界);
+
+    assert_eq!(
+        世界.resource::<UiStateHolder>().状态.语言,
+        editor_ui::i18n::语言::英文,
+        "切换语言的动作必须改到界面状态"
+    );
+    assert!(
+        世界.resource::<editor_app::config::布局待保存>().脏,
+        "切换语言属于用户偏好，必须触发配置写盘，否则重启后又回到中文"
+    );
+}
+
+/// 重复设置同一个语言必须幂等：不应再次触发写盘。
+#[test]
+fn 重复设置同一语言是幂等的() {
+    let mut 世界 = 建测试世界();
+
+    // 第一次：切成英文
+    推动作(
+        &mut 世界,
+        vec![UiAction::设置语言(editor_ui::i18n::语言::英文)],
+    );
+    执行动作(&mut 世界);
+    // 手动清掉脏标记，专门观察第二次调用会不会重新弄脏
+    世界.resource_mut::<editor_app::config::布局待保存>().脏 = false;
+
+    // 第二次：仍是英文
+    推动作(
+        &mut 世界,
+        vec![UiAction::设置语言(editor_ui::i18n::语言::英文)],
+    );
+    执行动作(&mut 世界);
+
+    assert!(
+        !世界.resource::<editor_app::config::布局待保存>().脏,
+        "语言没有变化时不应触发写盘 —— 否则反复点同一个菜单项会一直写磁盘"
+    );
+}
+
 /// 只改界面的动作也必须被动作执行器处理，而不是被静默丢弃。
 #[test]
 fn 界面类动作会被动作执行器处理() {

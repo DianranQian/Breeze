@@ -77,18 +77,17 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let Some(标识) = 编辑器.选择.主选中() else {
         ui.add_space(12.0);
         ui.label(
-            RichText::new(
-                上下文
-                    .语言
-                    .取("未选中任何实体。\n在场景树或视口里点选一个实体即可编辑其属性。"),
-            )
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("inspector_no_entity_selected_hint"))
+                .color(上下文.配色.次要文字),
         );
         return;
     };
 
     let Some(实体) = 编辑器.会话.文档.取(标识) else {
-        ui.label(RichText::new(上下文.语言.取("the_selected_entity_no_longer_exists")).color(上下文.配色.错误));
+        ui.label(
+            RichText::new(上下文.语言.取("the_selected_entity_no_longer_exists"))
+                .color(上下文.配色.错误),
+        );
         return;
     };
 
@@ -134,9 +133,11 @@ fn 绘制头部(
 
     if 选择数量 > 1 {
         ui.label(
-            RichText::new(format!(
-                "已选中 {选择数量} 个实体，此处编辑仅作用于主选中项"
-            ))
+            RichText::new(
+                上下文
+                    .语言
+                    .填充("inspector_multi_selection_hint", &[&选择数量]),
+            )
             .small()
             .color(上下文.配色.警告),
         );
@@ -150,17 +151,16 @@ fn 绘制头部(
                 .monospace()
                 .color(上下文.配色.次要文字),
         )
-        .on_hover_text(
-            上下文
-                .语言
-                .取("实体标识是稳定不变的，重命名或移动层级都不会改变它"),
-        );
+        .on_hover_text(上下文.语言.取("entity_id_stable_tooltip"));
     });
 
     ui.horizontal(|ui| {
         let 可添加组件 = 上下文.编辑器.注册表.数量() > 0;
         if ui
-            .add_enabled(可添加组件, egui::Button::new("添加组件"))
+            .add_enabled(
+                可添加组件,
+                egui::Button::new(上下文.语言.取("add_component")),
+            )
             .clicked()
         {
             上下文.界面.打开组件选择器 = !上下文.界面.打开组件选择器;
@@ -264,7 +264,10 @@ fn 绘制变换区(
             );
         }
 
-        if ui.button(上下文.语言.取("reset_to_identity_transform")).clicked() {
+        if ui
+            .button(上下文.语言.取("reset_to_identity_transform"))
+            .clicked()
+        {
             提交变换(上下文, 标识, 变换数据::单位());
         }
     });
@@ -316,12 +319,8 @@ fn 绘制组件列表(
     if 实体.组件.is_empty() {
         ui.add_space(6.0);
         ui.label(
-            RichText::new(
-                上下文
-                    .语言
-                    .取("该实体还没有组件。\n点击上方「添加组件」为它添加一个。"),
-            )
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("inspector_entity_has_no_components_hint"))
+                .color(上下文.配色.次要文字),
         );
         return;
     }
@@ -386,7 +385,10 @@ fn 绘制单个组件(
         .id_salt(format!("组件-{类型名}"))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                if ui.small_button(上下文.语言.取("remove_component_2")).clicked() {
+                if ui
+                    .small_button(上下文.语言.取("remove_component_2"))
+                    .clicked()
+                {
                     上下文.动作.推(UiAction::删除组件 {
                         实体: 标识,
                         类型名: 类型名.to_string(),
@@ -409,7 +411,7 @@ fn 绘制单个组件(
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(名字).color(上下文.配色.次要文字));
                         let mut 新值 = 值.clone();
-                        if 通用值编辑(ui, 名字, &mut 新值) {
+                        if 通用值编辑(ui, 名字, &mut 新值, 上下文.语言) {
                             提交属性(上下文, 标识, 类型名, 名字, 新值);
                         }
                     });
@@ -433,8 +435,8 @@ fn 绘制单个组件(
                     // 字段名与悬停提示。提示内容由 `格式提示` 统一组装，
                     // 因此这里不需要按"提示是否为空"分叉 —— 之前那样写
                     // 会出现两个完全相同的分支。
-                    ui.label(RichText::new(&描述.显示名).color(上下文.配色.文字))
-                        .on_hover_text(格式提示(描述));
+                    ui.label(RichText::new(上下文.语言.取(描述.显示名)).color(上下文.配色.文字))
+                        .on_hover_text(格式提示(描述, 上下文.语言));
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if 描述.只读 {
@@ -459,12 +461,15 @@ fn 绘制单个组件(
 }
 
 /// 组合悬停提示。
-fn 格式提示(描述: &属性描述) -> String {
+fn 格式提示(描述: &属性描述, 语言: crate::i18n::语言) -> String {
     let 类型 = 描述.种类.类型名();
     if 描述.提示.is_empty() {
-        format!("{} · 类型 {}", 描述.字段名, 类型)
+        语言.填充("type", &[&描述.字段名, &类型])
     } else {
-        format!("{}\n字段名 {} · 类型 {}", 描述.提示, 描述.字段名, 类型)
+        语言.填充(
+            "tooltip_field_name_and_type",
+            &[&语言.取(描述.提示), &描述.字段名, &类型],
+        )
     }
 }
 
@@ -641,7 +646,7 @@ fn 按描述编辑(
                 .iter()
                 .find(|(_, 变体名, 序号)| 变体名 == &当前.变体名 || *序号 == 当前.序号)
                 .map(|(显示名, _, _)| 显示名.clone())
-                .unwrap_or_else(|| format!("{}（未知）", 当前.变体名));
+                .unwrap_or_else(|| 上下文.语言.填充("unknown", &[&当前.变体名]));
 
             let mut 改变 = false;
             egui::ComboBox::from_id_salt(format!("枚举-{字段名}"))
@@ -751,7 +756,7 @@ fn 按描述编辑(
 
                     ui.horizontal(|ui| {
                         ui.label(
-                            RichText::new(&子描述.显示名)
+                            RichText::new(上下文.语言.取(子描述.显示名))
                                 .small()
                                 .color(上下文.配色.次要文字),
                         );
@@ -798,7 +803,9 @@ fn 元素_default(元素: &属性种类) -> 属性值 {
 }
 
 /// 在没有字段描述时，按值的实际种类推断控件。
-fn 通用值编辑(ui: &mut Ui, 字段名: &str, 值: &mut 属性值) -> bool {
+fn 通用值编辑(
+    ui: &mut Ui, 字段名: &str, 值: &mut 属性值, 语言: crate::i18n::语言
+) -> bool {
     match 值 {
         属性值::布尔(开关) => ui.checkbox(开关, "").changed(),
         属性值::整数(数值) => ui.add(egui::DragValue::new(数值)).changed(),
@@ -871,7 +878,7 @@ fn 通用值编辑(ui: &mut Ui, 字段名: &str, 值: &mut 属性值) -> bool {
             let mut 改变 = false;
             ui.vertical(|ui| {
                 for (下标, 项) in 列表.iter_mut().enumerate() {
-                    改变 |= 通用值编辑(ui, &format!("{字段名}-{下标}"), 项);
+                    改变 |= 通用值编辑(ui, &format!("{字段名}-{下标}"), 项, 语言);
                 }
             });
             改变
@@ -882,14 +889,14 @@ fn 通用值编辑(ui: &mut Ui, 字段名: &str, 值: &mut 属性值) -> bool {
                 for (名字, 项) in 字段.iter_mut() {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(名字.as_str()).small());
-                        改变 |= 通用值编辑(ui, 名字, 项);
+                        改变 |= 通用值编辑(ui, 名字, 项, 语言);
                     });
                 }
             });
             改变
         }
         属性值::空 => {
-            ui.label(RichText::new("（空）").color(Color32::GRAY));
+            ui.label(RichText::new(语言.取("empty_2")).color(Color32::GRAY));
             false
         }
     }

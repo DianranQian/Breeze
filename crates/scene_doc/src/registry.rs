@@ -188,14 +188,14 @@ impl 属性种类 {
 pub struct 属性描述 {
     /// 字段名。与 Rust 结构体的字段标识符保持一致，作为序列化键。
     pub 字段名: String,
-    /// 在 Inspector 里显示的名字（中文）。
-    pub 显示名: String,
+    /// 在 Inspector 里显示的名字。存的是词条键，由界面按当前语言解析。
+    pub 显示名: &'static str,
     /// 编辑语义。
     pub 种类: 属性种类,
     /// 默认值。注册时校验必须符合 `种类`。
     pub 默认值: 属性值,
-    /// 鼠标悬停提示。
-    pub 提示: String,
+    /// 鼠标悬停提示。同样存词条键，由界面按当前语言解析。
+    pub 提示: &'static str,
     /// 是否只读。只读字段在 Inspector 里显示但不可编辑。
     pub 只读: bool,
 }
@@ -204,23 +204,23 @@ impl 属性描述 {
     /// 创建一个可编辑属性描述。
     pub fn 新建(
         字段名: impl Into<String>,
-        显示名: impl Into<String>,
+        显示名: &'static str,
         种类: 属性种类,
         默认值: 属性值,
     ) -> Self {
         Self {
             字段名: 字段名.into(),
-            显示名: 显示名.into(),
+            显示名,
             种类,
             默认值,
-            提示: String::new(),
+            提示: "",
             只读: false,
         }
     }
 
     /// 附加悬停提示。
-    pub fn 带提示(mut self, 提示: impl Into<String>) -> Self {
-        self.提示 = 提示.into();
+    pub fn 带提示(mut self, 提示: &'static str) -> Self {
+        self.提示 = 提示;
         self
     }
 

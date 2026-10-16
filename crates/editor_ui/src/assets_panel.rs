@@ -205,12 +205,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let Some(项目) = 上下文.编辑器.项目.as_ref() else {
         ui.add_space(12.0);
         ui.label(
-            RichText::new(
-                上下文
-                    .语言
-                    .取("尚未打开项目。\n请在「文件 → 打开项目」里选择一个项目目录。"),
-            )
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("assets_no_project_hint")).color(上下文.配色.次要文字),
         );
         return;
     };
@@ -227,16 +222,16 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
         egui::ComboBox::from_id_salt("资源排序")
             .selected_text(match 上下文.界面.资源排序 {
-                资源排序::名称 => "按名称",
-                资源排序::大小 => "按大小",
-                资源排序::类型 => "按类型",
+                资源排序::名称 => 上下文.语言.取("by_name"),
+                资源排序::大小 => 上下文.语言.取("by_size"),
+                资源排序::类型 => 上下文.语言.取("by_type"),
             })
             .width(90.0)
             .show_ui(ui, |ui| {
                 for (方式, 文本) in [
-                    (资源排序::名称, "按名称"),
-                    (资源排序::大小, "按大小"),
-                    (资源排序::类型, "按类型"),
+                    (资源排序::名称, 上下文.语言.取("by_name")),
+                    (资源排序::大小, 上下文.语言.取("by_size")),
+                    (资源排序::类型, 上下文.语言.取("by_type")),
                 ] {
                     if ui
                         .selectable_label(上下文.界面.资源排序 == 方式, 文本)
@@ -265,7 +260,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 文件总数: usize = 树.iter().map(资源节点::文件数量).sum();
     ui.horizontal(|ui| {
         ui.label(
-            RichText::new(format!("{} 个资源文件", 文件总数))
+            RichText::new(上下文.语言.填充("asset_files", &[&文件总数]))
                 .small()
                 .color(上下文.配色.次要文字),
         );
@@ -273,14 +268,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     if 树.is_empty() {
         ui.add_space(8.0);
-        ui.label(
-            RichText::new(
-                上下文
-                    .语言
-                    .取("没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。"),
-            )
-            .color(上下文.配色.次要文字),
-        );
+        ui.label(RichText::new(上下文.语言.取("assets_empty_hint")).color(上下文.配色.次要文字));
         return;
     }
 
@@ -371,11 +359,9 @@ fn 绘制文件行(
                 .sense(Sense::click_and_drag()),
         );
 
-        响应.clone().on_hover_text(format!(
-            "{}\n类别：{}\n大小：{}",
-            路径文本,
-            类别.显示名(),
-            人类可读大小(大小)
+        响应.clone().on_hover_text(上下文.语言.填充(
+            "tooltip_asset_category_and_size",
+            &[&路径文本, &类别.显示名(), &人类可读大小(大小)],
         ));
 
         // 双击：场景文件打开场景，图片资源创建精灵。
@@ -391,7 +377,10 @@ fn 绘制文件行(
         }
 
         响应.context_menu(|ui| {
-            if ui.button(上下文.语言.取("add_this_asset_to_the_scene")).clicked() {
+            if ui
+                .button(上下文.语言.取("add_this_asset_to_the_scene"))
+                .clicked()
+            {
                 上下文.动作.推(UiAction::从资源创建实体 {
                     资源: 路径.clone(),
                     父实体: 上下文.主选中(),

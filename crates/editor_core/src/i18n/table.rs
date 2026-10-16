@@ -9,6 +9,11 @@
 use super::词条;
 
 /// 全部词条，按 `键` 的字节序升序。
+///
+/// `#[rustfmt::skip]`：让 rustfmt 不要重排这几百行。
+/// 否则 `cargo fmt` 会改动生成物，`--check` 与数据文件比对时就永远不一致，
+/// 而那个检查本来是用来防止有人手改生成物的 —— 一个总是失败的检查等于没有检查。
+#[rustfmt::skip]
 pub static 词表: &[词条] = &[
     词条 { 键: "about_bevy_studio", 中文: "关于 Bevy Studio", 英文: "About Bevy Studio" },
     词条 { 键: "about_scene_format", 中文: "RON（场景与项目清单的序列化格式）", 英文: "RON (serialization format for scenes and project manifests)" },
@@ -24,9 +29,9 @@ pub static 词表: &[词条] = &[
     词条 { 键: "asset_files", 中文: "{} 个资源文件", 英文: "{} asset files" },
     词条 { 键: "asset_folder", 中文: "资源目录-{}", 英文: "Asset Folder - {}" },
     词条 { 键: "assets", 中文: "资源", 英文: "Assets" },
-    词条 { 键: "assets_empty_hint", 中文: "没有资源。\\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。", 英文: "No assets.\\nDrop images, audio, and other files into the project's assets/ directory and they will be detected." },
+    词条 { 键: "assets_empty_hint", 中文: "没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。", 英文: "No assets.\nDrop images, audio, and other files into the project's assets/ directory and they will be detected." },
     词条 { 键: "assets_loaded", 中文: "已加载资源数", 英文: "Assets Loaded" },
-    词条 { 键: "assets_no_project_hint", 中文: "尚未打开项目。\\n请在「文件 → 打开项目」里选择一个项目目录。", 英文: "No project is open yet.\\nUse \"File -> Open Project\" to choose a project directory." },
+    词条 { 键: "assets_no_project_hint", 中文: "尚未打开项目。\n请在「文件 → 打开项目」里选择一个项目目录。", 英文: "No project is open yet.\nUse \"File -> Open Project\" to choose a project directory." },
     词条 { 键: "bevy_studio_menu_bar", 中文: "bevy_studio_菜单栏", 英文: "bevy_studio_menu_bar" },
     词条 { 键: "bevy_studio_root_ui", 中文: "bevy_studio_根界面", 英文: "bevy_studio_root_ui" },
     词条 { 键: "bevy_studio_status_bar", 中文: "bevy_studio_状态栏", 英文: "bevy_studio_status_bar" },
@@ -103,7 +108,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "has_unsaved_changes", 中文: "有未保存的修改", 英文: "Has unsaved changes" },
     词条 { 键: "help", 中文: "帮助", 英文: "Help" },
     词条 { 键: "hide", 中文: "隐藏", 英文: "Hide" },
-    词条 { 键: "hierarchy_empty_hint", 中文: "场景是空的。\\n点击上方 ＋ 新建实体，或从资源面板拖入图片。", 英文: "The scene is empty.\\nClick + New Entity above, or drag an image in from the Assets panel." },
+    词条 { 键: "hierarchy_empty_hint", 中文: "场景是空的。\n点击上方 ＋ 新建实体，或从资源面板拖入图片。", 英文: "The scene is empty.\nClick + New Entity above, or drag an image in from the Assets panel." },
     词条 { 键: "hierarchy_filter_ancestors_hint", 中文: "已按名称过滤，匹配项的祖先会一并显示", 英文: "Filtered by name; ancestors of matches are shown as well" },
     词条 { 键: "hierarchy_no_name_match", 中文: "没有名称包含 `{}` 的实体", 英文: "No entity whose name contains `{}`" },
     词条 { 键: "history", 中文: "历史", 英文: "History" },
@@ -114,9 +119,9 @@ pub static 词表: &[词条] = &[
     词条 { 键: "inspector", 中文: "检查器", 英文: "Inspector" },
     词条 { 键: "inspector_all_components_added", 中文: "已注册的组件都已添加，或注册表为空", 英文: "All registered components have been added, or the registry is empty" },
     词条 { 键: "inspector_component_unregistered_hint", 中文: "未注册：字段可查看但布局未知", 英文: "Not registered: fields are viewable but the layout is unknown" },
-    词条 { 键: "inspector_entity_has_no_components_hint", 中文: "该实体还没有组件。\\n点击上方「添加组件」为它添加一个。", 英文: "This entity has no components yet.\\nClick \"Add Component\" above to add one." },
+    词条 { 键: "inspector_entity_has_no_components_hint", 中文: "该实体还没有组件。\n点击上方「添加组件」为它添加一个。", 英文: "This entity has no components yet.\nClick \"Add Component\" above to add one." },
     词条 { 键: "inspector_multi_selection_hint", 中文: "已选中 {} 个实体，此处编辑仅作用于主选中项", 英文: "{} entities selected; edits here only affect the primary selection" },
-    词条 { 键: "inspector_no_entity_selected_hint", 中文: "未选中任何实体。\\n在场景树或视口里点选一个实体即可编辑其属性。", 英文: "No entity selected.\\nClick an entity in the Scene Tree or Viewport to edit its properties." },
+    词条 { 键: "inspector_no_entity_selected_hint", 中文: "未选中任何实体。\n在场景树或视口里点选一个实体即可编辑其属性。", 英文: "No entity selected.\nClick an entity in the Scene Tree or Viewport to edit its properties." },
     词条 { 键: "inspector_scale_zero_warning", 中文: "警告：缩放含 0，实体将不可见", 英文: "Warning: the scale contains 0, so the entity will be invisible" },
     词条 { 键: "items", 中文: "{} 项", 英文: "{} items" },
     词条 { 键: "language_self_en", 中文: "English", 英文: "English" },
@@ -226,10 +231,10 @@ pub static 词表: &[词条] = &[
     词条 { 键: "the_selected_entity_no_longer_exists", 中文: "选中的实体已不存在", 英文: "The selected entity no longer exists" },
     词条 { 键: "theoretical_max", 中文: "理论上限", 英文: "Theoretical Max" },
     词条 { 键: "there_is_nothing_to_undo_yet", 中文: "还没有任何可撤销的操作。", 英文: "There is nothing to undo yet." },
-    词条 { 键: "tooltip_asset_category_and_size", 中文: "{}\\n类别：{}\\n大小：{}", 英文: "{}\\nCategory: {}\\nSize: {}" },
+    词条 { 键: "tooltip_asset_category_and_size", 中文: "{}\n类别：{}\n大小：{}", 英文: "{}\nCategory: {}\nSize: {}" },
     词条 { 键: "tooltip_delete_entity_subtree", 中文: "删除选中实体及其子树（Delete）", 英文: "Delete the selected entity and its subtree (Delete)" },
     词条 { 键: "tooltip_feature_not_implemented", 中文: "该功能尚未实现（本版本不提供）", 英文: "This feature is not implemented yet (not available in this version)" },
-    词条 { 键: "tooltip_field_name_and_type", 中文: "{}\\n字段名 {} · 类型 {}", 英文: "{}\\nField name {} · Type {}" },
+    词条 { 键: "tooltip_field_name_and_type", 中文: "{}\n字段名 {} · 类型 {}", 英文: "{}\nField name {} · Type {}" },
     词条 { 键: "tooltip_new_child_entity", 中文: "在选中实体下新建子实体；未选中时建在顶层", 英文: "Create a child entity under the selection; created at the top level when nothing is selected" },
     词条 { 键: "tooltip_open_assets_folder", 中文: "在文件管理器中打开 assets/", 英文: "Open assets/ in the file manager" },
     词条 { 键: "tooltip_run_current_scene", 中文: "从编辑器启动游戏，运行当前场景（F5）", 英文: "Launch the game from the editor and run the current scene (F5)" },

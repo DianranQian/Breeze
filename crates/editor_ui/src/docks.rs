@@ -37,7 +37,24 @@ impl Tab {
     /// 语言作为参数传入而不是读全局状态：标题是纯展示数据，
     /// 保持成纯函数才好写单元测试。
     pub fn 标题(&self, 语言: crate::i18n::语言) -> &'static str {
-        语言.取(self.中文标题())
+        语言.取(self.标题键())
+    }
+
+    /// 面板标签的词条键。
+    ///
+    /// 与 [`Tab::菜单键`] 分开：菜单里写的是"资源浏览器"，
+    /// 而面板标签为了省宽度只写"资源"，两者的键不同。
+    pub fn 标题键(&self) -> &'static str {
+        match self {
+            Tab::场景树 => "scene_tree",
+            Tab::检查器 => "inspector",
+            Tab::视口 => "viewport",
+            Tab::资源浏览器 => "assets",
+            Tab::控制台 => "console",
+            Tab::历史 => "history",
+            Tab::运行时ecs => "runtime_ecs",
+            Tab::性能 => "performance",
+        }
     }
 
     /// 标题的中文原文。

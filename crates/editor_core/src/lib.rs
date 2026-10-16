@@ -30,7 +30,7 @@ pub mod state;
 pub mod undo;
 
 pub use command::{命令结果, 编辑器命令};
-pub use i18n::{语言, 词表, 词条};
+pub use i18n::{词条, 词表, 语言};
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
     项目结果, 项目错误,

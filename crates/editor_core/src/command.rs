@@ -23,6 +23,8 @@ use scene_doc::document::{变换数据, 场景文档, 实体标识, 组件数据
 use scene_doc::error::{场景结果, 场景错误};
 use scene_doc::property::属性值;
 
+use crate::i18n::语言;
+
 /// 命令执行结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct 命令结果 {
@@ -171,24 +173,49 @@ pub enum 编辑器命令 {
 }
 
 impl 编辑器命令 {
-    /// 用于撤销栈显示的命令名（中文）。
-    pub fn 显示名(&self) -> &'static str {
+    /// 命令显示名对应的词条键。与语言无关，供界面按当前语言解析。
+    pub fn 显示名键(&self) -> &'static str {
         match self {
-            编辑器命令::新建实体 { .. } => "新建实体",
-            编辑器命令::删除实体 { .. } => "删除实体",
-            编辑器命令::重命名实体 { .. } => "重命名实体",
-            编辑器命令::重设父子 { .. } => "调整层级",
-            编辑器命令::上移实体 { .. } => "上移实体",
-            编辑器命令::下移实体 { .. } => "下移实体",
-            编辑器命令::设变换 { .. } => "修改变换",
-            编辑器命令::批量设变换 { .. } => "批量修改变换",
-            编辑器命令::添加组件 { .. } => "添加组件",
-            编辑器命令::删除组件 { .. } => "删除组件",
-            编辑器命令::设组件属性 { .. } => "修改属性",
-            编辑器命令::批量设属性 { .. } => "批量修改属性",
-            编辑器命令::替换实体 { .. } => "替换实体",
-            编辑器命令::设为快照 { .. } => "应用快照",
+            编辑器命令::新建实体 { .. } => "new_entity_2",
+            编辑器命令::删除实体 { .. } => "delete_entity",
+            编辑器命令::重命名实体 { .. } => "rename_entity",
+            编辑器命令::重设父子 { .. } => "command_reparent",
+            编辑器命令::上移实体 { .. } => "command_move_entity_up",
+            编辑器命令::下移实体 { .. } => "command_move_entity_down",
+            编辑器命令::设变换 { .. } => "command_set_transform",
+            编辑器命令::批量设变换 { .. } => "command_batch_set_transform",
+            编辑器命令::添加组件 { .. } => "add_component",
+            编辑器命令::删除组件 { .. } => "remove_component",
+            编辑器命令::设组件属性 { .. } => "command_set_property",
+            编辑器命令::批量设属性 { .. } => "command_batch_set_property",
+            编辑器命令::替换实体 { .. } => "command_replace_entity",
+            编辑器命令::设为快照 { .. } => "command_apply_snapshot",
         }
+    }
+
+    /// 用于撤销栈显示的命令名，按给定语言取词条。
+    pub fn 显示名(&self, 语言: 语言) -> &'static str {
+        语言.取(self.显示名键())
+    }
+
+    /// 全部命令显示名键，供词表覆盖核对枚举。
+    pub fn 全部显示名键() -> [&'static str; 14] {
+        [
+            "new_entity_2",
+            "delete_entity",
+            "rename_entity",
+            "command_reparent",
+            "command_move_entity_up",
+            "command_move_entity_down",
+            "command_set_transform",
+            "command_batch_set_transform",
+            "add_component",
+            "remove_component",
+            "command_set_property",
+            "command_batch_set_property",
+            "command_replace_entity",
+            "command_apply_snapshot",
+        ]
     }
 
     /// 执行命令，修改给定文档。

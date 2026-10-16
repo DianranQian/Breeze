@@ -333,7 +333,7 @@ impl 界面状态 {
             显示关于: false,
             显示新建项目: false,
             显示新建项目确认: false,
-            新建项目名: "我的游戏".to_string(),
+            新建项目名: crate::i18n::语言::default().取("my_game").to_string(),
             待确认动作: None,
             视口尺寸: egui::vec2(800.0, 600.0),
         }
@@ -367,7 +367,7 @@ impl 界面状态 {
             &self.停靠,
             ron::ser::PrettyConfig::default().new_line("\n".to_string()),
         )
-        .map_err(|错误| format!("布局序列化失败：{错误}"))
+        .map_err(|错误| self.语言.填充("error_layout_serialize_failed", &[&错误]))
     }
 
     /// 从序列化文本恢复布局。
@@ -376,13 +376,13 @@ impl 界面状态 {
     /// 清空成空面板 —— 后者会让用户面对一个什么都没有的窗口，
     /// 连"恢复默认布局"的菜单都找不到。
     pub fn 从序列化恢复布局(&mut self, 文本: &str) -> Result<(), String> {
-        let 布局: egui_dock::DockState<Tab> =
-            ron::from_str(文本).map_err(|错误| format!("布局解析失败：{错误}"))?;
+        let 布局: egui_dock::DockState<Tab> = ron::from_str(文本)
+            .map_err(|错误| self.语言.填充("failed_to_parse_layout", &[&错误]))?;
 
         // 空布局是合法的 RON，但对用户毫无用处（没有任何面板）。
         // 视为无效，回退到默认布局。
         if 布局.find_tab(&Tab::视口).is_none() {
-            return Err("布局里没有视口面板，视为无效".to_string());
+            return Err(self.语言.取("error_layout_missing_viewport").to_string());
         }
 
         self.停靠 = 布局;
@@ -422,7 +422,7 @@ impl 界面状态 {
 
     /// 开始新建实体。
     pub fn 开始新建实体(&mut self, 父实体: Option<实体标识>) {
-        self.文本缓冲 = "新实体".to_string();
+        self.文本缓冲 = self.语言.取("new_entity").to_string();
         self.文本编辑 = Some(文本编辑目标::新建实体 { 父实体 });
     }
 

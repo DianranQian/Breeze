@@ -27,8 +27,8 @@ pub mod viewport_panel;
 // 这里把模块整个再导出，于是界面代码仍可写 `crate::i18n::语言`。
 pub use editor_core::i18n;
 // 常用类型的便捷再导出，避免调用方到处写 `i18n::`。
-pub use editor_core::i18n::语言;
 pub use docks::Tab;
+pub use editor_core::i18n::语言;
 pub use fonts::{
     内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
 };
@@ -150,7 +150,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
         绘制上下文.界面.显示新建项目确认 = false;
         let 名称 = 绘制上下文.界面.新建项目名.trim().to_string();
         let 名称 = if 名称.is_empty() {
-            "我的游戏".to_string()
+            绘制上下文.语言.取("my_game").to_string()
         } else {
             名称
         };
@@ -165,9 +165,9 @@ fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
     ui.horizontal(|ui| {
         ui.label(
             egui::RichText::new(if 编辑器.有未保存修改() {
-                "● 未保存"
+                上下文.语言.取("unsaved")
             } else {
-                "✓ 已保存"
+                上下文.语言.取("saved")
             })
             .small()
             .color(if 编辑器.有未保存修改() {
@@ -179,12 +179,16 @@ fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
 
         ui.separator();
         ui.label(
-            egui::RichText::new(format!("实体 {}", 编辑器.会话.文档.实体数量()))
-                .small()
-                .color(上下文.配色.次要文字),
+            egui::RichText::new(
+                上下文
+                    .语言
+                    .填充("entities", &[&编辑器.会话.文档.实体数量()]),
+            )
+            .small()
+            .color(上下文.配色.次要文字),
         );
         ui.label(
-            egui::RichText::new(format!("已选 {}", 编辑器.选择.数量()))
+            egui::RichText::new(上下文.语言.填充("selected", &[&编辑器.选择.数量()]))
                 .small()
                 .color(上下文.配色.次要文字),
         );
@@ -195,7 +199,7 @@ fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
             .路径
             .as_ref()
             .map(|路径| 路径.文本().to_string())
-            .unwrap_or_else(|| "（尚未保存到文件）".to_string());
+            .unwrap_or_else(|| 上下文.语言.取("not_saved_to_a_file_yet").to_string());
         ui.label(
             egui::RichText::new(场景路径)
                 .small()
@@ -207,7 +211,7 @@ fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
             let 问题数 = 编辑器.问题数量();
             if 问题数 > 0 {
                 ui.label(
-                    egui::RichText::new(format!("⚠ {问题数} 条问题"))
+                    egui::RichText::new(上下文.语言.填充("problems", &[&问题数]))
                         .small()
                         .color(上下文.配色.警告),
                 );
@@ -250,7 +254,7 @@ fn 绘制_新建项目对话框(
     // 项目名先借出来编辑：`Window` 的闭包需要 `&mut String`，
     // 直接借用 `界面.新建项目名` 会与下面读 `界面.显示新建项目` 冲突。
     let mut 编辑中名称 = 界面.新建项目名.clone();
-    egui::Window::new("新建项目")
+    egui::Window::new(语言.取("new_project"))
         .collapsible(false)
         .resizable(false)
         .open(&mut 打开值)
@@ -258,11 +262,9 @@ fn 绘制_新建项目对话框(
             ui.label(语言.取("project_name"));
             ui.add(egui::TextEdit::singleline(&mut 编辑中名称).desired_width(240.0));
             ui.label(
-                egui::RichText::new(
-                    语言.取("new_project_target_dir_hint"),
-                )
-                .small()
-                .color(配色.次要文字),
+                egui::RichText::new(语言.取("new_project_target_dir_hint"))
+                    .small()
+                    .color(配色.次要文字),
             );
             ui.separator();
             ui.horizontal(|ui| {
@@ -306,11 +308,9 @@ fn 绘制_关于窗口(
         .open(&mut 打开)
         .show(egui上下文, |ui| {
             ui.heading("Bevy Studio");
-            ui.label(format!("版本 {}", env!("CARGO_PKG_VERSION")));
+            ui.label(语言.填充("version", &[&env!("CARGO_PKG_VERSION")]));
             ui.separator();
-            ui.label(
-                语言.取("about_tagline"),
-            );
+            ui.label(语言.取("about_tagline"));
             ui.add_space(6.0);
             ui.label(
                 egui::RichText::new(语言.取("tech_stack"))
@@ -322,7 +322,7 @@ fn 绘制_关于窗口(
             ui.label(语言.取("about_scene_format"));
             ui.separator();
             ui.label(
-                egui::RichText::new(format!("当前场景：{场景名}"))
+                egui::RichText::new(语言.填充("current_scene", &[&场景名]))
                     .small()
                     .color(配色.次要文字),
             );
@@ -420,7 +420,8 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             let 问题数 = self.上下文.编辑器.问题数量();
             if 问题数 > 0 {
                 return WidgetText::from(
-                    egui::RichText::new(format!("控制台 ({问题数})")).color(self.上下文.配色.警告),
+                    egui::RichText::new(self.上下文.语言.填充("console_2", &[&问题数]))
+                        .color(self.上下文.配色.警告),
                 );
             }
         }

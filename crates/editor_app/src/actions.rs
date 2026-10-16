@@ -15,7 +15,7 @@ use std::path::Path;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use editor_core::command::编辑器命令;
-use editor_core::state::{日志级别, 编辑器状态};
+use editor_core::state::{日志参数, 日志级别, 编辑器状态};
 use editor_ui::state::{UiAction, 选择意图};
 use editor_ui::界面状态;
 use scene_doc::property::{属性值, 资源引用值};
@@ -586,7 +586,10 @@ fn 执行单个动作(
             // 语言属于"用户偏好"，要与窗口布局一样写进编辑器配置 ——
             // 否则重启后又会回到中文，用户会以为切换没生效。
             布局待保存.脏 = true;
-            编辑器.信息(format!("界面语言已切换为 {}", 语言.自称()));
+            编辑器.结构化信息(
+                "log_language_changed",
+                vec![日志参数::用户数据(语言.自称().to_string())],
+            );
         }
 
         UiAction::清空控制台 => {
@@ -630,9 +633,9 @@ pub fn 转发控制台日志到标准错误(
 
     for 条目 in &日志[*已转发..] {
         match 条目.级别 {
-            日志级别::信息 => info!(target: "编辑器控制台", "{}", 条目.消息),
-            日志级别::警告 => warn!(target: "编辑器控制台", "{}", 条目.消息),
-            日志级别::错误 => error!(target: "编辑器控制台", "{}", 条目.消息),
+            日志级别::信息 => info!(target: "编辑器控制台", "{}", 条目.诊断文本()),
+            日志级别::警告 => warn!(target: "编辑器控制台", "{}", 条目.诊断文本()),
+            日志级别::错误 => error!(target: "编辑器控制台", "{}", 条目.诊断文本()),
         }
     }
     *已转发 = 日志.len();

@@ -851,7 +851,7 @@ fn 日志面板会区分级别并统计问题数() {
         状态.日志列表().len()
     );
     // 保留的应当是最新的
-    assert!(状态.日志列表().last().unwrap().消息.contains("2499"));
+    assert!(状态.日志列表().last().unwrap().诊断文本().contains("2499"));
 }
 
 #[test]

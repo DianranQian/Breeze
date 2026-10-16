@@ -272,3 +272,19 @@ about_implemented_features	本版本已实现：项目建立/打开、场景编�
 value_empty	空	Empty
 value_list_items	{} 项	{} items
 value_struct_fields	{} 个字段	{} fields
+log_level_info	信息	Info
+log_level_warning	警告	Warning
+log_level_error	错误	Error
+log_project_opened	已打开项目 `{}`：{} 个场景，{} 个资源	Opened project `{}`: {} scenes, {} assets
+log_scene_opened	已打开场景 {}	Opened scene {}
+log_scene_saved	已保存场景 {}	Saved scene {}
+log_scene_created	已新建场景 `{}`	Created scene `{}`
+log_scene_autoload_failed	自动载入场景 {} 失败：{}	Failed to auto-load scene {}: {}
+log_scene_autoload_failed_hint	已改为打开一个空白场景。请按上面的错误检查该场景文件，或从资源面板手动打开其他场景。	Opened a blank scene instead. Check that scene file per the error above, or open another scene from the Assets panel.
+log_language_changed	界面语言已切换为 {}	UI language switched to {}
+log_font_installed	已安装中文字体（内置子集 {} MB）	Installed CJK font (built-in subset {} MB)
+log_startup	Bevy Studio {} 启动：Bevy {} / egui 界面已就绪	Bevy Studio {} started: Bevy {} / egui UI ready
+log_restored_language	已恢复界面语言：{}	Restored UI language: {}
+log_restored_layout	已恢复上次的窗口布局	Restored the previous window layout
+log_layout_restore_failed	窗口布局无法恢复，改用默认布局：{}	Could not restore the window layout; using the default: {}
+log_project_open_failed	打开项目失败：{}	Failed to open project: {}

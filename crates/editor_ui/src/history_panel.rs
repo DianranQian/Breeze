@@ -137,20 +137,13 @@ pub fn 绘制运行时(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     if !上下文.正在运行 {
         ui.add_space(8.0);
         ui.label(
-            RichText::new(
-                "游戏未在运行。\n点击工具栏的「运行」按钮启动当前场景，\
-                 这里会显示运行时世界的实体与组件统计。",
-            )
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("runtime_not_running_hint")).color(上下文.配色.次要文字),
         );
         ui.add_space(8.0);
         ui.label(
-            RichText::new(
-                "说明：运行时世界与编辑器文档是两份独立数据。\
-                 运行时对实体和组件的改动不会写回场景文件。",
-            )
-            .small()
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("runtime_world_isolation_note"))
+                .small()
+                .color(上下文.配色.次要文字),
         );
         return;
     }
@@ -200,12 +193,9 @@ pub fn 绘制运行时(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             .color(上下文.配色.文字),
     );
     ui.label(
-        RichText::new(
-            "本面板展示的是**游戏运行时**的 ECS 统计，不是编辑器文档的统计。\
-             编辑器文档里的实体数量见「场景树」面板。",
-        )
-        .small()
-        .color(上下文.配色.次要文字),
+        RichText::new(上下文.语言.取("runtime_panel_scope_note"))
+            .small()
+            .color(上下文.配色.次要文字),
     );
 }
 
@@ -216,11 +206,8 @@ pub fn 绘制性能(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     if !上下文.正在运行 {
         ui.add_space(8.0);
         ui.label(
-            RichText::new(
-                "游戏未运行，没有性能数据。\n\
-                 编辑器自身的界面帧时间由 egui 统计，可在「性能」里查看编辑器开销。",
-            )
-            .color(上下文.配色.次要文字),
+            RichText::new(上下文.语言.取("performance_not_running_hint"))
+                .color(上下文.配色.次要文字),
         );
     } else {
         表格行(

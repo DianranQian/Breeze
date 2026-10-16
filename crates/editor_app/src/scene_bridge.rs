@@ -108,15 +108,6 @@ impl 运行状态 {
     pub fn 在运行(&self) -> bool {
         !matches!(self, 运行状态::已停止)
     }
-
-    /// 中文显示名。
-    pub fn 显示名(&self) -> &'static str {
-        match self {
-            运行状态::已停止 => "已停止",
-            运行状态::运行中 => "运行中",
-            运行状态::已暂停 => "已暂停",
-        }
-    }
 }
 
 /// 编辑器持有的运行时宿主。
@@ -657,26 +648,26 @@ fn 变换字段描述() -> &'static [属性描述] {
         vec![
             属性描述::新建(
                 "平移",
-                "平移",
+                "transform_field_translation",
                 属性种类::三维默认(),
                 属性值::三维(0.0, 0.0, 0.0),
             )
-            .带提示("世界坐标下的位置。2D 场景里通常只用到 X 与 Y"),
+            .带提示("transform_translation_tooltip"),
             属性描述::新建(
                 "旋转",
-                "旋转（四元数）",
+                "transform_field_rotation_quat",
                 属性种类::四维 { 步进: 0.01 },
                 属性值::四维(0.0, 0.0, 0.0, 1.0),
             )
-            .带提示("以四元数存储，保证插值与组合的正确性。Inspector 里可用角度编辑")
+            .带提示("transform_rotation_tooltip")
             .设只读(),
             属性描述::新建(
                 "缩放",
-                "缩放",
+                "transform_field_scale",
                 属性种类::三维默认(),
                 属性值::三维(1.0, 1.0, 1.0),
             )
-            .带提示("分量含 0 会让实体在该轴上不可见"),
+            .带提示("transform_scale_tooltip"),
         ]
     })
 }
@@ -727,10 +718,7 @@ fn 可见性字段描述() -> &'static [属性描述] {
     use std::sync::OnceLock;
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
-        vec![
-            布尔("可见", "可见", true)
-                .带提示("对应 Bevy 的 Visibility：开启映射为 Inherited，关闭映射为 Hidden"),
-        ]
+        vec![布尔("可见", "visibility_field_visible", true).带提示("visibility_field_tooltip")]
     })
 }
 
@@ -815,13 +803,17 @@ fn sprite字段描述() -> &'static [属性描述] {
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
         vec![
-            资源("贴图", "贴图", scene_doc::property::资源类别::图片)
-                .带提示("指向 assets 下的图片资源"),
-            颜色("颜色", "着色", 颜色值::白()),
-            布尔("水平翻转", "水平翻转", false),
-            布尔("垂直翻转", "垂直翻转", false),
-            二维("自定义尺寸", "自定义尺寸", (64.0, 64.0))
-                .带提示("留空则使用贴图原始尺寸；视口按此值绘制包围框"),
+            资源(
+                "贴图",
+                "sprite_field_texture",
+                scene_doc::property::资源类别::图片,
+            )
+            .带提示("sprite_field_texture_tooltip"),
+            颜色("颜色", "sprite_field_tint", 颜色值::白()),
+            布尔("水平翻转", "sprite_field_flip_horizontal", false),
+            布尔("垂直翻转", "sprite_field_flip_vertical", false),
+            二维("自定义尺寸", "sprite_field_custom_size", (64.0, 64.0))
+                .带提示("sprite_field_custom_size_tooltip"),
         ]
     })
 }
@@ -876,8 +868,15 @@ fn 相机字段描述() -> &'static [属性描述] {
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
         vec![
-            浮点("正交半高", "正交半高", 360.0, 1.0, 100000.0, 1.0)
-                .带提示("正交投影可见区域的垂直半高（世界单位）"),
+            浮点(
+                "正交半高",
+                "camera_field_ortho_half_height",
+                360.0,
+                1.0,
+                100000.0,
+                1.0,
+            )
+            .带提示("camera_ortho_half_height_tooltip"),
         ]
     })
 }

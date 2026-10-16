@@ -249,7 +249,7 @@ fn 绘制变换区(
         );
 
         ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("zoom"));
+            ui.label(上下文.语言.取("transform_field_scale"));
             if 三元拖动(ui, "缩放", &mut 新变换.缩放, 0.01) {
                 提交变换(上下文, 标识, 新变换);
             }
@@ -441,7 +441,7 @@ fn 绘制单个组件(
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if 描述.只读 {
                             ui.label(
-                                RichText::new(值摘要(&当前))
+                                RichText::new(值摘要(&当前, 上下文.语言))
                                     .monospace()
                                     .color(上下文.配色.次要文字),
                             );
@@ -676,7 +676,7 @@ fn 按描述编辑(
                             );
                         } else {
                             ui.label(
-                                RichText::new(类别.显示名())
+                                RichText::new(上下文.语言.取(类别.词条键()))
                                     .small()
                                     .color(上下文.配色.次要文字),
                             );
@@ -903,7 +903,7 @@ fn 通用值编辑(
 }
 
 /// 一行摘要文本，用于只读字段。
-fn 值摘要(值: &属性值) -> String {
+fn 值摘要(值: &属性值, 语言: crate::i18n::语言) -> String {
     match 值 {
         属性值::布尔(值) => 值.to_string(),
         属性值::整数(值) => 值.to_string(),
@@ -918,9 +918,9 @@ fn 值摘要(值: &属性值) -> String {
         ),
         属性值::枚举(枚举) => 枚举.变体名.clone(),
         属性值::资源(引用) => 引用.路径.文本().to_string(),
-        属性值::列表(列表) => format!("{} 项", 列表.len()),
-        属性值::结构(字段) => format!("{} 个字段", 字段.len()),
-        属性值::空 => "空".to_string(),
+        属性值::列表(列表) => 语言.填充("value_list_items", &[&列表.len()]),
+        属性值::结构(字段) => 语言.填充("value_struct_fields", &[&字段.len()]),
+        属性值::空 => 语言.取("value_empty").to_string(),
     }
 }
 
@@ -1031,7 +1031,7 @@ mod 测试 {
             属性值::空,
         ];
         for 值 in &所有值 {
-            let 摘要 = 值摘要(值);
+            let 摘要 = 值摘要(值, crate::i18n::语言::中文);
             assert!(!摘要.is_empty(), "{值:?} 的摘要不应为空");
         }
     }

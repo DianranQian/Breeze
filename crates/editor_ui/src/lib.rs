@@ -327,13 +327,9 @@ fn 绘制_关于窗口(
                     .color(配色.次要文字),
             );
             ui.label(
-                egui::RichText::new(
-                    "本版本已实现：项目建立/打开、场景编辑与保存、场景树、检查器、\
-                     2D 视口、资源浏览、撤销重做、控制台。\n\
-                     尚未实现的功能在菜单里显示为禁用，不会假装可用。",
-                )
-                .small()
-                .color(配色.次要文字),
+                egui::RichText::new(语言.取("about_implemented_features"))
+                    .small()
+                    .color(配色.次要文字),
             );
         });
     if !打开 {

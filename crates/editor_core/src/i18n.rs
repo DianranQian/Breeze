@@ -158,7 +158,7 @@ impl 语言 {
     ///
     /// 所以这里在运行时做替换。占位符统一只用 `{}`：
     /// 需要控制小数位数时由调用方先把值格式化好再传进来，例如
-    /// `语言.填充("zoom", &[&format!("{:.0}", 缩放 * 100.0)])`。
+    /// `语言.填充("viewport_zoom", &[&format!("{:.0}", 缩放 * 100.0)])`。
     /// 这样本函数只需处理"顺序替换"，不必自己实现一个格式化器。
     ///
     /// 占位符多于参数时，多出来的原样保留；参数多于占位符时多余的被忽略 ——
@@ -447,7 +447,7 @@ mod 测试 {
                 "视口",
                 &[
                     "viewport_2d_entity_count",
-                    "zoom",
+                    "viewport_zoom",
                     "fit_to_window_f",
                     "reset_view",
                     "grid",
@@ -457,6 +457,52 @@ mod 测试 {
             (
                 "场景树与检查器",
                 &["search", "entity_name", "inspector_no_entity_selected_hint"],
+            ),
+            // 检查器的字段名与提示来自组件注册表。
+            //
+            // 这一段是补上来的：上一轮注册表把**中文当键**存进
+            // `属性描述::显示名`，Inspector 执行 `语言.取("可见")` 查不到，
+            // 英文模式下字段名仍是中文。当时截图里 Inspector 根本没显示，
+            // 我没验证就下了"检查器已覆盖"的结论。
+            // 列进清单后，这类"注册表忘了换成键"会在测试阶段直接失败。
+            (
+                "检查器字段名（组件注册表）",
+                &[
+                    "transform_field_translation",
+                    "transform_field_rotation_quat",
+                    "transform_field_scale",
+                    "visibility_field_visible",
+                    "sprite_field_texture",
+                    "sprite_field_tint",
+                    "sprite_field_flip_horizontal",
+                    "sprite_field_flip_vertical",
+                    "sprite_field_custom_size",
+                    "camera_field_ortho_half_height",
+                ],
+            ),
+            (
+                "检查器字段提示",
+                &[
+                    "transform_translation_tooltip",
+                    "transform_rotation_tooltip",
+                    "transform_scale_tooltip",
+                    "visibility_field_tooltip",
+                    "sprite_field_texture_tooltip",
+                    "sprite_field_custom_size_tooltip",
+                    "camera_ortho_half_height_tooltip",
+                ],
+            ),
+            (
+                "资源类别",
+                &[
+                    "asset_category_image",
+                    "asset_category_audio",
+                    "asset_category_font",
+                    "asset_category_model",
+                    "asset_category_material",
+                    "asset_category_shader",
+                    "asset_category_other",
+                ],
             ),
             ("语言自称", &["language_self_zh_cn", "language_self_en"]),
         ];

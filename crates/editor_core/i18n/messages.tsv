@@ -55,7 +55,7 @@ console	控制台	Console
 console_2	控制台 ({})	Console ({})
 create_an_entity_in_the_scene_tree	在场景树中新建实体	Create an entity in the Scene Tree
 current_scene	当前场景：{}	Current scene: {}
-custom_size	自定义尺寸	Custom Size
+sprite_field_custom_size	自定义尺寸	Custom Size
 debug	调试	Debug
 delete	删除	Delete
 delete_2	🗑 删除	🗑 Delete
@@ -85,7 +85,7 @@ failed_to_parse_layout	布局解析失败：{}	Failed to parse layout: {}
 fields	{} 个字段	{} fields
 file	文件	File
 fit_to_window_f	适应窗口 (F)	Fit to Window (F)
-flip_horizontal	水平翻转	Flip Horizontal
+sprite_field_flip_horizontal	水平翻转	Flip Horizontal
 focus_selection	聚焦选中项	Focus Selection
 fps	帧率	FPS
 frame_time	帧耗时	Frame Time
@@ -139,7 +139,7 @@ not_saved_to_a_file_yet	（尚未保存到文件）	(not saved to a file yet)
 not_set	（未设置）	(not set)
 open_project	打开项目…	Open Project…
 open_scene	打开场景…	Open Scene…
-pan	平移	Pan
+transform_field_translation	平移	Translation
 pause	⏸ 暂停	⏸ Pause
 pause_or_resume_running_f6	暂停或继续运行（F6）	Pause or resume running (F6)
 pause_resume	暂停/继续	Pause/Resume
@@ -254,6 +254,21 @@ visibility_field_tooltip	对应 Bevy 的 Visibility：开启映射为 Inherited�
 visibility_field_visible	可见	Visible
 warnings	警告 {}	Warnings {}
 window	窗口	Window
-zoom	缩放	Zoom
-zoom_0	缩放 {}%	Zoom {}%
+transform_field_scale	缩放	Scale
+viewport_zoom	缩放 {}%	Zoom {}%
 language_self_en	English	English
+asset_category_image	图片	Image
+asset_category_audio	音频	Audio
+asset_category_font	字体	Font
+asset_category_model	模型	Model
+asset_category_material	材质	Material
+asset_category_shader	着色器	Shader
+asset_category_other	其他	Other
+runtime_not_running_hint	游戏未在运行。\n点击工具栏的「运行」按钮启动当前场景，这里会显示运行时世界的实体与组件统计。	The game is not running.\nClick Run in the toolbar to start the current scene; runtime entity and component statistics will appear here.
+runtime_world_isolation_note	说明：运行时世界与编辑器文档是两份独立数据。运行时对实体和组件的改动不会写回场景文件。	Note: the runtime world and the editor document are separate data. Runtime changes to entities and components are not written back to the scene file.
+runtime_panel_scope_note	本面板展示的是游戏运行时的 ECS 统计，不是编辑器文档的统计。编辑器文档里的实体数量见「场景树」面板。	This panel shows ECS statistics of the running game, not of the editor document. See the Scene Tree panel for editor document entity counts.
+performance_not_running_hint	游戏未运行，没有性能数据。\n编辑器自身的界面帧时间由 egui 统计，可在「性能」里查看编辑器开销。	The game is not running, so there is no performance data.\nThe editor's own UI frame time is measured by egui; see Performance for editor overhead.
+about_implemented_features	本版本已实现：项目建立/打开、场景编辑与保存、场景树、检查器、2D 视口、资源浏览、撤销重做、控制台。\n尚未实现的功能在菜单里显示为禁用，不会假装可用。	Implemented in this version: creating and opening projects, scene editing and saving, scene tree, inspector, 2D viewport, asset browser, undo/redo, console.\nUnimplemented features appear disabled in the menus and are never faked.
+value_empty	空	Empty
+value_list_items	{} 项	{} items
+value_struct_fields	{} 个字段	{} fields

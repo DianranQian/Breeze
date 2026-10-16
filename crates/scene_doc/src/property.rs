@@ -154,16 +154,21 @@ impl 资源类别 {
     }
 
     /// 中文显示名。
-    pub fn 显示名(&self) -> &'static str {
+    /// 该类别的词条键。
+    ///
+    /// 返回的是**键**而不是显示文案：本 crate 不依赖界面层，
+    /// 也不该为了让界面显示英文而把翻译器塞进场景文档层。
+    /// 由界面按当前语言解析。
+    pub fn 词条键(&self) -> &'static str {
         match self {
-            资源类别::图片 => "图片",
-            资源类别::音频 => "音频",
-            资源类别::字体 => "字体",
-            资源类别::模型 => "模型",
-            资源类别::材质 => "材质",
-            资源类别::场景 => "场景",
-            资源类别::着色器 => "着色器",
-            资源类别::其他 => "其他",
+            资源类别::图片 => "asset_category_image",
+            资源类别::音频 => "asset_category_audio",
+            资源类别::字体 => "asset_category_font",
+            资源类别::模型 => "asset_category_model",
+            资源类别::材质 => "asset_category_material",
+            资源类别::场景 => "scene",
+            资源类别::着色器 => "asset_category_shader",
+            资源类别::其他 => "asset_category_other",
         }
     }
 }

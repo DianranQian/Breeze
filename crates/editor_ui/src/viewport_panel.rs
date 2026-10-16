@@ -627,7 +627,7 @@ fn 绘制状态栏(
             ui.separator();
             ui.label(
                 RichText::new(上下文.语言.填充(
-                    "zoom_0",
+                    "viewport_zoom",
                     &[&format!("{:.0}", 上下文.界面.相机.缩放 * 100.0)],
                 ))
                 .small()

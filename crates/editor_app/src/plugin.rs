@@ -266,6 +266,8 @@ impl Plugin for BevyStudio插件 {
                 (
                     preview::初始化预览资源,
                     按环境变量打开项目,
+                    // 放在打开项目之后：那时才有选中实体，Inspector 才有内容可看。
+                    按环境变量聚焦面板,
                     恢复窗口布局,
                     打印启动信息,
                 )
@@ -412,6 +414,53 @@ fn 按环境变量打开项目(mut 编辑器: ResMut<EditorStateHolder>) {
             },
             Err(错误) => warn!("环境变量里的场景路径非法：{错误}"),
         }
+    }
+}
+
+/// 指定启动时要切到前台的面板（用「窗口」菜单里的词条键，如 `inspector`）。
+pub const 启动聚焦面板环境变量: &str = "BEVY_STUDIO_FOCUS_PANEL";
+
+/// 启动时按环境变量把某个面板切到前台。
+///
+/// # 为什么需要它
+///
+/// 面板默认是标签页形式，只有被点到才显示。而**抓图脚本没法点击**，
+/// 于是"某个面板在英文模式下长什么样"就无法用截图验证 ——
+/// 上一轮的 `Inspector` 正是在这种"没看见就以为没问题"的情况下漏掉的：
+/// 我声称检查器已覆盖，但截图里它根本没显示出来。
+///
+/// 有了这个入口，验证某个面板就变成一条命令：
+///
+/// ```powershell
+/// $env:BEVY_STUDIO_OPEN_PROJECT = "…\示例项目"
+/// $env:BEVY_STUDIO_FOCUS_PANEL  = "inspector"
+/// .\bevy-studio.exe
+/// ```
+///
+/// 取值用「窗口」菜单里的词条键（`scene_tree` / `inspector` / `viewport` /
+/// `asset_browser` / `console` / `history` / `runtime_ecs` / `performance`），
+/// 认不出来就什么都不做，并给一条带可选值的警告。
+fn 按环境变量聚焦面板(mut 界面: ResMut<UiStateHolder>) {
+    let Ok(名字) = std::env::var(启动聚焦面板环境变量) else {
+        return;
+    };
+    let 名字 = 名字.trim();
+    if 名字.is_empty() {
+        return;
+    }
+    match editor_ui::Tab::全部()
+        .iter()
+        .find(|面板| 面板.菜单键() == 名字)
+    {
+        Some(面板) => {
+            界面.状态.聚焦面板(*面板);
+            info!("已按环境变量把 `{名字}` 面板切到前台");
+        }
+        None => warn!(
+            "环境变量 {启动聚焦面板环境变量} 的值 `{名字}` 不是已知面板；\
+             可用值：scene_tree / inspector / viewport / asset_browser / \
+             console / history / runtime_ecs / performance"
+        ),
     }
 }
 

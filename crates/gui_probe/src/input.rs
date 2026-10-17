@@ -39,6 +39,8 @@ pub struct 拖拽 {
     pub 步数: u32,
     /// 每一步之间的等待。
     pub 步间隔: Duration,
+    /// 按下后是否先做 2px 预热移动。
+    pub 预热: bool,
 }
 
 /// 注入结果：每一步都成功才算成功。
@@ -77,6 +79,21 @@ pub fn 执行拖拽(参数: 拖拽) -> 注入结果 {
     sleep(Duration::from_millis(120));
     结果.按下成功 = 按下();
     sleep(Duration::from_millis(120));
+
+    // 预热：先移动 2px 再回来。
+    //
+    // # 为什么需要
+    //
+    // 真实拖拽的第一次移动发生在按下之后；如果按下与第一段移动之间没有任何
+    // 中间状态，egui 的拖动判定偶尔会把它当成"按下即松开"或忽略位移。
+    // 2px 的往返不会触发任何有效命中变化，但会稳定地产生 press→move 序列。
+    if 参数.预热 {
+        let 预热点 = (参数.从.0 + 2, 参数.从.1 + 1);
+        let _ = 移动到(预热点);
+        sleep(Duration::from_millis(40));
+        let _ = 移动到(参数.从);
+        sleep(Duration::from_millis(40));
+    }
 
     let 步数 = 参数.步数.max(1);
     let mut 全部移动 = 结果.移动成功;

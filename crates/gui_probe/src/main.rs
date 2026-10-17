@@ -912,8 +912,9 @@ fn 拖拽(参数: &[String]) -> i32 {
         input::执行拖拽(input::拖拽 {
             从: 起点屏幕,
             到: 终点屏幕,
-            步数: 16,
-            步间隔: Duration::from_millis(24),
+            步数: 24,
+            步间隔: Duration::from_millis(28),
+            预热: !空跑,
         })
     };
 
@@ -1253,10 +1254,13 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         }
         // 浮动：把控制台标签拖到菜单栏区域（Dock 之外）
         "float" => {
-            // 只能拖"当前激活"的标签（未激活的标签没有内容区域）。
+            // egui_dock 在指针离开 DockArea 时把拖动中的标签变成浮动表面。
+            // 菜单栏会被菜单按钮占用，工具栏中段是空白区，更适合作为落点。
             let 起 = 标签("asset_browser")?;
-            let (_, y, _, _) = 取("menubar")?;
-            Some((起, (420.0, y + 8.0)))
+            let (_, _, _, 状态栏y) = 取("statusbar")?;
+            let _ = 状态栏y;
+            let (_, 工具栏y, _, 工具栏h) = 取("toolbar")?;
+            Some((起, (900.0, 工具栏y + 工具栏h * 0.5)))
         }
         _ => None,
     }

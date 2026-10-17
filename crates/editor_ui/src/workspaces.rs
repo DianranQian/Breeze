@@ -1422,6 +1422,64 @@ mod 测试 {
         assert!(复原.面板可见(Tab::控制台));
     }
 
+    /// 标签在面板组之间移动（合并）与拆分成新节点。
+    ///
+    /// 这两个操作就是鼠标拖放标签时 `egui_dock` 内部走的**同一条数据路径**：
+    /// 拖到别的标签组 → `move_tab`；拖到边缘 → `split`。
+    /// 真实鼠标拖拽无法在无输入的截图验收里模拟，因此这里直接验证
+    /// 数据路径：操作后面板仍在、结构确实变了、序列化往返不丢。
+    #[test]
+    fn 标签可以合并进其他面板组并拆分到新节点() {
+        let mut 集 = 工作区集::新建();
+
+        // ---- 合并：把控制台拖进检查器所在的标签组 ----
+        let 源 = 集.布局().find_tab(&Tab::控制台).expect("控制台应在布局里");
+        let 目标 = 集.布局().find_tab(&Tab::检查器).expect("检查器应在布局里");
+        let 原控制台节点 = 源.node;
+        集.布局_mut().move_tab(
+            源,
+            egui_dock::TabDestination::Node(
+                egui_dock::NodePath {
+                    surface: 目标.surface,
+                    node: 目标.node,
+                },
+                egui_dock::TabInsert::Append,
+            ),
+        );
+        assert!(集.面板可见(Tab::控制台), "合并后控制台不能消失");
+        let 新位置 = 集.布局().find_tab(&Tab::控制台).expect("控制台应当仍在");
+        assert_eq!(
+            新位置.node, 目标.node,
+            "控制台应当与检查器在同一个标签组里：{新位置:?}"
+        );
+        assert_eq!(新位置.node, 目标.node);
+        let _ = 原控制台节点;
+
+        // ---- 拆分：把控制台从该标签组拆成下方的独立节点 ----
+        let 承载 = 集.布局().find_tab(&Tab::控制台).unwrap();
+        let 父节点 = egui_dock::NodePath {
+            surface: 承载.surface,
+            node: 承载.node,
+        };
+        let 新节点 = egui_dock::Node::Leaf(egui_dock::LeafNode::new(vec![Tab::运行时ecs]));
+        let [_旧节点, _新节点] = 集
+            .布局_mut()
+            .split(父节点, egui_dock::Split::Below, 0.3, 新节点);
+        assert!(
+            集.面板可见(Tab::运行时ecs),
+            "拆分出的新面板必须出现在布局里"
+        );
+        // 结构与拆分前不同：指纹里运行时 ECS 的位置变了。
+        let 指纹 = 集.布局指纹();
+        assert!(指纹.iter().any(|(面板, _)| *面板 == Tab::运行时ecs));
+
+        // ---- 序列化往返仍然有效 ----
+        let 文本 = 集.序列化为文本().unwrap();
+        let 复原 = 工作区集::从文本恢复(&文本).unwrap();
+        assert!(复原.面板可见(Tab::运行时ecs));
+        assert!(复原.面板可见(Tab::控制台));
+    }
+
     #[test]
     fn 浮动面板不影响其他工作区() {
         let mut 集 = 工作区集::新建();

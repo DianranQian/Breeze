@@ -1,38 +1,45 @@
-# 素材清单（2D 示例）
+# 素材清单（2D · 青岚山谷）
 
-| 文件 | 用途 | 场景中的实体 |
+来源项目：`C:\Spaces\Share\10_Code\10_Bevy\修仙冒险游戏`（本地 Bevy 项目，只读引用）。
+
+## 地形（单格 PNG，64×64，原样复制）
+
+| 文件 | 原始路径 | 许可 | 场景用途 |
+| --- | --- | --- | --- |
+| `assets/xiuxian/透明到浅草地.png` | `assets/tilesets/透明到浅草地.png` | 见下方说明 | 灵草地 01~15（非山道列） |
+| `assets/xiuxian/透明到深色草地.png` | `assets/tilesets/透明到深色草地.png` | 同上 | 第一行灵草地 |
+| `assets/xiuxian/透明到道路.png` | `assets/tilesets/透明到道路.png` | 同上 | 山道 03/08/13 |
+| `assets/xiuxian/透明到山地.png` | `assets/tilesets/透明到山地.png` | 同上 | 北崖 |
+| `assets/xiuxian/透明到悬崖.png` | `assets/art/瓦片/透明到悬崖.png` | 同上 | 东崖 |
+| `assets/xiuxian/透明到海水.png` | `assets/tilesets/透明到海水.png` | 同上 | 碧水潭 |
+| `assets/xiuxian/透明到沙滩.png` | `assets/tilesets/透明到沙滩.png` | 同上 | 白沙岸 |
+| `assets/xiuxian/透明到耕地.png` | `assets/tilesets/透明到耕地.png` | 同上 | 灵田 |
+| `assets/xiuxian/瓦片地图变体_丰富地图细节.png` | `assets/tilesets/瓦片地图变体_丰富地图细节.png` | 同上 | 未使用（候选） |
+
+> 源项目的 `README.md` 未附第三方素材授权声明，`assets/` 内也没有独立 LICENSE 文件；
+> 这些地形与角色图均为该项目的自有素材（用户本地项目）。复制进示例仅用于本机演示与
+> 内部验收，**再分发前请先向项目作者确认**。此处如实记录，不代填许可证。
+
+## 主角（图集切片）
+
+| 文件 | 来源 | 处理 | 用途 |
+| --- | --- | --- | --- |
+| `assets/xiuxian/protagonist_idle.png` | `assets/sprites/protagonist.png` 第 0 帧 | 用 Pillow 按 64×64 裁切 | 主角 |
+| `assets/xiuxian/protagonist_walk.png` | 同图集第 7 帧 | 同上 | 同门师姐 |
+
+原图尺寸 **2112×64**，即 33 帧 × 64px。切图脚本为一次性操作，源项目文件未改动；
+如需重新生成，可按 `x ∈ [帧号×64, 帧号×64+64)`、`y ∈ [0, 64)` 裁切。
+
+## 实际显示情况
+
+| 资产 | 是否显示 | 证据 |
 | --- | --- | --- |
-| `assets/2d_demo/floor_grass.png` | 草地地砖 | 草地 01~15（非路列） |
-| `assets/2d_demo/floor_dirt.png` | 土路地砖 | 土路 03/08/13 |
-| `assets/2d_demo/player_human_m.png` | 主角 | 玩家 |
-| `assets/2d_demo/monster_goblin.png` | 哥布林 | 哥布林斥候 |
-| `assets/2d_demo/monster_orc.png` | 兽人 | 兽人战士 |
-| `assets/2d_demo/monster_kobold.png` | 狗头人 | 狗头人 |
-| `assets/2d_demo/decor_tree_red.png` | 红枫 | 红枫、远树 |
-| `assets/2d_demo/decor_tree_yellow.png` | 金枫 | 金枫 |
-| `assets/2d_demo/decor_statue.png` | 石碑 | 石碑 |
-| `assets/2d_demo/decor_altar.png` | 祭坛 | 祭坛 |
-| `assets/2d_demo/item_gold.png` | 金币堆 | 金币堆 |
-| `assets/2d_demo/item_potion_blue.png` | 蓝色药水 | 蓝色药水 |
-| `assets/2d_demo/item_potion_black.png` | 黑色药水 | 黑色药水 |
+| 青草地 / 山道 / 崖壁 / 水潭 / 灵田 | 是 | `docs/验收证据/16_示例_2D_青岚山谷.png` |
+| 主角（idle 帧） | 是 | 同上 |
+| 同门师姐（walk 帧） | 是 | 同上 |
 
-## 来源
+## 未复制 / 未使用
 
-- 素材包：**Dungeon Crawl Stone Soup — 32×32 tiles**（`crawl-tiles Oct-5-2010.zip`）
-- 页面：<https://opengameart.org/content/dungeon-crawl-32x32-tiles>
-- 作者/维护者：Chris Hamons（maintainer）、MedicineStorm（提交者）；
-  页面明确写明所有参与者以 **CC0** 发布
-- 许可证：**CC0 1.0（公共领域）**，允许商业使用、修改、再分发，无需署名
-- 许可证原文：`assets/DCSS_TILESET_LICENSE.txt`
-
-## 处理说明
-
-- 只从原包中取出 13 个实际使用的 PNG（其余未进仓库）；
-- 未做格式转换：原文件即 32×32 透明 PNG，Bevy Studio 以"自定义尺寸"缩放显示；
-- 文件名改为语义化命名，原路径记录在上表来源中，便于追溯；
-- 场景中的 `贴图` 字段保存的是**项目相对路径**，与生成机器无关。
-
-## 未采用
-
-- 原包里的图集/大尺寸背景：当前编辑器按单文件渲染，没有图集切分能力，
-  采用会造成"看起来有素材、实际显示整张图"的误导，因此未使用。
+- 水面 caustic 叠加层、`_模板导出` 中间产物：属于渲染特效与制作文件，示例不需要；
+- `瓦片地图变体_丰富地图细节.png`：已复制但未放入场景（保留为后续瓦片编辑的候选素材）；
+- 音频（`.ogg`）：示例不需要。

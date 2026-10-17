@@ -5,6 +5,7 @@
 //! | 模块 | 职责 |
 //! | --- | --- |
 //! | [`scene_bridge`] | 场景文档 ⇄ Bevy ECS 的单向桥接、组件注册表 |
+//! | [`bsn_templates`] | 官方 BSN 模板 → 场景文档的适配入口（实验性接入） |
 //! | [`plugin`] | Bevy 应用装配、资源定义、文件对话框线程 |
 //! | [`actions`] | 界面意图的执行器（唯一修改编辑器状态的地方） |
 //!
@@ -22,6 +23,7 @@
 //! 而只有 `editor_app` 需要拉起真正的 Bevy 应用。
 
 pub mod actions;
+pub mod bsn_templates;
 pub mod capture;
 pub mod config;
 pub mod plugin;

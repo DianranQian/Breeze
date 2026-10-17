@@ -1,0 +1,18 @@
+[package]
+name = "bsn_bridge"
+description = "Bevy Studio 的 BSN 适配层：把官方 BSN（Bevy Scene Notation）编译期场景接入现有的 scene_doc 文档模型，并明确记录能力边界。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+scene_doc.workspace = true
+bevy.workspace = true
+serde.workspace = true
+ron.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

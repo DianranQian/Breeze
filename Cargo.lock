@@ -2135,6 +2135,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bsn_bridge"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ron",
+ "scene_doc",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
 name = "bstr"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2673,6 +2686,7 @@ dependencies = [
  "anyhow",
  "bevy",
  "bevy_egui",
+ "bsn_bridge",
  "crossbeam-channel",
  "editor_core",
  "editor_ui",

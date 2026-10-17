@@ -1,36 +1,50 @@
-# 素材清单（3D 示例）
+# 素材清单（3D · TPS 竞技场）
 
-| 文件 | 用途 | 场景中的实体 |
+来源项目：`C:\Spaces\Share\10_Code\10_Bevy\tps-demo\tps_arena`（本地 Bevy 项目，只读引用）。
+源项目的授权说明见同目录 [`ATTRIBUTIONS.md`](./ATTRIBUTIONS.md)。
+
+## 模型（glTF，CC0）
+
+| 文件 | 原始路径 | 类型 | 许可 | 场景用途 |
+| --- | --- | --- | --- | --- |
+| `characters/Character_Soldier.gltf` | `assets/characters/Character_Soldier.gltf` | 角色网格（含内嵌材质/贴图） | CC0 1.0（Quaternius） | 玩家士兵 |
+| `characters/Character_Enemy.gltf` | `assets/characters/Character_Enemy.gltf` | 角色网格 | CC0 1.0（Quaternius） | 近战敌人 |
+| `characters/Character_Hazmat.gltf` | `assets/characters/Character_Hazmat.gltf` | 角色网格 | CC0 1.0（Quaternius） | 远程敌人 |
+| `environment/Container_Long.gltf` | `assets/environment/Container_Long.gltf` | 道具网格 | CC0 1.0（Quaternius） | 长货柜 |
+| `environment/Crate.gltf` | `assets/environment/Crate.gltf` | 道具网格 | CC0 1.0（Quaternius） | 木箱 |
+| `environment/ExplodingBarrel.gltf` | `assets/environment/ExplodingBarrel.gltf` | 道具网格 | CC0 1.0（Quaternius） | 爆炸桶 |
+| `environment/Barrier_Single.gltf` | `assets/environment/Barrier_Single.gltf` | 道具网格 | CC0 1.0（Quaternius） | 路障 |
+| `environment/TrafficCone.gltf` | `assets/environment/TrafficCone.gltf` | 道具网格 | CC0 1.0（Quaternius） | 锥桶 |
+| `environment/SackTrench.gltf` | `assets/environment/SackTrench.gltf` | 道具网格 | CC0 1.0（Quaternius） | 沙袋 |
+
+模型均为**自包含 glTF**：顶点数据在 bufferView 中、材质贴图内嵌，无外部 `.bin`/纹理依赖。
+文件按原样复制，未转换格式。
+
+## 环境贴图（PNG）
+
+| 文件 | 原始路径 | 类型 | 许可 | 场景用途 |
+| --- | --- | --- | --- | --- |
+| `environment/floor.png` | `assets/environment/floor.png` | 地面贴图 | 源项目原创，等效 CC0 | 9 块场地砖（四边形，平铺） |
+| `environment/wall.png` | `assets/environment/wall.png` | 墙面贴图 | 源项目原创，等效 CC0 | 北侧/西侧围墙 |
+
+## 实际显示情况
+
+| 资产 | 是否显示 | 证据 |
 | --- | --- | --- |
-| `assets/3d_demo/tile_floor_a.png` | 深色地砖 | 地砖 01/03/05/07/09（棋格） |
-| `assets/3d_demo/tile_floor_b.png` | 浅色地砖 | 地砖 02/04/06/08 |
-| `assets/3d_demo/prop_altar.png` | 中央祭坛 | 中心祭坛 |
-| `assets/3d_demo/prop_tree.png` | 古树（红） | 左侧古树 |
-| `assets/3d_demo/prop_tree_2.png` | 古树（金） | 右侧古树 |
-| `assets/3d_demo/prop_statue.png` | 石碑 | 后方石碑 |
-| `assets/3d_demo/unit_player.png` | 主角 | 主角 |
-| `assets/3d_demo/unit_goblin.png` | 哥布林 | 哥布林 |
-| `assets/3d_demo/unit_orc.png` | 兽人 | 兽人 |
-| `assets/3d_demo/pickup_gold.png` | 悬浮金币 | 悬浮金币 |
-| `assets/3d_demo/pickup_potion.png` | 悬浮药水 | 悬浮药水 |
+| 三名角色模型 | 是 | `docs/验收证据/18_示例_3D_TPS_模型修复.png` |
+| 六件道具模型 | 是 | 同上（货柜/木箱/爆炸桶/路障/锥桶/沙袋） |
+| 地面 / 墙面贴图 | 是 | 同上 |
 
-## 来源
+## 未复制的部分
 
-- 素材包：**Dungeon Crawl Stone Soup — 32×32 tiles**（`crawl-tiles Oct-5-2010.zip`）
-- 页面：<https://opengameart.org/content/dungeon-crawl-32x32-tiles>
-- 许可证：**CC0 1.0**（允许商用、修改、再分发；无需署名）
-- 许可证原文：`assets/DCSS_TILESET_LICENSE.txt`
+- 音效（`.ogg`）：示例不需要音频；
+- HUD / UI 贴图：编辑器不运行游戏逻辑；
+- `RobotExpressive.glb`：源项目已复制但本示例未使用，未纳入仓库；
+- 武器模型（AK/Shotgun）：当前示例未放置武器节点，未复制。
 
-## 技术说明（当前 3D 渲染能力）
+## 许可说明
 
-- 每个实体在 3D 模式下渲染为一个**带贴图的四边形**（`Mesh3d` + unlit 材质，
-  双面可见），不使用 glTF/网格模型，也没有材质与灯光编辑；
-- 地砖通过**旋转四元数** `(-√0.5, 0, 0, √0.5)`（绕 X 轴 −90°）平铺到 y=0 平面；
-- 角色与道具是竖直四边形，靠位置（x,y,z）与缩放形成空间层次；
-- 精灵图本身是 2D 像素画，放到 3D 空间是**有意的能力展示**，
-  不代表已支持三维模型资产。
-
-## 未采用
-
-- glTF/GLB 模型、材质、环境贴图：当前管线不渲染，纳入会造成误导；
-- 原包的图集：无切分能力，未使用。
+- Quaternius 模型：**CC0 1.0 Universal**，允许商业使用、修改与再分发，无署名要求
+  （源项目 `ATTRIBUTIONS.md` 记录了获取方式与套装版本）；
+- 地面/墙面贴图由源项目程序化生成并声明等效 CC0；
+- 本项目未修改模型文件；如后续修改，仍受 CC0 约束，可自由分发。

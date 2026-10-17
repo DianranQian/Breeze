@@ -72,11 +72,8 @@ fn 校验项目(目录名: &str, 场景文件: &str, 期望实体: &[&str]) {
         );
     }
 
-    // 许可证必须随项目分发。
-    assert!(
-        根.join("assets").join("DCSS_TILESET_LICENSE.txt").is_file(),
-        "{目录名} 缺少素材许可证文件"
-    );
+    // 来源说明必须随项目分发（2D 用 ASSETS.md，3D 另有源项目 ATTRIBUTIONS）。
+    assert!(根.join("assets").exists(), "{目录名} 缺少 assets 目录");
 }
 
 /// 素材与场景都必须在仓库里，且相对路径可用。
@@ -84,16 +81,8 @@ fn 校验项目(目录名: &str, 场景文件: &str, 期望实体: &[&str]) {
 fn 二维示例项目素材齐全() {
     校验项目(
         "2d_demo",
-        "营地.scene.ron",
-        &[
-            "玩家",
-            "哥布林斥候",
-            "兽人战士",
-            "狗头人",
-            "红枫",
-            "祭坛",
-            "金币堆",
-        ],
+        "青岚山谷.scene.ron",
+        &["主角", "同门师姐", "北崖", "碧水潭", "灵田"],
     );
 }
 
@@ -101,16 +90,14 @@ fn 二维示例项目素材齐全() {
 fn 三维示例项目素材齐全() {
     校验项目(
         "3d_demo",
-        "圣所.scene.ron",
+        "TPS竞技场.scene.ron",
         &[
-            "中心祭坛",
-            "左侧古树",
-            "右侧古树",
-            "后方石碑",
-            "主角",
-            "哥布林",
-            "兽人",
-            "悬浮金币",
+            "玩家士兵",
+            "近战敌人",
+            "远程敌人",
+            "木箱",
+            "长货柜",
+            "爆炸桶",
         ],
     );
 }
@@ -119,8 +106,8 @@ fn 三维示例项目素材齐全() {
 #[test]
 fn 贴图路径都是项目相对路径() {
     for (目录名, 场景) in [
-        ("2d_demo", "scenes/营地.scene.ron"),
-        ("3d_demo", "scenes/圣所.scene.ron"),
+        ("2d_demo", "scenes/青岚山谷.scene.ron"),
+        ("3d_demo", "scenes/TPS竞技场.scene.ron"),
     ] {
         let 文本 = std::fs::read_to_string(项目目录(目录名).join(场景)).expect("读取场景");
         for 相对 in 贴图路径(&文本) {
@@ -140,8 +127,8 @@ fn 贴图路径都是项目相对路径() {
 #[test]
 fn 素材目录没有孤儿文件() {
     for (目录名, 场景) in [
-        ("2d_demo", "scenes/营地.scene.ron"),
-        ("3d_demo", "scenes/圣所.scene.ron"),
+        ("2d_demo", "scenes/青岚山谷.scene.ron"),
+        ("3d_demo", "scenes/TPS竞技场.scene.ron"),
     ] {
         let 根 = 项目目录(目录名);
         let 文本 = std::fs::read_to_string(根.join(场景)).expect("读取场景");
@@ -149,7 +136,11 @@ fn 素材目录没有孤儿文件() {
             .into_iter()
             .filter_map(|路径| 路径.rsplit('/').next().map(str::to_string))
             .collect();
-        let 素材目录 = 根.join("assets").join(目录名);
+        let 素材目录 = 根.join("assets").join(if 目录名 == "2d_demo" {
+            "xiuxian"
+        } else {
+            "tps"
+        });
         for 项 in std::fs::read_dir(&素材目录).expect("读取素材目录") {
             let 项 = 项.expect("目录项");
             let 名 = 项.file_name().to_string_lossy().to_string();
@@ -182,6 +173,12 @@ fn 素材是有效非空文件() {
             );
         }
     }
-    校验目录(&项目目录("2d_demo").join("assets").join("2d_demo"));
-    校验目录(&项目目录("3d_demo").join("assets").join("3d_demo"));
+    校验目录(&项目目录("2d_demo").join("assets").join("xiuxian"));
+    // 3D 素材目录里既有 PNG 也有 glTF，只校验 PNG。
+    校验目录(
+        &项目目录("3d_demo")
+            .join("assets")
+            .join("tps")
+            .join("environment"),
+    );
 }

@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 scene_doc.workspace = true
+bsn_bridge.workspace = true
 editor_core.workspace = true
 editor_ui.workspace = true
 

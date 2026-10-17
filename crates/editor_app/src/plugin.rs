@@ -370,6 +370,7 @@ impl Plugin for BevyStudio插件 {
                         preview::同步预览实体,
                         preview::同步预览相机,
                         preview::同步渲染尺寸,
+                        preview::模型诊断,
                     )
                         .chain(),
                     (actions::推进运行时, actions::收集运行时诊断).chain(),

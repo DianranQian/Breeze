@@ -782,7 +782,10 @@ pub fn 同步三维相机(
                         ..default()
                     }),
                     RenderTarget::Image(渲染目标.图片.clone().into()),
-                    RenderLayers::layer(三维渲染层),
+                    // glTF 场景的子实体不会继承父实体的 `RenderLayers`，
+                    // 它们落在默认层 0；因此 3D 相机必须同时看 0 层与三维层，
+                    // 否则网格模型永远不显示（而贴图四边形是三维层，能显示）。
+                    RenderLayers::from_layers(&[0, 三维渲染层]),
                     Transform::default(),
                 ))
                 .id()
@@ -834,6 +837,43 @@ pub fn 同步三维相机(
     {
         变换.translation = Vec3::new(位置.0, 位置.1, 位置.2);
         变换.look_at(Vec3::new(相机.目标.0, 相机.目标.1, 相机.目标.2), Vec3::Y);
+    }
+}
+
+/// 模型实例化诊断（仅在 `BEVY_STUDIO_MODEL_DIAG=1` 时输出）。
+///
+/// 它回答一个具体问题：模型实体到底是"资产没加载完"、"加载了但没实例化"，
+/// 还是"实例化成功但画面里看不见"。没有这层观测就只能猜相机和尺度。
+pub fn 模型诊断(
+    资源服务器: Res<AssetServer>,
+    根: Query<(
+        Entity,
+        &bevy::world_serialization::WorldAssetRoot,
+        &Transform,
+    )>,
+    子: Query<&Children>,
+    网格: Query<&Mesh3d>,
+) {
+    if std::env::var("BEVY_STUDIO_MODEL_DIAG").is_err() {
+        return;
+    }
+    for (实体, 根组件, 变换) in &根 {
+        let 状态 = 资源服务器.get_load_state(根组件.0.id());
+        let 子数 = 子.get(实体).map(|列表| 列表.len()).unwrap_or(0);
+        let 网格数 = 子
+            .get(实体)
+            .map(|列表| {
+                列表
+                    .iter()
+                    .filter(|子实体| 网格.get(*子实体).is_ok())
+                    .count()
+            })
+            .unwrap_or(0);
+        info!(
+            "[模型诊断] 路径 {:?} 加载状态 {状态:?} 位置 {:?} 直接子实体 {子数} 网格子实体 {网格数}",
+            根组件.0.path(),
+            变换.translation
+        );
     }
 }
 

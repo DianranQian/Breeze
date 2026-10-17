@@ -4,7 +4,7 @@ number_one_decimal_with_unit	{} {}	{} {}
 number_one_decimal_seconds	{} 秒	{} s
 viewport_2d_entity_count	2D 视口 · {} 个实体	2D Viewport · {} entities
 number_four_decimals	{}	{}
-about_bevy_studio	关于 Bevy Studio	About Bevy Studio
+about_bevy_studio	关于 微风	About Breeze
 about_scene_format	RON（场景与项目清单的序列化格式）	RON (serialization format for scenes and project manifests)
 about_tagline	一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。	A visual game editor built on Bevy, using the Godot Editor as its workflow reference.
 about_ui_stack	egui 0.36 + egui_dock 0.21（界面与可停靠布局）	egui 0.36 + egui_dock 0.21 (UI and dockable layout)
@@ -283,7 +283,7 @@ log_scene_autoload_failed	自动载入场景失败：{}	Failed to auto-load scen
 log_scene_autoload_failed_hint	已改为打开一个空白场景。请按上面的错误检查该场景文件，或从资源面板手动打开其他场景。	Opened a blank scene instead. Check that scene file per the error above, or open another scene from the Assets panel.
 log_language_changed	界面语言已切换为 {}	UI language switched to {}
 log_font_installed	已安装中文字体（内置子集 {} MB）	Installed CJK font (built-in subset {} MB)
-log_startup	Bevy Studio {} 启动：Bevy {} / egui 界面已就绪	Bevy Studio {} started: Bevy {} / egui UI ready
+log_startup	微风 {} 启动：Bevy {} / egui 界面已就绪	Breeze {} started: Bevy {} / egui UI ready
 log_restored_language	已恢复界面语言：{}	Restored UI language: {}
 log_restored_layout	已恢复上次的窗口布局	Restored the previous window layout
 log_layout_restore_failed	窗口布局无法恢复，改用默认布局：{}	Could not restore the window layout; using the default: {}
@@ -291,7 +291,7 @@ log_project_open_failed	打开项目失败：{}	Failed to open project: {}
 error_scene_read_failed	文件读写失败：{} —— {}	File read/write failed: {} — {}
 error_scene_parse_failed	场景格式解析失败：{} —— {}	Scene format parse failed: {} — {}
 error_scene_struct_invalid	场景结构非法：{}	Invalid scene structure: {}
-error_scene_version_too_new	场景格式版本 {} 高于本编辑器支持的最高版本 {}，请升级 Bevy Studio	Scene format version {} is newer than the highest supported version {}; please upgrade Bevy Studio
+error_scene_version_too_new	场景格式版本 {} 高于本编辑器支持的最高版本 {}，请升级微风	Scene format version {} is newer than the highest supported version {}; please upgrade Breeze
 error_scene_path_invalid	路径非法：{}	Invalid path: {}
 error_scene_encode_failed	场景编码失败：{}	Scene encoding failed: {}
 error_scene_save_failed	保存场景失败：{} —— {}	Failed to save scene: {} — {}
@@ -474,3 +474,4 @@ open_3d_demo	打开 3D 示例项目	Open 3D Demo
 log_example_opened	已打开示例项目：{}	Opened demo project: {}
 open_demo_failed	示例项目打开失败	Failed to open the demo project
 open_demo_missing	找不到示例项目 `{}`：请确认仓库里的 examples 目录存在	Demo project "{}" not found: make sure the examples directory exists
+app_title	微风 (Breeze)	Breeze

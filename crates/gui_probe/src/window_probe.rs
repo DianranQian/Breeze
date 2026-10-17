@@ -30,9 +30,12 @@ pub struct 窗口信息 {
 }
 
 impl 窗口信息 {
-    /// 标题是否像 Bevy Studio 的主窗口。
+    /// 标题是否像「微风」的主窗口。
     pub fn 是编辑器窗口(&self) -> bool {
-        self.可见 && self.标题.contains("Bevy Studio")
+        self.可见
+            && (self.标题.contains("微风")
+                || self.标题.contains("Breeze")
+                || self.标题.contains("Bevy Studio"))
     }
 }
 
@@ -135,9 +138,10 @@ mod 平台 {
 
     /// 查找属于指定进程的主窗口。
     ///
-    /// 选择规则：优先"可见 + 标题含 Bevy Studio"，
+    /// 选择规则：优先"可见 + 标题含 微风/Breeze"，
     /// 其次任意可见窗口，最后退回第一个枚举到的窗口 ——
     /// 这样即使标题被改动，工具仍然能报告窗口存在，而不是报"没有窗口"。
+    /// 兼容旧标题 `Bevy Studio`，避免品牌改名后旧构建无法验收。
     pub fn 查找(进程号: u32) -> Option<窗口信息> {
         let mut 上下文 = 枚举上下文 {
             目标进程: 进程号,

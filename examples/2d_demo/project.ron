@@ -2,5 +2,5 @@
     格式版本: 1,
     名称: "青岚山谷（修仙 2D 演示）",
     说明: "",
-    启动场景: Some("scenes/青岚山谷.scene.ron"),
+    启动场景: Some("scenes/qinglan_valley.scene.ron"),
 )

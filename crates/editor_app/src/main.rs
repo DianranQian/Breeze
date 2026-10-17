@@ -43,7 +43,7 @@ fn main() {
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Bevy Studio".to_string(),
+                        title: "微风 (Breeze)".to_string(),
                         // Bevy 0.20 的 `WindowResolution` 用 `new(宽, 高)` 构造，
                         // 不再支持从 `(f32, f32)` 元组 `into()`（旧版本 API）。
                         resolution: WindowResolution::new(宽, 高),

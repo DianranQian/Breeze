@@ -242,7 +242,7 @@ fn 生成二维(仓库根: &Path) -> 结果<()> {
         &mut 编辑器,
         &临时根,
         &项目根,
-        "scenes/青岚山谷.scene.ron",
+        "scenes/qinglan_valley.scene.ron",
         Some("主角"),
     )?;
     Ok(())
@@ -387,7 +387,7 @@ fn 生成三维(仓库根: &Path) -> 结果<()> {
         &mut 编辑器,
         &临时根,
         &项目根,
-        "scenes/TPS竞技场.scene.ron",
+        "scenes/tps_arena.scene.ron",
         Some("玩家士兵"),
     )?;
     Ok(())

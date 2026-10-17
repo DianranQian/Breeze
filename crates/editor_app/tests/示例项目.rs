@@ -81,7 +81,7 @@ fn 校验项目(目录名: &str, 场景文件: &str, 期望实体: &[&str]) {
 fn 二维示例项目素材齐全() {
     校验项目(
         "2d_demo",
-        "青岚山谷.scene.ron",
+        "qinglan_valley.scene.ron",
         &["主角", "同门师姐", "北崖", "碧水潭", "灵田"],
     );
 }
@@ -90,7 +90,7 @@ fn 二维示例项目素材齐全() {
 fn 三维示例项目素材齐全() {
     校验项目(
         "3d_demo",
-        "TPS竞技场.scene.ron",
+        "tps_arena.scene.ron",
         &[
             "玩家士兵",
             "近战敌人",
@@ -106,8 +106,8 @@ fn 三维示例项目素材齐全() {
 #[test]
 fn 贴图路径都是项目相对路径() {
     for (目录名, 场景) in [
-        ("2d_demo", "scenes/青岚山谷.scene.ron"),
-        ("3d_demo", "scenes/TPS竞技场.scene.ron"),
+        ("2d_demo", "scenes/qinglan_valley.scene.ron"),
+        ("3d_demo", "scenes/tps_arena.scene.ron"),
     ] {
         let 文本 = std::fs::read_to_string(项目目录(目录名).join(场景)).expect("读取场景");
         for 相对 in 贴图路径(&文本) {
@@ -127,8 +127,8 @@ fn 贴图路径都是项目相对路径() {
 #[test]
 fn 素材目录没有孤儿文件() {
     for (目录名, 场景) in [
-        ("2d_demo", "scenes/青岚山谷.scene.ron"),
-        ("3d_demo", "scenes/TPS竞技场.scene.ron"),
+        ("2d_demo", "scenes/qinglan_valley.scene.ron"),
+        ("3d_demo", "scenes/tps_arena.scene.ron"),
     ] {
         let 根 = 项目目录(目录名);
         let 文本 = std::fs::read_to_string(根.join(场景)).expect("读取场景");

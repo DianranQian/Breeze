@@ -1,7 +1,7 @@
 # TPS 竞技场 · 3D 示例项目
 
 以本地 Bevy 项目 **TPS Arena**（`tps-demo/tps_arena`）的真实资产与场景设计为基础，
-用 Bevy Studio 的 3D 模式打开、观察和编辑的示例。
+用 微风 的 3D 模式打开、观察和编辑的示例。
 
 ## 怎么打开
 

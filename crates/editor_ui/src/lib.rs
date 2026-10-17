@@ -452,7 +452,7 @@ fn 绘制_关于窗口(
         .resizable(false)
         .open(&mut 打开)
         .show(egui上下文, |ui| {
-            ui.heading("Bevy Studio");
+            ui.heading("微风 (Breeze)");
             ui.label(语言.填充("version", &[&env!("CARGO_PKG_VERSION")]));
             ui.separator();
             ui.label(语言.取("about_tagline"));

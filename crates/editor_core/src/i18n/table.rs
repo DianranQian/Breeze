@@ -15,7 +15,7 @@ use super::词条;
 /// 而那个检查本来是用来防止有人手改生成物的 —— 一个总是失败的检查等于没有检查。
 #[rustfmt::skip]
 pub static 词表: &[词条] = &[
-    词条 { 键: "about_bevy_studio", 中文: "关于 Bevy Studio", 英文: "About Bevy Studio" },
+    词条 { 键: "about_bevy_studio", 中文: "关于 微风", 英文: "About Breeze" },
     词条 { 键: "about_implemented_features", 中文: "本版本已实现：项目建立/打开、场景编辑与保存、场景树、检查器、2D 视口、资源浏览、撤销重做、控制台。\n尚未实现的功能在菜单里显示为禁用，不会假装可用。", 英文: "Implemented in this version: creating and opening projects, scene editing and saving, scene tree, inspector, 2D viewport, asset browser, undo/redo, console.\nUnimplemented features appear disabled in the menus and are never faked." },
     词条 { 键: "about_scene_format", 中文: "RON（场景与项目清单的序列化格式）", 英文: "RON (serialization format for scenes and project manifests)" },
     词条 { 键: "about_tagline", 中文: "一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。", 英文: "A visual game editor built on Bevy, using the Godot Editor as its workflow reference." },
@@ -26,6 +26,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "add_this_asset_to_the_scene", 中文: "在场景中添加此资源", 英文: "Add this asset to the scene" },
     词条 { 键: "advance_one_frame_while_paused", 中文: "暂停状态下前进一帧", 英文: "Advance one frame while paused" },
     词条 { 键: "angle", 中文: "角度-{}", 英文: "Angle-{}" },
+    词条 { 键: "app_title", 中文: "微风 (Breeze)", 英文: "Breeze" },
     词条 { 键: "asset_browser", 中文: "资源浏览器", 英文: "Asset Browser" },
     词条 { 键: "asset_category_audio", 中文: "音频", 英文: "Audio" },
     词条 { 键: "asset_category_font", 中文: "字体", 英文: "Font" },
@@ -146,7 +147,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "error_scene_registry_failed", 中文: "组件注册表错误：{}", 英文: "Component registry error: {}" },
     词条 { 键: "error_scene_save_failed", 中文: "保存场景失败：{} —— {}", 英文: "Failed to save scene: {} — {}" },
     词条 { 键: "error_scene_struct_invalid", 中文: "场景结构非法：{}", 英文: "Invalid scene structure: {}" },
-    词条 { 键: "error_scene_version_too_new", 中文: "场景格式版本 {} 高于本编辑器支持的最高版本 {}，请升级 Bevy Studio", 英文: "Scene format version {} is newer than the highest supported version {}; please upgrade Bevy Studio" },
+    词条 { 键: "error_scene_version_too_new", 中文: "场景格式版本 {} 高于本编辑器支持的最高版本 {}，请升级微风", 英文: "Scene format version {} is newer than the highest supported version {}; please upgrade Breeze" },
     词条 { 键: "errors", 中文: "错误 {}", 英文: "Errors {}" },
     词条 { 键: "failed_to_parse_layout", 中文: "布局解析失败：{}", 英文: "Failed to parse layout: {}" },
     词条 { 键: "fields", 中文: "{} 个字段", 英文: "{} fields" },
@@ -212,7 +213,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "log_scene_saved", 中文: "已保存场景 {}", 英文: "Saved scene {}" },
     词条 { 键: "log_script_opened", 中文: "已打开代码文件「{}」", 英文: "Opened code file \"{}\"" },
     词条 { 键: "log_script_saved", 中文: "已保存代码文件「{}」", 英文: "Saved code file \"{}\"" },
-    词条 { 键: "log_startup", 中文: "Bevy Studio {} 启动：Bevy {} / egui 界面已就绪", 英文: "Bevy Studio {} started: Bevy {} / egui UI ready" },
+    词条 { 键: "log_startup", 中文: "微风 {} 启动：Bevy {} / egui 界面已就绪", 英文: "Breeze {} started: Bevy {} / egui UI ready" },
     词条 { 键: "log_theme_created", 中文: "已创建主题「{}」", 英文: "Created theme \"{}\"" },
     词条 { 键: "log_theme_deleted", 中文: "已删除主题「{}」", 英文: "Deleted theme \"{}\"" },
     词条 { 键: "log_theme_exported", 中文: "主题已导出到 {}", 英文: "Theme exported to {}" },

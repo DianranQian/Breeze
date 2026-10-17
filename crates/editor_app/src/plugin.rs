@@ -56,7 +56,7 @@ impl Default for EditorStateHolder {
     fn default() -> Self {
         let mut 状态 = 编辑器状态::新建();
         状态.注册表 = 默认组件注册表();
-        状态.信息("Bevy Studio 已启动。请新建或打开一个项目。");
+        状态.信息("微风已启动。请新建或打开一个项目。");
         Self { 状态 }
     }
 }
@@ -209,7 +209,7 @@ fn 对话框工作线程(
 fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
     match 请求 {
         文件对话框请求::选择项目目录 => match rfd::FileDialog::new()
-            .set_title("选择 Bevy Studio 项目目录")
+            .set_title("选择微风项目目录")
             .pick_folder()
         {
             Some(目录) => 文件对话框结果::选定目录(目录),
@@ -229,7 +229,7 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
 
         文件对话框请求::场景另存为 => match rfd::FileDialog::new()
             .set_title("场景另存为")
-            .add_filter("Bevy Studio 场景", &["ron"])
+            .add_filter("微风场景", &["ron"])
             .set_file_name("新场景.scene.ron")
             .save_file()
         {
@@ -239,7 +239,7 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
 
         文件对话框请求::打开场景文件 => match rfd::FileDialog::new()
             .set_title("打开场景")
-            .add_filter("Bevy Studio 场景", &["ron"])
+            .add_filter("微风场景", &["ron"])
             .pick_file()
         {
             Some(文件) => 文件对话框结果::选定文件(文件),
@@ -248,7 +248,7 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
 
         文件对话框请求::导出主题(文本) => match rfd::FileDialog::new()
             .set_title("导出主题")
-            .add_filter("Bevy Studio 主题", &["ron"])
+            .add_filter("微风主题", &["ron"])
             .set_file_name("我的主题.theme.ron")
             .save_file()
         {
@@ -274,7 +274,7 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
 
         文件对话框请求::导入主题 => match rfd::FileDialog::new()
             .set_title("导入主题")
-            .add_filter("Bevy Studio 主题", &["ron"])
+            .add_filter("微风主题", &["ron"])
             .pick_file()
         {
             Some(路径) => match std::fs::read_to_string(&路径) {

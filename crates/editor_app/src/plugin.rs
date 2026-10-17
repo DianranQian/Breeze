@@ -325,6 +325,8 @@ impl Plugin for BevyStudio插件 {
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
+            // ---- Last：退出前把配置落盘 ----
+            .add_systems(Last, actions::退出时保存配置)
             .add_systems(
                 Update,
                 (
@@ -528,7 +530,11 @@ fn 按环境变量聚焦面板(mut 界面: ResMut<UiStateHolder>) {
 /// 3. 旧格式单布局（格式版本 1）→ 迁移成"迁移的布局"工作区；
 /// 4. 校验与修复：单个工作区布局坏掉只回退它自己；
 /// 5. 环境变量 `BEVY_STUDIO_WORKSPACE` 覆盖当前工作区（自动验收用）。
-fn 恢复窗口布局(mut 界面: ResMut<UiStateHolder>, 配置: Res<编辑器配置资源>) {
+fn 恢复窗口布局(
+    mut 界面: ResMut<UiStateHolder>,
+    配置: Res<编辑器配置资源>,
+    mut 布局待保存: ResMut<布局待保存>,
+) {
     // 语言先恢复：它不依赖布局，而且越早生效越好 ——
     // 晚一帧恢复的话，首帧会先按中文画一次，然后闪一下变成英文。
     if let Some(代号) = 配置.0.偏好.get("语言") {
@@ -587,7 +593,10 @@ fn 恢复窗口布局(mut 界面: ResMut<UiStateHolder>, 配置: Res<编辑器�
         let id = id.trim();
         if !id.is_empty() {
             match 界面.状态.主题库.切换(id) {
-                Ok(()) => info!("已按环境变量切换到主题 `{id}`"),
+                Ok(()) => {
+                    布局待保存.脏 = true;
+                    info!("已按环境变量切换到主题 `{id}`");
+                }
                 Err(错误) => warn!(
                     "环境变量 {主题环境变量} 指定的主题 `{id}` 无法切换：{}",
                     错误.文案(界面.状态.语言)
@@ -613,7 +622,13 @@ fn 恢复窗口布局(mut 界面: ResMut<UiStateHolder>, 配置: Res<编辑器�
         let id = id.trim();
         if !id.is_empty() {
             match 界面.状态.工作区.切换(id) {
-                Ok(()) => info!("已按环境变量切换到工作区 `{id}`"),
+                Ok(()) => {
+                    // 环境变量指定的工作区/主题属于"用户选择"，
+                    // 标记为待保存：否则下次启动会回退到旧配置，
+                    // 自动验收也就无法验证"重启后恢复"。
+                    布局待保存.脏 = true;
+                    info!("已按环境变量切换到工作区 `{id}`");
+                }
                 Err(错误) => warn!(
                     "环境变量 {工作区环境变量} 指定的工作区 `{id}` 无法切换：{}",
                     错误.文案(界面.状态.语言)

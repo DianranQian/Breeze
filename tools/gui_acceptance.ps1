@@ -86,6 +86,30 @@ foreach ($s in $scenarios) {
     }
 }
 
+# ---------------------------------------------------------------------------
+# 重启后恢复：同一份配置目录连跑两次，第二次不给任何环境覆盖
+# ---------------------------------------------------------------------------
+if (-not $Filter -or "restart" -like "*$Filter*") {
+    $cfg = Join-Path $outRoot "cfg_restart"
+    Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
+    $first = Join-Path $outRoot "restart_first"
+    $second = Join-Path $outRoot "restart_second"
+    $null = & cmd /c "`"$probe`" run --exe `"$Exe`" --out `"$first`" --name restart_first --timeout 150 --env APPDATA=`"$cfg`" --env BEVY_STUDIO_THEME=light --env BEVY_STUDIO_WORKSPACE=scene --env BEVY_STUDIO_LANGUAGE=en --expect-theme light --expect-workspace scene 2>&1"
+    $firstCode = $LASTEXITCODE
+    Start-Sleep -Seconds 2
+    $output = & cmd /c "`"$probe`" run --exe `"$Exe`" --out `"$second`" --name restart_second --timeout 150 --env APPDATA=`"$cfg`" --expect-theme light --expect-workspace scene --expect-language en 2>&1"
+    $code = $LASTEXITCODE
+    $verdict = ($output | Select-String -Pattern "判定：" | Select-Object -First 1).Line
+    if ($firstCode -eq 0 -and $code -eq 0) {
+        $passed++
+        Write-Host ("[通过] {0,-20} {1}" -f "restart_restore", $verdict)
+    } else {
+        $failed += "restart_restore"
+        Write-Host ("[失败] {0,-20} {1}" -f "restart_restore", $verdict)
+        $output | Select-String -Pattern "\[失败\]" | ForEach-Object { Write-Host ("        " + $_.Line) }
+    }
+}
+
 Write-Host ""
 Write-Host ("通过 {0} 个场景，失败 {1} 个" -f $passed, $failed.Count)
 if ($failed.Count -gt 0) {

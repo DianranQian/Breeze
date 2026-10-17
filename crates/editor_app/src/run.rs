@@ -154,7 +154,8 @@ impl 项目运行管理器 {
             self.最近错误 = Some(文本.clone());
             文本
         })?;
-        self.进程号 = Some(子进程.id());
+        let 号 = 子进程.id();
+        self.进程号 = Some(号);
 
         let (发送端, 接收端) = channel();
         if let Some(输出) = 子进程.stdout.take() {
@@ -166,7 +167,7 @@ impl 项目运行管理器 {
         self.子进程 = Some(子进程);
         self.接收端 = Some(Mutex::new(接收端));
         self.状态 = 项目运行状态::运行中;
-        self.记日志(format!("已启动：{}", 命令.显示()));
+        self.记日志(format!("已启动（PID {号}）：{}", 命令.显示()));
         Ok(())
     }
 

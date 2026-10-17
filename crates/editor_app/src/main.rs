@@ -32,16 +32,26 @@ fn main() {
         .unwrap_or(默认窗口尺寸);
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Studio".to_string(),
-                // Bevy 0.20 的 `WindowResolution` 用 `new(宽, 高)` 构造，
-                // 不再支持从 `(f32, f32)` 元组 `into()`（旧版本 API）。
-                resolution: WindowResolution::new(宽, 高),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                // 编辑器要加载"当前打开项目"里的模型/贴图，而资产根在启动时固定。
+                // Bevy 0.20 默认拒绝根目录外的绝对路径（日志：is unapproved），
+                // 这里显式放开：路径由编辑器自己拼装，不来自不可信输入。
+                .set(bevy::asset::AssetPlugin {
+                    unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Studio".to_string(),
+                        // Bevy 0.20 的 `WindowResolution` 用 `new(宽, 高)` 构造，
+                        // 不再支持从 `(f32, f32)` 元组 `into()`（旧版本 API）。
+                        resolution: WindowResolution::new(宽, 高),
+                        ..default()
+                    }),
+                    ..default()
+                }),
+        )
         .add_plugins(BevyStudio插件)
         .run();
 }

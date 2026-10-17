@@ -530,6 +530,12 @@ pub struct Sprite属性 {
     pub 垂直翻转: bool,
     /// 自定义尺寸。`None` 表示用贴图原始尺寸。
     pub 自定义尺寸: Option<(f32, f32)>,
+    /// glTF/GLB 模型的项目相对路径。
+    ///
+    /// 与 `贴图路径` 互斥：有模型时预览按模型渲染（真实网格），
+    /// 否则按贴图精灵渲染。放在同一个组件里而不是新造一个组件，
+    /// 是因为两者在编辑器里就是"这个实体长什么样"的两种取值。
+    pub 模型路径: Option<scene_doc::path::项目相对路径>,
 }
 
 impl Default for Sprite属性 {
@@ -540,6 +546,7 @@ impl Default for Sprite属性 {
             水平翻转: false,
             垂直翻转: false,
             自定义尺寸: None,
+            模型路径: None,
         }
     }
 }
@@ -814,6 +821,12 @@ fn sprite字段描述() -> &'static [属性描述] {
             布尔("垂直翻转", "sprite_field_flip_vertical", false),
             二维("自定义尺寸", "sprite_field_custom_size", (64.0, 64.0))
                 .带提示("sprite_field_custom_size_tooltip"),
+            资源(
+                "模型",
+                "sprite_field_model",
+                scene_doc::property::资源类别::模型,
+            )
+            .带提示("sprite_field_model_tooltip"),
         ]
     })
 }

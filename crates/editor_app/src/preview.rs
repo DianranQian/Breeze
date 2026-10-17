@@ -253,12 +253,18 @@ pub fn 解析精灵属性(
         .and_then(属性值::取布尔)
         .unwrap_or(false);
 
+    let 模型 = 属性
+        .get("模型")
+        .and_then(属性值::取资源)
+        .map(|引用| 引用.路径.文本().to_string());
+
     精灵视觉参数 {
         贴图路径: 贴图,
         颜色,
         自定义尺寸,
         水平翻转,
         垂直翻转,
+        模型路径: 模型,
     }
 }
 
@@ -275,6 +281,8 @@ pub struct 精灵视觉参数 {
     pub 水平翻转: bool,
     /// 垂直翻转。
     pub 垂直翻转: bool,
+    /// glTF/GLB 模型的项目相对路径（与 `贴图路径` 互斥）。
+    pub 模型路径: Option<String>,
 }
 
 /// 没有贴图、也没有自定义尺寸时的默认预览尺寸（世界单位）。
@@ -495,6 +503,21 @@ pub fn 初始化预览资源(
     });
     命令.insert_resource(三维预览状态::default());
 
+    // 三维预览的照明：模型材质是受光的（与 unlit 的贴图四边形不同），
+    // 没有光会渲染成纯黑。方向光负责形体，环境光保证背光面可见。
+    命令.spawn((
+        DirectionalLight {
+            illuminance: 9_000.0,
+            ..default()
+        },
+        Transform::from_xyz(6.0, 12.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+    命令.insert_resource(GlobalAmbientLight {
+        color: Color::WHITE,
+        brightness: 600.0,
+        ..default()
+    });
+
     info!("预览视口已初始化：512×512 渲染目标 + 预览相机 + 界面相机");
 }
 
@@ -617,6 +640,7 @@ pub fn 同步预览实体(
     三维资源: Res<三维预览资源>,
     mut 材质表: ResMut<Assets<StandardMaterial>>,
     mut 图片资源: ResMut<Assets<Image>>,
+    资源服务器: Res<AssetServer>,
 ) {
     let 修订 = 编辑器.状态.文档修订();
     if 同步状态.已同步修订 == Some(修订) {
@@ -639,6 +663,28 @@ pub fn 同步预览实体(
     let 待渲染 = 投影预览项(文档);
 
     for 项 in &待渲染 {
+        // 模型实体：交给 Bevy 的 glTF 场景加载器，位置/旋转/缩放沿用文档变换。
+        if let Some(模型路径) = 项.视觉.模型路径.as_deref()
+            && let Some(根) = 项目根.as_deref()
+        {
+            let 绝对 = 根.join(模型路径.replace('/', std::path::MAIN_SEPARATOR_STR));
+            // Bevy 0.20 的 glTF 场景产物是 `WorldAsset`（`WorldAssetRoot` 挂载），
+            // 不再使用旧的 `Scene`/`SceneRoot`。
+            // glTF 的首个场景是子资源，标签固定为 `Scene0`；
+            // 不带标签会报 "Could not find an asset loader matching"。
+            let 场景 = 资源服务器.load::<bevy::world_serialization::WorldAsset>(
+                bevy::asset::AssetPath::from_path_buf(绝对).with_label("Scene0"),
+            );
+            命令.spawn((
+                预览实体,
+                预览来源(项.来源),
+                bevy::world_serialization::WorldAssetRoot(场景),
+                项.变换,
+                RenderLayers::layer(三维渲染层),
+            ));
+            continue;
+        }
+
         let 图片 = 解析贴图句柄(
             项.视觉.贴图路径.as_deref(),
             项目根.as_deref(),

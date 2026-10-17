@@ -559,35 +559,40 @@ cargo test -p editor_app --test BSN场景接入
 | `editor_core` lib + `编辑闭环` | ✅ 43 + 29 全过 |
 | `editor_ui` lib | ✅ 156 全过 |
 | `editor_app` lib | ✅ 50 全过 |
-| `editor_app` `动作闭环` / `主题持久化` / `工作区持久化` | ✅ 11 / 7 / 7 全过 |
+| `editor_app` `动作闭环` / `主题持久化` / `工作区持久化` / `示例项目` | ✅ 11 / 7 / 7 / 5 全过 |
 | `gui_probe` | ✅ 8 全过 |
-| `editor_app` `多面板工作区` | ⚠️ 28 过 / **1 失败（既有问题）** |
-| `editor_app` `示例项目` | ⚠️ 1 过 / **4 失败（既有问题）** |
+| `editor_app` `多面板工作区` | ⚠️ 28 过 / **1 失败（既有问题，见 11.3）** |
 
-### 11.3 两个失败项的定性：**均为既有问题，与本轮改动无关**
+除上表最后一行的 1 项外，整个工作区测试全绿；**本轮新增的 65 项全部通过**。
 
-这两项在**本轮开始前的基线提交上就存在**，原因与本轮新增代码没有任何交集：
+### 11.3 唯一失败项的定性：**既有问题，与本轮改动无关**
 
-1. **`多面板工作区::注册表里的显示名与提示都是合法词条键`**
-   失败断言列出的是 `Sprite.模型` 的 `sprite_field_model` /
-   `sprite_field_model_tooltip` 两个词条键在词表里不存在。
-   复核方式：`git show 04e1507:crates/editor_core/i18n/messages.tsv`
-   里就没有这两个键 —— 它们是随 glTF 模型字段引入而漏加的词条。
-2. **`示例项目` 的 4 项**
-   失败原因是 `examples/2d_demo/assets/2d_demo/` 目录下**没有任何素材文件**，
-   而测试期望 `monster_orc.png` 等文件存在。
-   复核方式：`Get-ChildItem examples/2d_demo/assets/2d_demo` 为空。
+`多面板工作区::注册表里的显示名与提示都是合法词条键` 失败，断言列出的是
+`Sprite.模型` 的 `sprite_field_model` / `sprite_field_model_tooltip`
+两个词条键在词表里不存在 —— 它们是随 glTF 模型字段一起引入而漏加的词条。
 
-按任务边界（"不要为了展示 BSN 而重写无关模块"），本轮**没有**顺手改这两处：
-词条表与示例素材属于另一个方向的工作面。它们与本轮的关系是**零耦合** ——
-`scene_doc` 一行未改，`默认组件注册表` 未增删组件（有测试
-`默认组件注册表未被_bsn_接入改动` 固定）。
+复核方式（两条都能独立确认）：
+
+```powershell
+# 1. 词表里确实没有这两个键
+Select-String -Path crates/editor_core/i18n/messages.tsv -Pattern 'sprite_field_model'
+
+# 2. 该字段与本轮无关：它由 glTF 模型字段引入，scene_bridge 的 Sprite 适配里
+#    "模型" 那一栏的显示名直接写的就是这个键
+Select-String -Path crates/editor_app/src/scene_bridge.rs -Pattern 'sprite_field_model'
+```
+
+本轮**没有**顺手补这两行词条：词条表属于国际化工作面，与 BSN 接入零耦合。
+本轮对既有契约的唯一影响已由测试固定：
+`默认组件注册表未被_bsn_接入改动` 断言注册表仍是那 4 个组件、
+`现有场景文件格式未因_bsn_接入改变` 断言 RON 结构与扩展名不变，
+`scene_doc` 源码**一行未改**。
 
 ### 11.4 一处必要的构建修复（与 BSN 无关，但为了能跑测试）
 
 基线提交 `5888b6a` 给 `精灵视觉参数` 加了 `模型路径` 字段，却没有同步两处
 测试构造点，导致 `cargo test -p editor_app` **编译失败**（不是断言失败）。
 本轮补上了这两行 `模型路径: None`（`crates/editor_app/src/preview.rs` 与
-`crates/editor_app/tests/多面板工作区.rs` 各一处），否则任何测试都跑不起来。
-这是纯测试代码的机械修复，不改变任何行为。
+`crates/editor_app/tests/多面板工作区.rs` 各一处，独立提交 `1fc68c9`），
+否则任何测试都跑不起来。这是纯测试代码的机械修复，不改变任何行为。
 

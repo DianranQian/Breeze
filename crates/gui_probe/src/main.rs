@@ -1254,13 +1254,13 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         }
         // 浮动：把控制台标签拖到菜单栏区域（Dock 之外）
         "float" => {
-            // egui_dock 在指针离开 DockArea 时把拖动中的标签变成浮动表面。
-            // 菜单栏会被菜单按钮占用，工具栏中段是空白区，更适合作为落点。
-            let 起 = 标签("asset_browser")?;
-            let (_, _, _, 状态栏y) = 取("statusbar")?;
-            let _ = 状态栏y;
-            let (_, 工具栏y, _, 工具栏h) = 取("toolbar")?;
-            Some((起, (900.0, 工具栏y + 工具栏h * 0.5)))
+            // egui_dock 0.21 默认 OverlayType::Widgets：
+            // 叶片中心的按钮 = 合并，边缘按钮 = 拆分；
+            // **叶片的角落**（按钮簇之外、叶片之内）才是 TabDestination::Window。
+            // 拖到 DockArea 之外（菜单栏/工具栏）不会进入拖放判定 —— 这是之前失败的真实原因。
+            let 起 = 标签("inspector")?;
+            let (x, y, w, h) = 取("viewport")?;
+            Some((起, (x + w - 25.0, y + h - 25.0)))
         }
         _ => None,
     }

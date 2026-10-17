@@ -14,7 +14,7 @@
 //! 3. **可以合并与拦截**：将来做"关闭前询问是否保存"，只需在
 //!    执行队列的地方插入判断，不必改任何面板代码。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use editor_core::command::编辑器命令;
 use editor_core::state::编辑器状态;
@@ -553,6 +553,12 @@ pub struct 界面状态 {
     ///
     /// 每帧绘制开始时清空、绘制过程中追加。它只服务于自动验收与
     /// 调试输出，不参与布局决策。
+    /// 场景树中处于折叠状态的实体（仅界面状态，不写入场景文档）。
+    ///
+    /// 用实体标识而不是行号：行号会随排序、过滤、增删而失效。
+    已折叠: BTreeSet<scene_doc::document::实体标识>,
+    /// 场景树当前可见行（采集证据用，格式 `深度:名称`）。
+    pub 场景行快照: Vec<String>,
     pub 布局快照: Vec<区域快照>,
     /// 当前界面语言。
     ///
@@ -621,6 +627,8 @@ impl 界面状态 {
             主题库: crate::theme::主题库::新建(),
             主题草稿: None,
             显示主题编辑器: false,
+            已折叠: BTreeSet::new(),
+            场景行快照: Vec::new(),
             布局快照: Vec::new(),
             语言: crate::i18n::语言::default(),
             相机: 视口相机::default(),
@@ -701,6 +709,28 @@ impl 界面状态 {
         self.工作区 = 当前集;
         self.模式布局 = 表;
         Ok(备注)
+    }
+
+    /// 该实体是否折叠了子树。
+    pub fn 已折叠(&self, 标识: scene_doc::document::实体标识) -> bool {
+        self.已折叠.contains(&标识)
+    }
+
+    /// 切换折叠状态（纯界面操作，不产生命令、不改场景文档）。
+    pub fn 切换折叠(&mut self, 标识: scene_doc::document::实体标识) {
+        if !self.已折叠.remove(&标识) {
+            self.已折叠.insert(标识);
+        }
+    }
+
+    /// 清理已经不存在的实体，避免删实体后折叠集合无限增长。
+    pub fn 规范折叠(&mut self, 文档: &scene_doc::document::场景文档) {
+        self.已折叠.retain(|标识| 文档.取(*标识).is_some());
+    }
+
+    /// 折叠集合（只读，测试用）。
+    pub fn 折叠集合(&self) -> &BTreeSet<scene_doc::document::实体标识> {
+        &self.已折叠
     }
 
     /// 当前工作区的活布局（只读）。

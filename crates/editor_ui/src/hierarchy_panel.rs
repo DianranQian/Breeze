@@ -11,6 +11,8 @@
 //! 换来的是清晰的借用边界和**可测的树构建逻辑**。
 
 use editor_core::state::编辑器状态;
+use std::collections::BTreeSet;
+
 use egui::{Color32, RichText, Sense, Ui};
 use scene_doc::document::{场景文档, 实体标识};
 
@@ -40,21 +42,34 @@ pub struct 显示行 {
 /// 折叠的子树会被跳过，因此返回的行数可能小于实体总数。
 /// 这也是这个函数必须独立出来的原因：它是场景树的核心逻辑，
 /// 用纯函数表达才能不依赖 egui 直接测试。
-pub fn 构建显示行(文档: &场景文档) -> Vec<显示行> {
+pub fn 构建显示行(
+    文档: &场景文档,
+    折叠: &BTreeSet<scene_doc::document::实体标识>,
+) -> Vec<显示行> {
     let mut 结果 = Vec::new();
+    // 祖先栈：深度优先遍历是前序的，深度回到某一层时栈自动截断。
+    let mut 祖先: Vec<scene_doc::document::实体标识> = Vec::new();
     for (标识, 深度) in 文档.深度优先遍历() {
+        祖先.truncate(深度);
         let Some(实体) = 文档.取(标识) else {
             continue;
         };
+        // 任一祖先被折叠 → 该节点及整棵子树都不产生显示行。
+        // 注意这里**不修改文档**：实体、父子关系、ID 全部原样保留。
+        if 祖先.iter().any(|祖先| 折叠.contains(祖先)) {
+            continue;
+        }
+        let 有子实体 = !文档.子实体列表(Some(标识)).is_empty();
         结果.push(显示行 {
             标识,
             名称: 实体.名称.clone(),
             深度,
-            有子实体: !文档.子实体列表(Some(标识)).is_empty(),
+            有子实体,
             隐藏: 实体.编辑器隐藏,
             锁定: 实体.编辑器锁定,
-            展开: 实体.编辑器展开,
+            展开: 有子实体 && !折叠.contains(&标识),
         });
+        祖先.push(标识);
     }
     结果
 }
@@ -160,7 +175,13 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.separator();
 
-    let 全部行 = 构建显示行(&编辑器.会话.文档);
+    上下文.界面.规范折叠(&编辑器.会话.文档);
+    let 折叠 = 上下文.界面.折叠集合().clone();
+    let 全部行 = 构建显示行(&编辑器.会话.文档, &折叠);
+    上下文.界面.场景行快照 = 全部行
+        .iter()
+        .map(|行| format!("{}:{}", 行.深度, 行.名称))
+        .collect();
     let 显示行列表 = 按名称过滤(&全部行, &关键字);
 
     if 全部行.is_empty() {
@@ -213,28 +234,17 @@ fn 绘制行(
         // 折叠箭头
         if 行.有子实体 {
             let 符号 = if 行.展开 { "▾" } else { "▸" };
+            // 折叠是界面状态：只改 `界面状态.折叠集合`，不产生撤销命令、
+            // 不写场景文档。控件的点击区域由按钮自身的最小尺寸保证。
             if ui
-                .add(egui::Button::new(符号).frame(false).small())
+                .add(
+                    egui::Button::new(符号)
+                        .frame(false)
+                        .min_size(egui::vec2(18.0, 行高.max(18.0))),
+                )
                 .clicked()
             {
-                let 新值 = !行.展开;
-                上下文.动作.推(UiAction::执行命令(
-                    editor_core::command::编辑器命令::替换实体 {
-                        实体: Box::new({
-                            let mut 实体 = 上下文
-                                .编辑器
-                                .会话
-                                .文档
-                                .取(行.标识)
-                                .cloned()
-                                .unwrap_or_else(|| {
-                                    scene_doc::document::场景实体::新建(行.名称.clone())
-                                });
-                            实体.编辑器展开 = 新值;
-                            实体
-                        }),
-                    },
-                ));
+                上下文.界面.切换折叠(行.标识);
             }
         } else {
             ui.add_space(14.0);
@@ -444,7 +454,7 @@ mod 测试 {
     #[test]
     fn 显示行按深度优先顺序并有正确缩进() {
         let 文档 = 造场景();
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
         let 名称: Vec<&str> = 行.iter().map(|行| 行.名称.as_str()).collect();
         assert_eq!(名称, vec!["根", "甲", "甲的孩子", "乙"]);
 
@@ -455,7 +465,7 @@ mod 测试 {
     #[test]
     fn 有子实体标记正确() {
         let 文档 = 造场景();
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
         let 查 = |名称: &str| 行.iter().find(|行| 行.名称 == 名称).unwrap();
         assert!(查("根").有子实体);
         assert!(查("甲").有子实体);
@@ -464,27 +474,123 @@ mod 测试 {
     }
 
     #[test]
-    fn 折叠的子树不会出现在显示行里() {
-        let mut 文档 = 造场景();
-        // 深度优先遍历本身不负责折叠，折叠表现在"展开"标记上。
-        // 这里验证标记能被正确读出，折叠渲染由 UI 依据该标记处理。
-        let 行 = 构建显示行(&文档);
-        let 根行 = 行.iter().find(|行| 行.名称 == "根").unwrap();
-        assert!(!根行.展开, "新实体的展开标记应当默认关闭");
+    fn 折叠父节点后子节点与深层后代都不可见() {
+        let 文档 = 造场景();
+        let 根 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "根")
+            .unwrap()
+            .标识;
+        let 折叠 = BTreeSet::from([根]);
+        let 行 = 构建显示行(&文档, &折叠);
+        let 名称: Vec<&str> = 行.iter().map(|行| 行.名称.as_str()).collect();
+        assert_eq!(名称, vec!["根"], "根折叠后只应剩根自己");
+    }
 
-        // 设置展开标记后应当能被读出
-        let 根标识 = 根行.标识;
-        if let Some(实体) = 文档.取可变(根标识) {
-            实体.编辑器展开 = true;
-        }
-        let 行 = 构建显示行(&文档);
-        assert!(行.iter().find(|行| 行.名称 == "根").unwrap().展开);
+    #[test]
+    fn 折叠内层节点只隐藏它自己的后代() {
+        let 文档 = 造场景();
+        let 甲 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "甲")
+            .unwrap()
+            .标识;
+        let 折叠 = BTreeSet::from([甲]);
+        let 行 = 构建显示行(&文档, &折叠);
+        let 名称: Vec<&str> = 行.iter().map(|行| 行.名称.as_str()).collect();
+        assert_eq!(名称, vec!["根", "甲", "乙"], "甲的孩子应隐藏，乙仍可见");
+    }
+
+    #[test]
+    fn 展开后按原有顺序恢复后代() {
+        let 文档 = 造场景();
+        let 根 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "根")
+            .unwrap()
+            .标识;
+        let 折叠后 = 构建显示行(&文档, &BTreeSet::from([根]));
+        assert_eq!(折叠后.len(), 1);
+        let 展开后 = 构建显示行(&文档, &BTreeSet::new());
+        let 名称: Vec<&str> = 展开后.iter().map(|行| 行.名称.as_str()).collect();
+        assert_eq!(名称, vec!["根", "甲", "甲的孩子", "乙"]);
+    }
+
+    #[test]
+    fn 折叠集合不会改变场景文档() {
+        let 文档 = 造场景();
+        let 原数量 = 文档.实体表.len();
+        let 根 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "根")
+            .unwrap()
+            .标识;
+        let 甲 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "甲")
+            .unwrap()
+            .标识;
+        let 原父 = 文档.取(甲).and_then(|实体| 实体.父实体);
+        let _ = 构建显示行(&文档, &BTreeSet::from([根]));
+        assert_eq!(文档.实体表.len(), 原数量);
+        assert_eq!(文档.取(甲).and_then(|实体| 实体.父实体), 原父);
+        assert_eq!(
+            文档
+                .实体表
+                .values()
+                .find(|实体| 实体.名称 == "甲")
+                .unwrap()
+                .标识,
+            甲
+        );
+    }
+
+    #[test]
+    fn 删除实体后折叠集合可被清理() {
+        let mut 文档 = 造场景();
+        let 甲 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "甲")
+            .unwrap()
+            .标识;
+        let mut 折叠 = BTreeSet::from([甲]);
+        文档.实体表.remove(&甲);
+        // 清理逻辑与界面状态一致：只保留仍存在的实体。
+        折叠.retain(|标识| 文档.取(*标识).is_some());
+        assert!(折叠.is_empty());
+        let 行 = 构建显示行(&文档, &折叠);
+        assert!(!行.is_empty());
+    }
+
+    #[test]
+    fn 折叠切换是纯界面状态且可重复() {
+        let mut 界面 = crate::state::界面状态::新建();
+        let 文档 = 造场景();
+        let 根 = 文档
+            .实体表
+            .values()
+            .find(|实体| 实体.名称 == "根")
+            .unwrap()
+            .标识;
+        assert!(!界面.已折叠(根));
+        界面.切换折叠(根);
+        assert!(界面.已折叠(根));
+        assert_eq!(构建显示行(&文档, 界面.折叠集合()).len(), 1);
+        界面.切换折叠(根);
+        assert!(!界面.已折叠(根));
+        assert_eq!(构建显示行(&文档, 界面.折叠集合()).len(), 4);
     }
 
     #[test]
     fn 搜索会保留匹配项及其祖先() {
         let 文档 = 造场景();
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
 
         let 过滤后 = 按名称过滤(&行, "孩子");
         let 名称: Vec<&str> = 过滤后.iter().map(|行| 行.名称.as_str()).collect();
@@ -499,7 +605,7 @@ mod 测试 {
     #[test]
     fn 空关键字返回全部() {
         let 文档 = 造场景();
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
         assert_eq!(按名称过滤(&行, "").len(), 行.len());
         assert_eq!(按名称过滤(&行, "   ").len(), 行.len());
     }
@@ -507,14 +613,14 @@ mod 测试 {
     #[test]
     fn 无匹配时返回空列表() {
         let 文档 = 造场景();
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
         assert!(按名称过滤(&行, "根本不存在的东西").is_empty());
     }
 
     #[test]
     fn 锁定实体不可被视口选中() {
         let mut 文档 = 造场景();
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
         let 目标 = 行[1].标识;
         assert!(可选(&文档, 目标));
         if let Some(实体) = 文档.取可变(目标) {
@@ -539,7 +645,7 @@ mod 测试 {
             实体.编辑器隐藏 = true;
             实体.编辑器锁定 = true;
         }
-        let 行 = 构建显示行(&文档);
+        let 行 = 构建显示行(&文档, &BTreeSet::new());
         let 甲行 = 行.iter().find(|行| 行.标识 == 甲).unwrap();
         assert!(甲行.隐藏 && 甲行.锁定);
     }

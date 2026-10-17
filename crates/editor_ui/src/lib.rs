@@ -425,6 +425,21 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        // 临时诊断（受环境变量控制）：打印真实应用里每个叶子拿到的矩形，
+        // 并把矩形与面板身份绑定，避免靠位置猜。
+        if std::env::var("BEVY_STUDIO_DUMP_LEAF_RECTS").is_ok() {
+            let r = ui.max_rect();
+            eprintln!(
+                "[LEAF] {:?} min=({:.1},{:.1}) max=({:.1},{:.1}) w={:.1} h={:.1}",
+                tab,
+                r.min.x,
+                r.min.y,
+                r.max.x,
+                r.max.y,
+                r.width(),
+                r.height()
+            );
+        }
         let mut 上下文 = self.视图();
         match tab {
             Tab::场景树 => hierarchy_panel::绘制(ui, &mut 上下文),

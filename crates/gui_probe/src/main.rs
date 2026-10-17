@@ -34,6 +34,7 @@
 mod analysis;
 mod evidence;
 mod image_stats;
+mod input;
 mod window_probe;
 
 use std::path::{Path, PathBuf};
@@ -63,6 +64,7 @@ fn 分派(参数: &[String]) -> i32 {
     };
     match 子命令 {
         "run" => 运行(参数),
+        "drag" => 拖拽(参数),
         "analyze" => 只分析(参数),
         "window" => 查窗口(参数),
         "help" | "--help" | "-h" => {
@@ -663,4 +665,639 @@ fn 写失败报告(
     )
     .map_err(|错误| format!("写失败报告失败：{错误}"))?;
     Ok(())
+}
+
+// ===========================================================================
+// drag：真实鼠标拖拽 + 双帧证据
+// ===========================================================================
+
+/// 拖拽验收的判定结果（退出码与既有约定一致）。
+fn 拖拽(参数: &[String]) -> i32 {
+    let mut exe: Option<PathBuf> = None;
+    let mut 输出目录 = PathBuf::from(".verify/runs");
+    let mut 名称 = "drag".to_string();
+    let mut 超时秒 = 180u64;
+    let mut 第一帧 = 90u32;
+    let mut 第二帧: Option<u32> = None;
+    let mut 从: Option<(f32, f32)> = None;
+    let mut 到: Option<(f32, f32)> = None;
+    let mut 分割线: Option<String> = None;
+    let mut 期望区域: Option<String> = None;
+    let mut 期望不变 = false;
+    let mut 空跑 = false;
+    let mut 用例: Option<String> = None;
+    let mut 窗口尺寸: Option<String> = None;
+    let mut 环境变量: Vec<(String, String)> = Vec::new();
+
+    let mut 下标 = 1;
+    while 下标 < 参数.len() {
+        let 键 = 参数[下标].as_str();
+        let 取值 = |下标: &mut usize| -> Option<String> {
+            *下标 += 1;
+            参数.get(*下标).cloned()
+        };
+        match 键 {
+            "--exe" => exe = 取值(&mut 下标).map(PathBuf::from),
+            "--out" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    输出目录 = PathBuf::from(值);
+                }
+            }
+            "--name" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    名称 = 值;
+                }
+            }
+            "--timeout" => {
+                if let Some(值) = 取值(&mut 下标).and_then(|值| 值.parse().ok()) {
+                    超时秒 = 值;
+                }
+            }
+            "--frame" => {
+                if let Some(值) = 取值(&mut 下标).and_then(|值| 值.parse().ok()) {
+                    第一帧 = 值;
+                }
+            }
+            "--frame2" => {
+                第二帧 = 取值(&mut 下标).and_then(|值| 值.parse().ok());
+            }
+            "--from" => 从 = 取值(&mut 下标).and_then(|值| 解析点(&值)),
+            "--to" => 到 = 取值(&mut 下标).and_then(|值| 解析点(&值)),
+            "--splitter" => 分割线 = 取值(&mut 下标),
+            "--expect-region" => 期望区域 = 取值(&mut 下标),
+            "--expect-no-change" => 期望不变 = true,
+            "--dry-run" => 空跑 = true,
+            "--case" => 用例 = 取值(&mut 下标),
+            "--window" => 窗口尺寸 = 取值(&mut 下标),
+            "--env" => {
+                if let Some(值) = 取值(&mut 下标)
+                    && let Some((键, 值)) = 值.split_once('=')
+                {
+                    环境变量.push((键.to_string(), 值.to_string()));
+                }
+            }
+            _ => {}
+        }
+        下标 += 1;
+    }
+    let Some(exe) = exe else {
+        eprintln!("drag 需要 --exe");
+        return 4;
+    };
+    if !exe.is_file() {
+        eprintln!("可执行文件不存在：{}", exe.display());
+        return 4;
+    }
+    if 从.is_none() && 分割线.is_none() && 用例.is_none() {
+        eprintln!("drag 需要 --from/--to、--splitter v|h 或 --case <name>");
+        return 4;
+    }
+    if let Err(错误) = std::fs::create_dir_all(&输出目录) {
+        eprintln!("无法创建输出目录：{错误}");
+        return 4;
+    }
+    let 第二帧 = 第二帧.unwrap_or(第一帧 + 120);
+    let 前图 = 输出目录.join(format!("{名称}_before.png"));
+    let 前证 = 输出目录.join(format!("{名称}_before.json"));
+    let 后图 = 输出目录.join(format!("{名称}_after.png"));
+    let 后证 = 输出目录.join(format!("{名称}_after.json"));
+    let 日志 = 输出目录.join(format!("{名称}.drag.log"));
+    for 路径 in [&前图, &前证, &后图, &后证] {
+        let _ = std::fs::remove_file(路径);
+    }
+
+    let mut 命令 = Command::new(&exe);
+    命令
+        .env("BEVY_STUDIO_CAPTURE_PNG", &前图)
+        .env("BEVY_STUDIO_CAPTURE_JSON", &前证)
+        .env("BEVY_STUDIO_CAPTURE_FRAME", 第一帧.to_string())
+        .env("BEVY_STUDIO_CAPTURE_PNG2", &后图)
+        .env("BEVY_STUDIO_CAPTURE_JSON2", &后证)
+        .env("BEVY_STUDIO_CAPTURE_FRAME2", 第二帧.to_string())
+        .env("BEVY_STUDIO_CAPTURE_EXIT", "1")
+        .env("BEVY_STUDIO_INPUT_DIAG", "1");
+    if let Some(尺寸) = 窗口尺寸.as_deref() {
+        命令.env("BEVY_STUDIO_WINDOW_SIZE", 尺寸);
+    }
+    for (键, 值) in &环境变量 {
+        命令.env(键, 值);
+    }
+    let 日志文件 = match std::fs::File::create(&日志) {
+        Ok(文件) => 文件,
+        Err(错误) => {
+            eprintln!("无法创建日志：{错误}");
+            return 4;
+        }
+    };
+    let Ok(日志副本) = 日志文件.try_clone() else {
+        return 4;
+    };
+    命令
+        .stdout(Stdio::from(日志文件))
+        .stderr(Stdio::from(日志副本));
+    let mut 子进程 = match 命令.spawn() {
+        Ok(子进程) => 子进程,
+        Err(错误) => {
+            eprintln!("无法启动应用：{错误}");
+            return 3;
+        }
+    };
+    let 进程号 = 子进程.id();
+    let 开始 = Instant::now();
+    let 超时 = Duration::from_secs(超时秒);
+
+    // 等第一帧 + 窗口
+    let mut 窗口: Option<窗口信息> = None;
+    let mut 第一帧就绪 = false;
+    loop {
+        if let Some(候选) = window_probe::查找(进程号)
+            && 更优窗口(&候选, 窗口.as_ref())
+        {
+            窗口 = Some(候选);
+        }
+        if 前图.is_file() && 前证.is_file() && 窗口.is_some() {
+            第一帧就绪 = true;
+            break;
+        }
+        if let Ok(Some(_)) = 子进程.try_wait() {
+            break;
+        }
+        if 开始.elapsed() > 超时 {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(80));
+    }
+
+    let Ok(前证据) = 读取证据(&前证) else {
+        eprintln!("采集失败：第一帧证据不存在或不可读");
+        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+        return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第一帧证据不可读", 3);
+    };
+    if !第一帧就绪 {
+        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+        return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第一帧采集超时", 3);
+    }
+    let Some(窗口) = 窗口 else {
+        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+        return 拖拽失败报告(&输出目录, &名称, "capture_failed", "无法识别目标窗口", 3);
+    };
+
+    let ppp = 前证据
+        .get("pixels_per_point")
+        .and_then(|值| 值.as_f64())
+        .unwrap_or(1.0) as f32;
+    let 原点 = 窗口.客户区原点;
+    // 逻辑客户区坐标 → 屏幕物理坐标
+    let 转屏幕 = |逻辑: (f32, f32)| -> (i32, i32) {
+        (
+            原点.0 + (逻辑.0 * ppp).round() as i32,
+            原点.1 + (逻辑.1 * ppp).round() as i32,
+        )
+    };
+
+    let (从逻辑, 到逻辑) = match (从, 到, 分割线.as_deref(), 用例.as_deref()) {
+        (Some(起点), Some(终点), _, _) => (起点, 终点),
+        (_, _, Some(方向), _) => match 分割线坐标(&前证据, 方向) {
+            Some(坐标) => 坐标,
+            None => {
+                let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "capture_failed",
+                    "证据里没有视口区域",
+                    3,
+                );
+            }
+        },
+        (_, _, _, Some(名)) => match 用例坐标(名, &前证据) {
+            Some(坐标) => 坐标,
+            None => {
+                let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "capture_failed",
+                    "用例需要的区域不存在",
+                    3,
+                );
+            }
+        },
+        _ => ((0.0, 0.0), (0.0, 0.0)),
+    };
+
+    // 聚焦目标窗口：不聚焦时 SendInput 的点击会落到别的窗口上。
+    //
+    // `SetForegroundWindow` 在 Windows 上可能被前台锁拒绝（返回 0）。
+    // 这时点一下**标题栏**：它不进入客户区，不会误触 UI，但足以把窗口激活。
+    确保前台(&窗口);
+    std::thread::sleep(Duration::from_millis(250));
+
+    let 起点屏幕 = 转屏幕(从逻辑);
+    let 终点屏幕 = 转屏幕(到逻辑);
+    eprintln!(
+        "注入：逻辑 {:?}→{:?}，屏幕 {:?}→{:?}（ppp={ppp:.2}，客户区原点={原点:?}）",
+        从逻辑, 到逻辑, 起点屏幕, 终点屏幕
+    );
+    let 注入 = if 空跑 {
+        // 负向对照：完全不动鼠标，用来证明工具会把"没有变化"判为输入未生效，
+        // 而不是把 Dock 判成坏的。
+        input::注入结果 {
+            移动成功: true,
+            按下成功: true,
+            抬起成功: true,
+            移动步数: 0,
+        }
+    } else {
+        input::执行拖拽(input::拖拽 {
+            从: 起点屏幕,
+            到: 终点屏幕,
+            步数: 16,
+            步间隔: Duration::from_millis(24),
+        })
+    };
+
+    // 等第二帧
+    let 二开始 = Instant::now();
+    let mut 第二帧就绪 = false;
+    loop {
+        if 后图.is_file() && 后证.is_file() {
+            第二帧就绪 = true;
+            break;
+        }
+        if let Ok(Some(_)) = 子进程.try_wait() {
+            if 后图.is_file() && 后证.is_file() {
+                第二帧就绪 = true;
+            }
+            break;
+        }
+        if 二开始.elapsed() > 超时 {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(80));
+    }
+    等待退出(&mut 子进程, Duration::from_secs(10));
+    let 日志尾部 = 读取日志尾部(&日志, 80);
+
+    if !第二帧就绪 {
+        return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第二帧采集失败", 3);
+    }
+    let Ok(后证据) = 读取证据(&后证) else {
+        return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第二帧证据不可读", 3);
+    };
+    if !注入.完整() {
+        return 拖拽失败报告(
+            &输出目录,
+            &名称,
+            "input_failed",
+            &format!("SendInput 阶段失败：{}", 注入.摘要()),
+            3,
+        );
+    }
+
+    let 变化 = 比较区域(&前证据, &后证据);
+    let 收到指针 = 日志尾部.contains("[输入诊断]");
+
+    写拖拽报告(
+        &输出目录,
+        &名称,
+        &窗口,
+        ppp,
+        从逻辑,
+        到逻辑,
+        起点屏幕,
+        终点屏幕,
+        &注入,
+        收到指针,
+        &变化,
+        &期望区域,
+        期望不变,
+    );
+
+    let 满足 = if 期望不变 {
+        变化.is_empty()
+    } else {
+        !变化.is_empty()
+    };
+    let 期望命中 = 期望区域
+        .as_deref()
+        .map(|区域| 变化.iter().any(|项| 项 == 区域))
+        .unwrap_or(true);
+
+    if !满足 {
+        eprintln!("输入未产生布局变化（received_pointer={收到指针}）");
+        // 指针事件确实到达 egui 但布局完全没变 → 这是真实 UI 缺陷；
+        // 否则只能判定为输入/环境失败，不能冤枉 Dock。
+        return if 收到指针 { 2 } else { 3 };
+    }
+    if !期望命中 {
+        eprintln!("布局发生了变化，但期望区域 `{期望区域:?}` 未变化");
+        return 2;
+    }
+    0
+}
+
+fn 解析点(值: &str) -> Option<(f32, f32)> {
+    let (x, y) = 值.split_once(',')?;
+    Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
+}
+
+/// 用证据里的视口区域推导分割线位置（返回逻辑坐标的 from/to）。
+fn 分割线坐标(证据: &serde_json::Value, 方向: &str) -> Option<((f32, f32), (f32, f32))> {
+    let ppp = 证据.get("pixels_per_point")?.as_f64()? as f32;
+    let 区域 = 证据.get("regions")?.as_array()?.clone();
+    let 取 = |id: &str| -> Option<(f32, f32, f32, f32)> {
+        区域.iter().find_map(|项| {
+            if 项.get("id")?.as_str()? != id {
+                return None;
+            }
+            Some((
+                项.get("x")?.as_f64()? as f32 / ppp,
+                项.get("y")?.as_f64()? as f32 / ppp,
+                项.get("w")?.as_f64()? as f32 / ppp,
+                项.get("h")?.as_f64()? as f32 / ppp,
+            ))
+        })
+    };
+    let (vx, vy, vw, vh) = 取("viewport")?;
+    match 方向 {
+        "v" => {
+            // 分割线在"左邻面板右边缘"与"视口左边缘"之间的中点。
+            // 直接用视口 x-2 会落在视口内部，按不到分割条（真实踩过）。
+            let 左 = 区域
+                .iter()
+                .filter_map(|项| {
+                    let id = 项.get("id")?.as_str()?;
+                    let x = 项.get("x")?.as_f64()? as f32 / ppp;
+                    let w = 项.get("w")?.as_f64()? as f32 / ppp;
+                    let y = 项.get("y")?.as_f64()? as f32 / ppp;
+                    let h = 项.get("h")?.as_f64()? as f32 / ppp;
+                    (id != "viewport" && x + w <= vx + 1.0 && (y - vy).abs() < 4.0).then_some(x + w)
+                })
+                .fold(f32::MIN, f32::max);
+            let 左边缘 = if 左.is_finite() { 左 } else { vx - 20.0 };
+            let 边界 = (左边缘 + vx) * 0.5;
+            let 中间 = vy + vh * 0.5;
+            Some(((边界, 中间), (边界 + 70.0, 中间)))
+        }
+        "h" => {
+            // 分割线在"视口下边缘"与"下方面板顶边"之间的中点。
+            let 下 = 区域
+                .iter()
+                .filter_map(|项| {
+                    let id = 项.get("id")?.as_str()?;
+                    let y = 项.get("y")?.as_f64()? as f32 / ppp;
+                    let x = 项.get("x")?.as_f64()? as f32 / ppp;
+                    (id != "viewport" && y >= vy + vh - 1.0 && (x - vx).abs() < 40.0).then_some(y)
+                })
+                .fold(None::<f32>, |当前, 值| {
+                    Some(当前.map_or(值, |已有| 已有.min(值)))
+                });
+            let 下边缘 = 下.unwrap_or(vy + vh + 20.0);
+            let 边界 = (vy + vh + 下边缘) * 0.5;
+            let 中间 = vx + vw * 0.5;
+            Some(((中间, 边界), (中间, 边界 - 55.0)))
+        }
+        _ => None,
+    }
+}
+
+/// 读取证据 JSON。
+fn 读取证据(路径: &Path) -> Result<serde_json::Value, String> {
+    let 文本 = std::fs::read_to_string(路径).map_err(|错误| 错误.to_string())?;
+    serde_json::from_str(&文本).map_err(|错误| 错误.to_string())
+}
+
+/// 比较前后两帧的区域矩形，返回发生变化（>1px）的区域 id。
+fn 比较区域(前: &serde_json::Value, 后: &serde_json::Value) -> Vec<String> {
+    let 取表 =
+        |证据: &serde_json::Value| -> std::collections::BTreeMap<String, (f32, f32, f32, f32)> {
+            let mut 表 = std::collections::BTreeMap::new();
+            if let Some(区域) = 证据.get("regions").and_then(|值| 值.as_array()) {
+                for 项 in 区域 {
+                    let id = 项.get("id").and_then(|值| 值.as_str()).unwrap_or("");
+                    let 数 = |键: &str| 项.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) as f32;
+                    表.insert(id.to_string(), (数("x"), 数("y"), 数("w"), 数("h")));
+                }
+            }
+            表
+        };
+    let 前表 = 取表(前);
+    let 后表 = 取表(后);
+    let mut 结果 = Vec::new();
+    for (id, 值) in &前表 {
+        match 后表.get(id) {
+            Some(新) => {
+                let 差 = (值.0 - 新.0).abs()
+                    + (值.1 - 新.1).abs()
+                    + (值.2 - 新.2).abs()
+                    + (值.3 - 新.3).abs();
+                if 差 > 1.0 {
+                    结果.push(id.clone());
+                }
+            }
+            None => 结果.push(id.clone()),
+        }
+    }
+    for id in 后表.keys() {
+        if !前表.contains_key(id) {
+            结果.push(id.clone());
+        }
+    }
+    结果.sort();
+    结果.dedup();
+    结果
+}
+
+#[allow(clippy::too_many_arguments)]
+fn 写拖拽报告(
+    输出目录: &Path,
+    名称: &str,
+    窗口: &窗口信息,
+    ppp: f32,
+    从逻辑: (f32, f32),
+    到逻辑: (f32, f32),
+    起点屏幕: (i32, i32),
+    终点屏幕: (i32, i32),
+    注入: &input::注入结果,
+    收到指针: bool,
+    变化: &[String],
+    期望区域: &Option<String>,
+    期望不变: bool,
+) {
+    let 报告 = serde_json::json!({
+        "schema": 1,
+        "name": 名称,
+        "window": {
+            "handle": 窗口.句柄,
+            "title": 窗口.标题,
+            "client": 窗口.客户区,
+            "origin": 窗口.客户区原点,
+            "dpi": 窗口.dpi,
+        },
+        "pixels_per_point": ppp,
+        "coords": {
+            "from_logical": [从逻辑.0, 从逻辑.1],
+            "to_logical": [到逻辑.0, 到逻辑.1],
+            "from_screen": [起点屏幕.0, 起点屏幕.1],
+            "to_screen": [终点屏幕.0, 终点屏幕.1],
+        },
+        "input": {
+            "summary": 注入.摘要(),
+            "complete": 注入.完整(),
+            "moves": 注入.移动步数,
+        },
+        "pointer_reached_app": 收到指针,
+        "changed_regions": 变化,
+        "expect_region": 期望区域,
+        "expect_no_change": 期望不变,
+    });
+    let _ = std::fs::write(
+        输出目录.join(format!("{名称}.drag.json")),
+        serde_json::to_string_pretty(&报告).unwrap_or_default(),
+    );
+    let 行: Vec<String> = 变化.iter().map(|项| format!("- `{项}`")).collect();
+    let 文本 = format!(
+        "# 真实鼠标拖拽：{名称}\n\n\
+         - 窗口：{}（{}），DPI {}\n\
+         - 客户区：{}×{}，原点 {:?}\n\
+         - pixels_per_point：{ppp:.3}\n\
+         - 逻辑坐标：{:?} → {:?}\n\
+         - 屏幕坐标：{:?} → {:?}\n\
+         - 注入：{}\n\
+         - 应用收到指针事件：{}\n\
+         - 变化区域（{}）：\n{}\n",
+        窗口.标题,
+        窗口.句柄,
+        窗口.dpi,
+        窗口.客户区.0,
+        窗口.客户区.1,
+        窗口.客户区原点,
+        从逻辑,
+        到逻辑,
+        起点屏幕,
+        终点屏幕,
+        注入.摘要(),
+        if 收到指针 { "是" } else { "否" },
+        变化.len(),
+        if 行.is_empty() {
+            "- （无）".to_string()
+        } else {
+            行.join("\n")
+        }
+    );
+    let _ = std::fs::write(输出目录.join(format!("{名称}.drag.md")), 文本);
+}
+
+fn 拖拽失败报告(
+    输出目录: &Path, 名称: &str, 类别: &str, 原因: &str, 码: i32
+) -> i32 {
+    let 文本 = format!("# 真实鼠标拖拽：{名称}\n\n- 失败：**{类别}**\n- 原因：{原因}\n");
+    let _ = std::fs::write(输出目录.join(format!("{名称}.drag.md")), 文本);
+    let _ = std::fs::write(
+        输出目录.join(format!("{名称}.drag.json")),
+        serde_json::json!({"schema":1,"name":名称,"failure":类别,"reason":原因}).to_string(),
+    );
+    eprintln!("拖拽失败（{类别}）：{原因}");
+    码
+}
+
+/// 区域逻辑矩形（x,y,w,h），来自证据 JSON 的物理像素。
+fn 区域表(
+    证据: &serde_json::Value
+) -> std::collections::BTreeMap<String, (f32, f32, f32, f32)> {
+    let ppp = 证据
+        .get("pixels_per_point")
+        .and_then(|值| 值.as_f64())
+        .unwrap_or(1.0) as f32;
+    let mut 表 = std::collections::BTreeMap::new();
+    if let Some(区域) = 证据.get("regions").and_then(|值| 值.as_array()) {
+        for 项 in 区域 {
+            let Some(id) = 项.get("id").and_then(|值| 值.as_str()) else {
+                continue;
+            };
+            let 取 = |键: &str| 项.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) as f32 / ppp;
+            表.insert(id.to_string(), (取("x"), 取("y"), 取("w"), 取("h")));
+        }
+    }
+    表
+}
+
+/// 预置用例：把"要拖哪里"写成可复用的坐标推导。
+///
+/// 坐标全部相对客户区逻辑像素；标签条上的落点取面板左上角附近，
+/// egui_dock 的标签命中区从面板顶边开始约 24 逻辑像素高。
+fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f32, f32))> {
+    let 表 = 区域表(证据);
+    let 取 = |id: &str| 表.get(id).copied();
+    let 标签 = |id: &str| 取(id).map(|(x, y, _, _)| (x + 40.0, y - 14.0));
+    match 名 {
+        // 把场景树标签拖进视口标签 → 合并成同一标签组
+        "merge" => {
+            let 起 = 标签("scene_tree")?;
+            let (x, y, _, _) = 取("viewport")?;
+            Some((起, (x + 55.0, y - 14.0)))
+        }
+        // 把检查器标签拖到视口中央 → 拆分出新分区
+        "split" => {
+            // 拖到视口右边缘内侧：egui_dock 在叶片边缘放手会拆分为新分区，
+            // 落在正中间则只是合并成标签页 —— 两者验证的目标不同。
+            let 起 = 标签("inspector")?;
+            let (x, y, w, h) = 取("viewport")?;
+            Some((起, (x + w - 24.0, y + h * 0.5)))
+        }
+        // 关闭检查器：点标签右侧的关闭按钮
+        "close" => {
+            let (x, y, w, _) = 取("inspector")?;
+            Some(((x + w - 12.0, y - 16.0), (x + w - 12.0, y - 16.0)))
+        }
+        // 浮动：把控制台标签拖到菜单栏区域（Dock 之外）
+        "float" => {
+            // 只能拖"当前激活"的标签（未激活的标签没有内容区域）。
+            let 起 = 标签("asset_browser")?;
+            let (_, y, _, _) = 取("menubar")?;
+            Some((起, (420.0, y + 8.0)))
+        }
+        _ => None,
+    }
+}
+
+/// 确保目标窗口位于前台：先 `SetForegroundWindow`，失败则点标题栏激活。
+fn 确保前台(窗口: &窗口信息) {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, SetForegroundWindow,
+        };
+        let Ok(句柄) = usize::from_str_radix(窗口.句柄.trim_start_matches("0x"), 16) else {
+            return;
+        };
+        let 句柄 = 句柄 as _;
+        // SAFETY: 只传窗口句柄。
+        let 已是前台 = unsafe { GetForegroundWindow() } == 句柄;
+        if 已是前台 {
+            return;
+        }
+        // SAFETY: 句柄来自 EnumWindows 的枚举结果。
+        unsafe {
+            SetForegroundWindow(句柄);
+        }
+        std::thread::sleep(Duration::from_millis(120));
+        if unsafe { GetForegroundWindow() } == 句柄 {
+            return;
+        }
+        // 点标题栏激活：窗口矩形顶边 + 10px，水平取客户区中部。
+        let (x, y, w, _) = 窗口.窗口矩形;
+        let 标题点 = (x + w / 2, y + 10);
+        let _ = input::移动到(标题点);
+        std::thread::sleep(Duration::from_millis(80));
+        let _ = input::按下();
+        std::thread::sleep(Duration::from_millis(60));
+        let _ = input::抬起();
+        std::thread::sleep(Duration::from_millis(150));
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = 窗口;
+    }
 }

@@ -27,6 +27,8 @@ pub struct 窗口信息 {
     pub 窗口矩形: (i32, i32, i32, i32),
     /// 窗口所在显示器的 DPI。
     pub dpi: u32,
+    /// 客户区左上角在屏幕上的物理像素坐标。
+    pub 客户区原点: (i32, i32),
 }
 
 impl 窗口信息 {
@@ -136,6 +138,21 @@ mod 平台 {
         unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
     }
 
+    /// 客户区原点（屏幕物理像素）。
+    ///
+    /// 注入鼠标时用它把"客户区坐标"变成"屏幕坐标"；
+    /// 用 `GetClientRect` 只能得到尺寸，拿不到位置。
+    fn 取客户区原点(句柄: HWND) -> (i32, i32) {
+        use windows_sys::Win32::Foundation::POINT;
+        use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+        let mut 点 = POINT { x: 0, y: 0 };
+        // SAFETY: POINT 在本栈帧内，句柄由枚举回调提供。
+        unsafe {
+            ClientToScreen(句柄, &mut 点);
+        }
+        (点.x, 点.y)
+    }
+
     /// 查找属于指定进程的主窗口。
     ///
     /// 选择规则：优先"可见 + 标题含 微风/Breeze"，
@@ -166,6 +183,7 @@ mod 平台 {
                 客户区: 取客户区(句柄),
                 窗口矩形: 取窗口矩形(句柄),
                 dpi: unsafe { GetDpiForWindow(句柄) },
+                客户区原点: 取客户区原点(句柄),
             };
             候选.push(信息);
         }

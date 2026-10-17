@@ -371,6 +371,7 @@ impl Plugin for BevyStudio插件 {
                         preview::同步预览相机,
                         preview::同步渲染尺寸,
                         preview::模型诊断,
+                        输入诊断,
                     )
                         .chain(),
                     (actions::推进运行时, actions::收集运行时诊断).chain(),
@@ -872,5 +873,30 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::设置语言(语言) => format!("设置语言({})", 语言.自称()),
         UiAction::清空控制台 => "清空控制台".to_string(),
         UiAction::显示关于 => "显示关于".to_string(),
+    }
+}
+
+/// 输入诊断：仅在 `BEVY_STUDIO_INPUT_DIAG=1` 时记录指针按下/抬起。
+///
+/// GUI 验收需要区分"事件没送到"和"送到了但 UI 没响应"。
+/// 这行日志就是那条分界线：没有它，任何布局不变都只能猜。
+pub fn 输入诊断(
+    窗口: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    按键: Res<ButtonInput<MouseButton>>,
+) {
+    if std::env::var("BEVY_STUDIO_INPUT_DIAG").is_err() {
+        return;
+    }
+    let Ok(窗口) = 窗口.single() else {
+        return;
+    };
+    let 按下 = 按键.just_pressed(MouseButton::Left);
+    let 抬起 = 按键.just_released(MouseButton::Left);
+    if 按下 || 抬起 {
+        info!(
+            "[输入诊断] 左键{} 位置 {:?}",
+            if 按下 { "按下" } else { "抬起" },
+            窗口.cursor_position()
+        );
     }
 }

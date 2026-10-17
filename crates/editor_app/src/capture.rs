@@ -56,6 +56,12 @@ pub const 采集报告环境变量: &str = "BEVY_STUDIO_CAPTURE_JSON";
 /// 90 帧的依据：启动后需要先载入项目/场景、替换中文字体（会重建字体图集并
 /// 重新排版一次）、建立预览渲染目标。实测 90 帧时界面已完全稳定。
 pub const 采集帧环境变量: &str = "BEVY_STUDIO_CAPTURE_FRAME";
+/// 第二张截图的输出路径（可选）。与 `CAPTURE_PNG` 一起构成"操作前/操作后"双帧证据。
+pub const 采集图2环境变量: &str = "BEVY_STUDIO_CAPTURE_PNG2";
+/// 第二份证据 JSON 的路径。留空时与第二张截图同名。
+pub const 采集报告2环境变量: &str = "BEVY_STUDIO_CAPTURE_JSON2";
+/// 第二张截图在哪一帧（默认第一帧 + 120）。
+pub const 采集帧2环境变量: &str = "BEVY_STUDIO_CAPTURE_FRAME2";
 /// 采集完成后是否自动退出（默认 1）。
 pub const 采集中退出环境变量: &str = "BEVY_STUDIO_CAPTURE_EXIT";
 /// 启动窗口尺寸 `宽x高`（逻辑像素）。用于验证不同窗口尺寸下的布局。
@@ -89,6 +95,16 @@ pub struct 采集配置 {
     pub 报告已写: bool,
     /// 采集是否彻底完成（PNG 已落盘）。
     pub 已完成: bool,
+    /// 第二张截图路径（`None` 表示只采单帧）。
+    pub 图片2: Option<PathBuf>,
+    /// 第二份证据路径。
+    pub 报告2: Option<PathBuf>,
+    /// 第二张截图的帧号（0 表示不采第二帧）。
+    pub 目标帧2: u32,
+    /// 是否已发起第二帧截图。
+    pub 已发起2: bool,
+    /// 第二份证据是否已写。
+    pub 报告2已写: bool,
 }
 
 impl 采集配置 {
@@ -107,11 +123,29 @@ impl 采集配置 {
             .map(|值| !matches!(值.trim(), "0" | "false" | "no"))
             .unwrap_or(true);
 
+        // 双帧协议：调用方设置 PNG2 才会启用第二帧。
+        let 图片2 = 取环境变量路径(采集图2环境变量);
+        let 报告2 = 图片2.as_ref().map(|路径| {
+            取环境变量路径(采集报告2环境变量).unwrap_or_else(|| 路径.with_extension("json"))
+        });
+        let 目标帧2 = if 图片2.is_some() {
+            std::env::var(采集帧2环境变量)
+                .ok()
+                .and_then(|值| 值.trim().parse::<u32>().ok())
+                .filter(|值| *值 > 目标帧)
+                .unwrap_or(目标帧 + 120)
+        } else {
+            0
+        };
+
         Self {
             图片: Some(图片),
             报告: Some(报告),
             目标帧,
             完成后退出,
+            图片2,
+            报告2,
+            目标帧2,
             ..Default::default()
         }
     }
@@ -252,19 +286,79 @@ pub fn 采集一帧(
     诊断: Res<诊断资源>,
     运行时: Res<运行时宿主>,
 ) {
-    if !采集.已启用() || 采集.已发起 {
+    if !采集.已启用() {
         return;
     }
     let Ok(egui上下文) = 上下文.ctx_mut() else {
         return;
     };
-
     采集.已过帧 += 1;
-    if 采集.已过帧 < 采集.目标帧 {
+
+    // 第一帧：操作前
+    if !采集.已发起 && 采集.已过帧 >= 采集.目标帧 {
+        采集.已发起 = true;
+        let 图片 = 采集.图片.clone();
+        let 报告 = 采集.报告.clone();
+        let 帧号 = 采集.已过帧;
+        if 发起一次采集(
+            &mut commands,
+            &egui上下文,
+            &界面,
+            &编辑器,
+            &诊断,
+            &运行时,
+            图片.as_deref(),
+            报告.as_deref(),
+            帧号,
+        )
+        .is_ok()
+        {
+            采集.报告已写 = 报告.as_deref().map(|路径| 路径.is_file()).unwrap_or(true);
+        }
         return;
     }
-    采集.已发起 = true;
 
+    // 第二帧：操作后（只有调用方显式设置了 PNG2 才采）
+    if 采集.已发起 && !采集.已发起2 && 采集.目标帧2 > 0 && 采集.已过帧 >= 采集.目标帧2
+    {
+        采集.已发起2 = true;
+        let 图片 = 采集.图片2.clone();
+        let 报告 = 采集.报告2.clone();
+        let 帧号 = 采集.已过帧;
+        if 发起一次采集(
+            &mut commands,
+            &egui上下文,
+            &界面,
+            &编辑器,
+            &诊断,
+            &运行时,
+            图片.as_deref(),
+            报告.as_deref(),
+            帧号,
+        )
+        .is_ok()
+        {
+            采集.报告2已写 = 报告.as_deref().map(|路径| 路径.is_file()).unwrap_or(true);
+        }
+    }
+}
+
+/// 采集当前帧：写证据 + 请求截图。
+///
+/// 抽成函数是双帧协议的前提：两帧必须走**完全同一段**证据生成逻辑，
+/// 否则"操作前/后"的数据口径会悄悄漂移。
+#[allow(clippy::too_many_arguments)]
+fn 发起一次采集(
+    命令: &mut Commands,
+    egui上下文: &egui::Context,
+    界面: &UiStateHolder,
+    编辑器: &EditorStateHolder,
+    诊断: &诊断资源,
+    运行时: &运行时宿主,
+    图片: Option<&Path>,
+    报告: Option<&Path>,
+    帧号: u32,
+) -> Result<(), String> {
     let 缩放 = egui上下文.zoom_factor();
     let 每点像素 = egui上下文.pixels_per_point();
     let 屏幕矩形 = egui上下文.viewport_rect();
@@ -345,20 +439,18 @@ pub fn 采集一帧(
         icon_count: 0,
     };
 
-    if let Some(报告路径) = 采集.报告.clone() {
+    if let Some(报告路径) = 报告.map(Path::to_path_buf) {
         match 写报告(&报告路径, &证据) {
-            Ok(()) => 采集.报告已写 = true,
+            Ok(()) => {}
             Err(错误) => {
                 error!("写入采集证据失败：{错误}");
                 // 报告写不出来就没有验收依据，直接失败退出而不是继续跑。
-                if 采集.完成后退出 {
-                    std::process::exit(3);
-                }
+                return Err(format!("写入采集证据失败：{错误}"));
             }
         }
     }
 
-    if let Some(图片路径) = 采集.图片.clone() {
+    if let Some(图片路径) = 图片.map(Path::to_path_buf) {
         if let Some(父目录) = 图片路径.parent()
             && let Err(错误) = std::fs::create_dir_all(父目录)
         {
@@ -367,14 +459,15 @@ pub fn 采集一帧(
         info!(
             "已请求窗口截图：{}（第 {} 帧，{:.0}×{:.0} 逻辑点）",
             图片路径.display(),
-            采集.已过帧,
+            帧号,
             屏幕矩形.width(),
             屏幕矩形.height()
         );
-        commands
+        命令
             .spawn(Screenshot::primary_window())
             .observe(save_to_disk(图片路径));
     }
+    Ok(())
 }
 
 /// 把证据写盘。先写临时文件再改名，避免验收工具读到半截 JSON。
@@ -410,24 +503,32 @@ pub fn 采集收尾(mut 采集: ResMut<采集配置>, mut 退出: MessageWriter<
     if !采集.已启用() || !采集.已发起 || 采集.已完成 {
         return;
     }
+    // 双帧协议下必须等第二帧也发起，否则会在两帧之间提前退出。
+    let 期望完成 = 采集.目标帧2 == 0 || 采集.已发起2;
+    if !期望完成 {
+        return;
+    }
     采集.等待帧 += 1;
 
-    let 图片存在 = 采集
-        .图片
-        .as_ref()
-        .map(|路径| 路径.is_file())
-        .unwrap_or(false);
+    let 文件就绪 = |路径: &Option<PathBuf>| {
+        路径
+            .as_ref()
+            .map(|路径| path_is_stable_file(路径))
+            .unwrap_or(true)
+    };
+    let 第一帧完成 = 文件就绪(&采集.图片) && 文件就绪(&采集.报告);
+    let 第二帧完成 = 采集.目标帧2 == 0 || (文件就绪(&采集.图片2) && 文件就绪(&采集.报告2));
 
-    if 图片存在 {
+    if 第一帧完成 && 第二帧完成 {
         采集.已完成 = true;
         info!(
-            "截图已落盘：{}（等待 {} 帧）",
+            "截图已落盘（等待 {} 帧）：{}",
+            采集.等待帧,
             采集
                 .图片
                 .as_ref()
                 .map(|路径| 路径.display().to_string())
-                .unwrap_or_default(),
-            采集.等待帧
+                .unwrap_or_default()
         );
         if 采集.完成后退出 {
             退出.write(AppExit::Success);
@@ -436,14 +537,20 @@ pub fn 采集收尾(mut 采集: ResMut<采集配置>, mut 退出: MessageWriter<
     }
 
     if 采集.等待帧 > 写盘超时帧数 {
-        error!(
-            "截图在 {} 帧内没有落盘，判定采集失败（不修改界面代码，先修采集链路）",
-            写盘超时帧数
-        );
+        error!("等待截图写盘超时（{} 帧）", 采集.等待帧);
+        采集.已完成 = true;
         if 采集.完成后退出 {
-            std::process::exit(3);
+            退出.write(AppExit::from_code(3));
         }
     }
+}
+
+/// 文件存在且大小稳定（非 0 字节）才算写完。
+fn path_is_stable_file(路径: &Path) -> bool {
+    路径
+        .metadata()
+        .map(|元数据| 元数据.is_file() && 元数据.len() > 0)
+        .unwrap_or(false)
 }
 
 #[cfg(test)]

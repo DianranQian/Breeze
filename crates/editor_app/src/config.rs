@@ -204,6 +204,8 @@ pub struct 编辑器配置资源(pub 编辑器配置);
 /// 每帧写文件既浪费 IO，也可能在用户还在拖的时候反复覆盖。
 #[derive(Resource, Debug, Default)]
 pub struct 布局待保存 {
+    pub 上次指纹: Vec<(editor_ui::Tab, usize)>,
+    /// 上一次观察到的布局指纹（用于发现不经动作队列的拖拽/关闭）。
     /// 距上次保存已过的秒数。
     pub 累计秒: f32,
     /// 是否有未写盘的改动。

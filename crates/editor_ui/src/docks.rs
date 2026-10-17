@@ -174,6 +174,66 @@ pub fn 默认布局() -> DockState<Tab> {
     布局
 }
 
+/// 在给定的逻辑尺寸下跑**一帧真实 Dock 布局**，返回每个激活标签的内容矩形。
+///
+/// 仅用于测试（`cfg(test)`），供 `docks` 与 `workspaces` 两个测试模块共用。
+///
+/// # 为什么这是唯一可靠的几何验证手段
+///
+/// 直接读 `DockState` 的内部字段既脆弱，也拿不到真实像素尺寸 ——
+/// `fraction` 写反这类缺陷只会在"真正布局一次"之后才暴露成矩形比例异常。
+/// 这里用一个离屏 `egui::Context` 跑真实的一帧，从
+/// `TabViewer::ui` 的 `ui.max_rect()` 取真实内容矩形，走的全是公开 API。
+#[cfg(test)]
+pub(crate) fn 测量布局矩形(
+    停靠: &mut DockState<Tab>,
+    尺寸: egui::Vec2,
+) -> Vec<(Tab, egui::Rect)> {
+    /// 记录每个标签实际拿到的矩形。
+    struct 记录查看器 {
+        矩形: Vec<(Tab, egui::Rect)>,
+    }
+
+    impl egui_dock::TabViewer for 记录查看器 {
+        type Tab = Tab;
+
+        fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
+            egui::Id::new(("布局几何测试", format!("{:?}", tab)))
+        }
+
+        fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+            (*tab).标题(crate::i18n::语言::中文).into()
+        }
+
+        fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+            self.矩形.push((*tab, ui.max_rect()));
+            ui.label("内容");
+        }
+    }
+
+    let 上下文 = egui::Context::default();
+    let 输入 = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, 尺寸)),
+        ..Default::default()
+    };
+    let mut 查看器 = 记录查看器 { 矩形: Vec::new() };
+    上下文.begin_pass(输入);
+    {
+        let ctx = &上下文;
+        let mut 根界面 = egui::Ui::new(
+            ctx.clone(),
+            egui::Id::new("布局几何测试根界面"),
+            egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(egui::Pos2::ZERO, 尺寸)),
+        );
+        egui_dock::DockArea::new(停靠).show_inside(&mut 根界面, &mut 查看器);
+    }
+    let mut 输出 = 上下文.end_pass();
+    // egui 要求纹理增量必须被处理；测试里不渲染，显式清空，
+    // 否则 epaint 会在 drop 时 panic（"Dropped TexturesDelta"）。
+    输出.textures_delta.clear();
+    查看器.矩形
+}
+
 #[cfg(test)]
 mod 测试 {
     use super::*;
@@ -205,62 +265,9 @@ mod 测试 {
         assert_eq!(标题.len(), 原数量, "面板标题必须唯一");
     }
 
-    /// 记录每个标签实际拿到的矩形。
-    ///
-    /// 用 `TabViewer::ui` 回调取 `ui.max_rect()`：这是 egui_dock 给每个叶子分配的
-    /// **真实内容矩形**，走公开 API，不需要碰节点内部字段。
-    struct 记录查看器 {
-        矩形: Vec<(Tab, egui::Rect)>,
-    }
-
-    impl egui_dock::TabViewer for 记录查看器 {
-        type Tab = Tab;
-
-        fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
-            egui::Id::new(("布局几何测试", format!("{:?}", tab)))
-        }
-
-        fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
-            (*tab).标题(crate::i18n::语言::中文).into()
-        }
-
-        fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
-            self.矩形.push((*tab, ui.max_rect()));
-            ui.label("内容");
-        }
-    }
-
     /// 在固定窗口尺寸下跑一次**真实** Dock 布局，返回每个标签的矩形。
     fn 跑一次真实布局(停靠: &mut DockState<Tab>) -> Vec<(Tab, egui::Rect)> {
-        跑一次真实布局_尺寸(停靠, egui::vec2(1200.0, 800.0))
-    }
-
-    /// 在指定窗口尺寸下跑一次真实 Dock 布局。
-    fn 跑一次真实布局_尺寸(
-        停靠: &mut DockState<Tab>,
-        尺寸: egui::Vec2,
-    ) -> Vec<(Tab, egui::Rect)> {
-        let 上下文 = egui::Context::default();
-        let 输入 = egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, 尺寸)),
-            ..Default::default()
-        };
-        let mut 查看器 = 记录查看器 { 矩形: Vec::new() };
-        上下文.begin_pass(输入);
-        {
-            let ctx = &上下文;
-            let mut 根界面 = egui::Ui::new(
-                ctx.clone(),
-                egui::Id::new("布局几何测试根界面"),
-                egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(egui::Pos2::ZERO, 尺寸)),
-            );
-            egui_dock::DockArea::new(停靠).show_inside(&mut 根界面, &mut 查看器);
-        }
-        let mut 输出 = 上下文.end_pass();
-        // egui 要求纹理增量必须被处理；测试里不渲染，显式清空，
-        // 否则 epaint 会在 drop 时 panic（"Dropped TexturesDelta"）。
-        输出.textures_delta.clear();
-        查看器.矩形
+        测量布局矩形(停靠, egui::vec2(1200.0, 800.0))
     }
 
     /// 默认布局在真实布局计算之后，四个区域的叶子都必须拿到有效且非零的矩形。
@@ -362,7 +369,7 @@ mod 测试 {
     fn 默认布局各栏占比合理() {
         for 尺寸 in [egui::vec2(1200.0, 800.0), egui::vec2(1024.0, 700.0)] {
             let mut 停靠 = 默认布局();
-            let 矩形 = 跑一次真实布局_尺寸(&mut 停靠, 尺寸);
+            let 矩形 = 测量布局矩形(&mut 停靠, 尺寸);
             let 取 = |面板: Tab| -> egui::Rect {
                 矩形
                     .iter()

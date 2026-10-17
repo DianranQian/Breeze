@@ -163,6 +163,19 @@ struct 尺寸记录 {
     height: u32,
 }
 
+/// 工作区摘要：让验收工具能断言"这次跑的确实是目标工作区"。
+#[derive(Debug, Clone, Serialize)]
+struct 工作区记录 {
+    /// 稳定 id（`general` / `scene` / `assets` / `debug` / `user-*`）。
+    id: String,
+    /// 当前语言下的显示名。
+    name: String,
+    /// 是否内置。
+    builtin: bool,
+    /// 工作区总数。
+    count: usize,
+}
+
 /// 主题摘要：让验收工具能断言"这次截的确实是深色主题"。
 #[derive(Debug, Clone, Serialize)]
 struct 主题记录 {
@@ -192,6 +205,7 @@ struct 采集证据 {
     /// 一个逻辑点等于多少物理像素。
     pixels_per_point: f32,
     window: 尺寸记录,
+    workspace: 工作区记录,
     theme: 主题记录,
     /// 各区域矩形（物理像素）。
     regions: Vec<区域记录>,
@@ -214,6 +228,9 @@ struct 采集证据 {
 /// 必须挂在 `EguiPrimaryContextPass` 且排在界面绘制**之后**：
 /// 这样 `布局快照` 里是本帧的真实矩形，而截图请求发生在
 /// `ExtractSchedule` 之前，两者对应同一帧。
+// Bevy 系统天然需要多个资源参数；这里每一项都是采集证据的必要输入，
+// 拆成 SystemParam 只会把同一组依赖藏到另一个类型里，可读性反而更差。
+#[allow(clippy::too_many_arguments)]
 pub fn 采集一帧(
     mut 采集: ResMut<采集配置>,
     mut 上下文: EguiContexts,
@@ -266,7 +283,7 @@ pub fn 采集一帧(
 
     let mut 面板标题 = Vec::new();
     let mut 面板键 = Vec::new();
-    for (路径, 面板) in 界面.状态.停靠.iter_all_tabs() {
+    for (路径, 面板) in 界面.状态.停靠().iter_all_tabs() {
         // 同一个面板可能只出现一次；这里保留去重后的顺序。
         let _ = 路径;
         if !面板键.contains(&面板.菜单键().to_string()) {
@@ -286,6 +303,12 @@ pub fn 采集一帧(
         window: 尺寸记录 {
             width: 物理(屏幕矩形.width()) as u32,
             height: 物理(屏幕矩形.height()) as u32,
+        },
+        workspace: 工作区记录 {
+            id: 界面.状态.工作区.当前id().to_string(),
+            name: 界面.状态.工作区.当前().显示名(界面.状态.语言),
+            builtin: 界面.状态.工作区.当前().内置,
+            count: 界面.状态.工作区.列表().len(),
         },
         theme: 主题记录 {
             id: "dark".to_string(),
@@ -316,10 +339,10 @@ pub fn 采集一帧(
     }
 
     if let Some(图片路径) = 采集.图片.clone() {
-        if let Some(父目录) = 图片路径.parent() {
-            if let Err(错误) = std::fs::create_dir_all(父目录) {
-                error!("无法创建截图目录 {}：{错误}", 父目录.display());
-            }
+        if let Some(父目录) = 图片路径.parent()
+            && let Err(错误) = std::fs::create_dir_all(父目录)
+        {
+            error!("无法创建截图目录 {}：{错误}", 父目录.display());
         }
         info!(
             "已请求窗口截图：{}（第 {} 帧，{:.0}×{:.0} 逻辑点）",

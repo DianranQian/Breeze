@@ -22,6 +22,8 @@ pub mod menu_bar;
 pub mod state;
 pub mod theme;
 pub mod viewport_panel;
+pub mod workspace_bar;
+pub mod workspaces;
 
 // 多语言入口定义在 `editor_core`（它需要给命令显示名做本地化），
 // 这里把模块整个再导出，于是界面代码仍可写 `crate::i18n::语言`。
@@ -93,7 +95,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
 
             // 取出可停靠布局，交给 `DockArea`。绘制结束后放回去。
             let mut 停靠 = std::mem::replace(
-                &mut 绘制上下文.界面.停靠,
+                绘制上下文.界面.停靠_mut(),
                 egui_dock::DockState::new(Vec::new()),
             );
 
@@ -107,6 +109,14 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
                 .show(界面ui, |ui| {
                     查看器.记录区域("menubar", ui.max_rect());
                     查看器.绘制菜单栏(ui);
+                });
+
+            // 顶部：工作区栏（切换 / 新建 / 复制 / 重命名 / 删除 / 重置）
+            egui::Panel::top("bevy_studio_workspace_bar")
+                .exact_size(workspace_bar::工作区栏高度)
+                .show(界面ui, |ui| {
+                    查看器.记录区域("workspacebar", ui.max_rect());
+                    查看器.绘制工作区栏(ui);
                 });
 
             // 顶部：工具栏
@@ -147,7 +157,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
                 .show_inside(界面ui, &mut 查看器);
 
             // 放回可停靠布局。
-            查看器.上下文.界面.停靠 = 停靠;
+            查看器.上下文.界面.设定当前布局(停靠);
         });
 
     // 处理"新建项目"对话框的确认结果。
@@ -263,7 +273,7 @@ pub fn 计算状态栏内容(
         });
     }
     右侧.push(状态栏条目 {
-        文本: format!("{缩放百分比:.0}%"),
+        文本: format!("{:.0}%", 缩放百分比),
         色调: 条目色调::次要,
     });
 
@@ -480,11 +490,15 @@ impl 面板查看器<'_, '_> {
         menu_bar::绘制工具栏(ui, &mut self.视图());
     }
 
+    fn 绘制工作区栏(&mut self, ui: &mut Ui) {
+        workspace_bar::绘制(ui, &mut self.视图());
+    }
+
     fn 绘制状态栏(&mut self, ui: &mut Ui) {
         绘制_状态栏(ui, &self.视图());
     }
 
-    /// 绘制两个浮层窗口。
+    /// 绘制浮层窗口。
     fn 绘制浮层(&mut self, egui上下文: &egui::Context) {
         let 配色 = self.上下文.配色;
         let 语言 = self.上下文.语言;
@@ -496,6 +510,11 @@ impl 面板查看器<'_, '_> {
             self.上下文.编辑器.场景名(),
             语言,
         );
+        // 工作区名称对话框：确认后把动作排进队列，由执行器统一处理。
+        if let Some(动作) = workspace_bar::绘制对话框(egui上下文, self.上下文.界面, 配色, 语言)
+        {
+            self.上下文.动作.推(动作);
+        }
     }
 }
 
@@ -587,7 +606,7 @@ mod 测试 {
     fn 恢复默认布局能修复被改乱的布局() {
         let mut 界面 = 界面状态::新建();
         // 制造一个只有视口的布局
-        界面.停靠 = egui_dock::DockState::new(vec![Tab::视口]);
+        界面.设定当前布局(egui_dock::DockState::new(vec![Tab::视口]));
         assert!(!界面.面板可见(Tab::控制台));
 
         界面.恢复默认布局();
@@ -598,7 +617,7 @@ mod 测试 {
     #[test]
     fn 聚焦未打开的面板会把它加进布局() {
         let mut 界面 = 界面状态::新建();
-        界面.停靠 = egui_dock::DockState::new(vec![Tab::视口]);
+        界面.设定当前布局(egui_dock::DockState::new(vec![Tab::视口]));
         assert!(!界面.面板可见(Tab::性能));
 
         界面.聚焦面板(Tab::性能);

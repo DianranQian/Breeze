@@ -131,13 +131,15 @@ fn 面板布局可以序列化并原样恢复() {
     // 先改乱布局：只留视口，再把控制台加回来。
     {
         let mut 界面 = 世界.resource_mut::<UiStateHolder>();
-        界面.状态.停靠 = egui_dock::DockState::new(vec![Tab::视口]);
+        界面
+            .状态
+            .设定当前布局(egui_dock::DockState::new(vec![Tab::视口]));
         界面.状态.聚焦面板(Tab::控制台);
     }
 
     let 序列化 = {
         let 界面 = 世界.resource::<UiStateHolder>();
-        界面.状态.布局序列化为文本().expect("布局应当能序列化")
+        界面.状态.工作区序列化为文本().expect("工作区应当能序列化")
     };
     assert!(!序列化.is_empty());
 
@@ -149,7 +151,10 @@ fn 面板布局可以序列化并原样恢复() {
         "新界面应当是默认布局，与改乱后的布局不同（否则这条测试没有意义）"
     );
 
-    界面.状态.从序列化恢复布局(&序列化).expect("布局应当能恢复");
+    界面
+        .状态
+        .从文本恢复工作区(&序列化)
+        .expect("工作区应当能恢复");
 
     assert_eq!(
         界面.状态.布局指纹(),
@@ -169,8 +174,8 @@ fn 损坏的布局文本不会破坏当前布局() {
     let mut 界面 = UiStateHolder::新建();
     let 原布局 = 界面.状态.布局指纹();
 
-    let 结果 = 界面.状态.从序列化恢复布局("这不是合法的 RON {{{");
-    assert!(结果.is_err(), "损坏的布局应当返回错误");
+    let 结果 = 界面.状态.从文本恢复工作区("这不是合法的 RON {{{");
+    assert!(结果.is_err(), "损坏的工作区存档应当返回错误");
     assert_eq!(
         界面.状态.布局指纹(),
         原布局,
@@ -180,26 +185,37 @@ fn 损坏的布局文本不会破坏当前布局() {
 }
 
 #[test]
-fn 缺少视口的布局被判定为无效() {
+fn 缺少视口的工作区布局会被安全修复() {
     let mut 界面 = UiStateHolder::新建();
-    let 原布局 = 界面.状态.布局指纹();
 
-    // 构造一个合法但只有控制台的布局
+    // 构造一个合法但只有控制台的布局，塞进"通用"工作区的记录里。
     let 只有控制台 = egui_dock::DockState::new(vec![Tab::控制台]);
     let 文本 = ron::ser::to_string(&只有控制台).unwrap();
-
-    let 结果 = 界面.状态.从序列化恢复布局(&文本);
-    assert!(
-        结果.is_err(),
-        "没有视口的布局应当被拒绝：那样的布局里用户无法编辑场景"
+    let 存档 = format!(
+        r#"(格式版本: 2, 当前: "general", 项: [(id: "general", 内置: true, 布局: {文本:?}, 基线布局: None)])"#
     );
-    assert_eq!(界面.状态.布局指纹(), 原布局);
+
+    界面
+        .状态
+        .从文本恢复工作区(&存档)
+        .expect("存档整体合法，应当能加载");
+
+    assert!(
+        界面.状态.面板可见(Tab::视口),
+        "没有视口的布局必须在加载时被修复：那样的布局里用户无法编辑场景"
+    );
+    assert!(
+        界面.状态.面板可见(Tab::控制台),
+        "修复后应当回到内置通用预设，里面包含控制台"
+    );
 }
 
 #[test]
 fn 恢复默认布局能把改乱的布局修回来() {
     let mut 界面 = UiStateHolder::新建();
-    界面.状态.停靠 = egui_dock::DockState::new(vec![Tab::视口]);
+    界面
+        .状态
+        .设定当前布局(egui_dock::DockState::new(vec![Tab::视口]));
     assert!(!界面.状态.面板可见(Tab::场景树));
 
     界面.状态.恢复默认布局();
@@ -232,7 +248,9 @@ fn 恢复默认布局动作能真正生效() {
     // 把布局改乱
     {
         let mut 界面 = 世界.resource_mut::<UiStateHolder>();
-        界面.状态.停靠 = egui_dock::DockState::new(vec![Tab::视口]);
+        界面
+            .状态
+            .设定当前布局(egui_dock::DockState::new(vec![Tab::视口]));
     }
     assert!(!世界.resource::<UiStateHolder>().状态.面板可见(Tab::场景树));
 
@@ -455,7 +473,9 @@ fn 界面类动作会被动作执行器处理() {
     // 聚焦一个未打开的面板，它应当被加入布局
     {
         let mut 界面 = 世界.resource_mut::<UiStateHolder>();
-        界面.状态.停靠 = egui_dock::DockState::new(vec![Tab::视口]);
+        界面
+            .状态
+            .设定当前布局(egui_dock::DockState::new(vec![Tab::视口]));
     }
     推动作(&mut 世界, vec![UiAction::聚焦面板(Tab::性能)]);
     执行动作(&mut 世界);

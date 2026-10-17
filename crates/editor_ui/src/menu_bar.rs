@@ -249,6 +249,33 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                     标题: "",
                     项: vec![菜单项::常可用("restore_default_layout", None)],
                 },
+                // 工作区：与顶部工作区栏同源，菜单里再给一份入口，
+                // 这样即使工作区栏被窗口宽度压缩，功能仍然可达。
+                菜单分组 {
+                    标题: "workspace",
+                    项: vec![
+                        菜单项::常可用("workspace_general", None),
+                        菜单项::常可用("workspace_scene", None),
+                        菜单项::常可用("workspace_assets", None),
+                        菜单项::常可用("workspace_debug", None),
+                    ],
+                },
+                菜单分组 {
+                    标题: "",
+                    项: vec![
+                        菜单项::常可用("workspace_new", None),
+                        菜单项::常可用("workspace_duplicate", None),
+                        菜单项::常可用("workspace_reset_all", None),
+                    ],
+                },
+                // 浮动面板：显式的入口，不要求用户发现"把标签拖出窗口"这个手势。
+                菜单分组 {
+                    标题: "",
+                    项: vec![
+                        菜单项::常可用("float_focused_panel", None),
+                        菜单项::常可用("dock_all_floating", None),
+                    ],
+                },
                 // 语言子菜单。两项各用**自己的语言**写自己的名字，
                 // 当前项由绘制时打勾标出（见 `绘制`）。
                 菜单分组 {
@@ -377,6 +404,21 @@ pub fn 菜单项动作(
         // ---- 窗口 ----
         "restore_default_layout" => Some(UiAction::恢复默认布局),
 
+        // ---- 工作区 ----
+        //
+        // 菜单项存的是 i18n 名称键，派发时按名称键反查内置工作区，
+        // 因此菜单文案随语言变化时动作映射不会失效。
+        //
+        // 「新建 / 复制」走对话框而不是直接建一个自动命名的工作区：
+        // 工作区是用户会长期使用的对象，名字必须是用户自己起的。
+        "workspace_new" => Some(UiAction::打开工作区对话框 {
+            复制当前: false
+        }),
+        "workspace_duplicate" => Some(UiAction::打开工作区对话框 { 复制当前: true }),
+        "workspace_reset_all" => Some(UiAction::重置全部内置工作区),
+        "float_focused_panel" => Some(UiAction::浮动面板(Tab::检查器)),
+        "dock_all_floating" => Some(UiAction::停靠全部浮动面板),
+
         // ---- 语言 ----
         //
         // 语言项存的是**词条键**（`language_self_zh_cn` / `language_self_en`），
@@ -393,6 +435,10 @@ pub fn 菜单项动作(
             if let Some(面板) = 窗口菜单对应面板(文本) {
                 return Some(UiAction::聚焦面板(面板));
             }
+            // 工作区项：按 i18n 名称键反查内置工作区。
+            if let Some(内置) = crate::workspaces::内置工作区::从名称键(文本) {
+                return Some(UiAction::切换工作区(内置.id().to_string()));
+            }
             None
         }
     }
@@ -407,6 +453,9 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     egui::MenuBar::new().ui(ui, |ui| {
         let 语言 = 上下文.语言;
+        // 当前工作区 id 先拷出来：下面要在菜单项里打勾，同时还要推动作
+        // （两者分别借用 `上下文.界面` 与 `上下文.动作`，先把值取出最省事）。
+        let 当前工作区id = 上下文.界面.工作区.当前id().to_string();
         for (菜单名, 分组列表) in 菜单定义() {
             // 菜单标题与每一项都用**当前语言**显示，
             // 但派发动作时仍然用中文原文（`项.文本`）——
@@ -439,6 +488,15 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                             Some(候选) if 候选 == 语言 => format!("✓ {}", 标题),
                             Some(_) => format!("   {}", 标题),
                             None => 标题.to_string(),
+                        };
+                        // 工作区项同样打勾：用户一眼能看出当前在哪个工作区。
+                        let 标题 = match crate::workspaces::内置工作区::从名称键(项.文本)
+                        {
+                            Some(内置) if 内置.id() == 当前工作区id => {
+                                format!("✓ {}", 标题.trim_start())
+                            }
+                            Some(_) => format!("   {}", 标题.trim_start()),
+                            None => 标题,
                         };
                         // 用位置参数而不是具名参数（`{标题}`）：具名参数会把
                         // 中文标识符写进格式串，使"这一行有没有界面文案"

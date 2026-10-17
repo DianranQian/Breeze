@@ -99,6 +99,7 @@ run 的选项：
   --expect-theme dark|light
   --expect-panels a,b,c
   --expect-status <片段>   可重复
+  --expect-workspace <id> 期望激活的工作区 id（general/scene/assets/debug/user-*）
   --min-viewport <0..1>   视口最小宽度占比（默认 0.30）
 "#
     );
@@ -181,6 +182,11 @@ fn 解析(参数: &[String]) -> Result<选项, String> {
                     .collect();
             }
             "--expect-status" => 选项.期望.状态栏包含.push(取值(&mut 下标)?),
+            "--expect-workspace" => {
+                let id = 取值(&mut 下标)?;
+                选项.期望.轮廓 = analysis::布局轮廓::从id(&id);
+                选项.期望.工作区 = Some(id);
+            }
             "--min-viewport" => {
                 选项.期望.最小视口宽度占比 = 取值(&mut 下标)?
                     .parse()

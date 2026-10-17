@@ -39,7 +39,12 @@ use serde::{Deserialize, Serialize};
 /// 与场景文件同样的策略：加字段不升版本（靠 `serde(default)`），
 /// 改语义才升版本；读到更高版本就用默认值覆盖，
 /// 因为配置丢了没有任何损失。
-pub const 配置格式版本: u32 = 1;
+///
+/// 版本历史：
+///
+/// * `1`：只有一个 `布局` 字段（单 DockState）；
+/// * `2`：`工作区` 字段承载命名工作区集，`布局` 降级为迁移用的旧字段。
+pub const 配置格式版本: u32 = 2;
 
 /// 配置文件在配置目录下的文件名。
 pub const 配置文件名: &str = "config.ron";
@@ -51,12 +56,25 @@ pub struct 编辑器配置 {
     pub 格式版本: u32,
     /// 窗口布局的 RON 文本。`None` 表示使用默认布局。
     ///
+    /// # 这是**旧字段**，只为迁移而保留
+    ///
+    /// 格式版本 1 只保存一份布局。版本 2 起改为命名工作区集
+    /// （见 [`编辑器配置::工作区`]）。读到非空的 `布局` 而 `工作区` 为空时，
+    /// 启动流程会把它迁移成一个"迁移的布局"工作区 —— 用户上次看到的
+    /// 布局必须原样出现，不能被悄悄换成出厂布局。
+    ///
     /// 存成文本而不是结构化字段，是为了让这个类型**不依赖
     /// `egui_dock` 的布局内部结构** —— 布局格式变化时，
     /// 只会导致这一项解析失败并回退到默认布局，
     /// 不会让整个配置文件连同"最近项目"一起失效。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 布局: Option<String>,
+    /// 命名工作区集的 RON 文本（格式版本 2 起）。
+    ///
+    /// 同样存成文本：工作区集的解析失败可以整体回退到内置工作区，
+    /// 而不会让配置文件里其它字段跟着作废。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub 工作区: Option<String>,
     /// 最近打开的项目目录。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 最近项目: Option<PathBuf>,
@@ -70,6 +88,7 @@ impl Default for 编辑器配置 {
         Self {
             格式版本: 配置格式版本,
             布局: None,
+            工作区: None,
             最近项目: None,
             偏好: std::collections::BTreeMap::new(),
         }
@@ -202,6 +221,7 @@ mod 测试 {
         let 配置 = 编辑器配置 {
             格式版本: 配置格式版本,
             布局: Some("(布局内容)".to_string()),
+            工作区: Some("(工作区内容)".to_string()),
             最近项目: Some(PathBuf::from("C:/games/我的游戏")),
             偏好: [("主题".to_string(), "深色".to_string())]
                 .into_iter()
@@ -257,7 +277,21 @@ mod 测试 {
         let 配置 = 编辑器配置::载入(&路径);
         assert_eq!(配置.格式版本, 1);
         assert!(配置.布局.is_none());
+        assert!(配置.工作区.is_none());
         assert!(配置.最近项目.is_none());
+    }
+
+    #[test]
+    fn 旧版单布局配置能被识别为待迁移() {
+        // 格式版本 1 + 仅有布局字段：启动流程应当把它迁移成工作区。
+        let 目录 = tempfile::tempdir().unwrap();
+        let 路径 = 目录.path().join("config.ron");
+        std::fs::write(&路径, "(格式版本: 1, 布局: Some(\"(x)\"))").unwrap();
+
+        let 配置 = 编辑器配置::载入(&路径);
+        assert_eq!(配置.格式版本, 1, "旧配置必须被读进来而不是丢掉");
+        assert_eq!(配置.布局.as_deref(), Some("(x)"));
+        assert!(配置.工作区.is_none(), "旧配置没有工作区字段");
     }
 
     #[test]

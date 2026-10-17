@@ -222,6 +222,49 @@ fn 资源预设() -> egui_dock::DockState<Tab> {
     布局
 }
 
+/// 内置示例项目。
+///
+/// 与"新建项目"不同：示例是**随仓库分发**的现成项目（含 CC0 素材），
+/// 用来体验完整编辑流程与作为 GUI 验收的固定夹具。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 示例项目 {
+    /// 二维示例：林间营地。
+    二维,
+    /// 三维示例：浮空圣所。
+    三维,
+}
+
+impl 示例项目 {
+    /// 全部示例。
+    pub fn 全部() -> &'static [示例项目] {
+        &[示例项目::二维, 示例项目::三维]
+    }
+
+    /// 仓库内目录名。
+    pub fn 目录名(self) -> &'static str {
+        match self {
+            Self::二维 => "2d_demo",
+            Self::三维 => "3d_demo",
+        }
+    }
+
+    /// 菜单词条键。
+    pub fn 名称键(self) -> &'static str {
+        match self {
+            Self::二维 => "open_2d_demo",
+            Self::三维 => "open_3d_demo",
+        }
+    }
+
+    /// 打开后进入的模式。
+    pub fn 默认模式(self) -> 开发模式 {
+        match self {
+            Self::二维 => 开发模式::二维,
+            Self::三维 => 开发模式::三维,
+        }
+    }
+}
+
 /// 单个模式的存档。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct 模式项 {

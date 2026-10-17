@@ -1,0 +1,176 @@
+{
+  "app_log_tail": "2026-10-17T16:44:14.024747Z  INFO bevy_diagnostic::system_information_diagnostics_plugin::internal: SystemInfo { os: \"Windows 11 Pro\", kernel: \"26200\", cpu: \"Intel(R) Core(TM) Ultra 7 265K\", core_count: \"20\", memory: \"31.7 GiB\" }\n2026-10-17T16:44:14.371991Z  INFO bevy_render::renderer: AdapterInfo { name: \"NVIDIA GeForce RTX 4060 Ti\", vendor: 4318, device: 10245, device_type: DiscreteGpu, device_pci_bus_id: \"0000:02:00.0\", driver: \"NVIDIA\", driver_info: \"610.88\", backend: Vulkan, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: Some(false), limit_bucket: None }\n2026-10-17T16:44:14.525295Z  INFO bevy_pbr::cluster: GPU clustering is supported on this device.\n2026-10-17T16:44:14.525346Z  INFO bevy_render::batching::gpu_preprocessing: GPU preprocessing is fully supported on this device.\n2026-10-17T16:44:14.525832Z  INFO bevy_egui::render: Using bindless_mode_array_size 16 (Device maximum 1048576)\n2026-10-17T16:44:14.526044Z  INFO bevy_winit::system: Creating new window Bevy Studio (67v0)\n2026-10-17T16:44:14.572378Z  INFO editor_app::preview: 预览视口已初始化：512×512 渲染目标 + 预览相机 + 界面相机\n2026-10-17T16:44:14.573910Z  INFO editor_app::plugin: 已按环境变量打开项目：C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\examples\\2d_demo\n2026-10-17T16:44:14.573945Z  INFO editor_app::plugin: 已恢复界面语言：简体中文\n2026-10-17T16:44:14.575399Z  INFO editor_app::plugin: 已恢复布局：当前模式 `2d`，共 5 个模式的布局\n2026-10-17T16:44:14.575428Z  INFO editor_app::plugin: 已恢复主题库，当前主题为 `dark`\n2026-10-17T16:44:14.575597Z  INFO editor_app::plugin: 已按环境变量切换到模式 `2d`\n2026-10-17T16:44:14.575615Z  INFO editor_app::plugin: Bevy Studio 0.1.0 启动：Bevy 0.20 / egui 界面已就绪\n2026-10-17T16:44:14.579385Z  INFO 编辑器控制台: Bevy Studio 已启动。请新建或打开一个项目。\n2026-10-17T16:44:14.579413Z  INFO 编辑器控制台: 已打开项目 `林间营地（2D 演示）`：1 个场景，15 个资源\n2026-10-17T16:44:14.579417Z  INFO 编辑器控制台: 已打开场景 scenes/营地.scene.ron\n2026-10-17T16:44:14.589025Z  INFO editor_app::plugin: 已安装中文字体（内置子集 2.2 MB）\n2026-10-17T16:44:16.312511Z  INFO editor_app::capture: 已请求窗口截图：C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\.verify\\runs\\demo_2d\\demo_2d.png（第 90 帧，1600×950 逻辑点）\n2026-10-17T16:44:16.402329Z  INFO bevy_render::view::window::screenshot: Screenshot saved to C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\.verify\\runs\\demo_2d\\demo_2d.png\n2026-10-17T16:44:16.403654Z  INFO editor_app::capture: 截图已落盘：C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\.verify\\runs\\demo_2d\\demo_2d.png（等待 4 帧）\n2026-10-17T16:44:16.413282Z  INFO editor_app::actions: 已在退出前保存编辑器配置",
+  "checks": [
+    {
+      "category": "capture",
+      "detail": "截图 2400×1425 与证据窗口 2400×1425 一致",
+      "name": "capture_size_matches_evidence",
+      "pass": true
+    },
+    {
+      "category": "capture",
+      "detail": "操作系统报告的客户区 2400×1425 与截图一致（窗口标题「Bevy Studio」，类名「Window Class」）",
+      "name": "capture_matches_os_client_area",
+      "pass": true
+    },
+    {
+      "category": "capture",
+      "detail": "已确认目标窗口：标题「Bevy Studio」，可见=true，DPI=144",
+      "name": "window_identified",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "画面有内容：33044 种颜色，主导色 #1E1F22 占 58.2%",
+      "name": "frame_not_constant",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）",
+      "name": "theme_background_applied",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "平均亮度 34.8 符合 `dark` 主题预期",
+      "name": "theme_brightness_matches",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "证据含 9 块区域",
+      "name": "regions_present",
+      "pass": true
+    },
+    {
+      "category": "capture",
+      "detail": "全部区域矩形都落在截图内",
+      "name": "regions_inside_frame",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "每块区域都画出了内容（≥3 种颜色且存在对比像素）",
+      "name": "regions_have_content",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "`menubar` 有 4412 个文字/图标像素（阈值 60）",
+      "name": "text_rendered_in_chrome",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "`statusbar` 有 1707 个文字/图标像素（阈值 60）",
+      "name": "text_rendered_in_chrome",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "`toolbar` 有 5797 个文字/图标像素（阈值 40）",
+      "name": "text_rendered_in_chrome",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "菜单栏在顶部（y=3），工具栏紧随其后（y=123）",
+      "name": "chrome_bars_order",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "状态栏贴住窗口底部（底边 1423 / 窗口高 1425）",
+      "name": "statusbar_at_bottom",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "视口宽 1365px，占窗口 56.9%（要求 30%~90%）",
+      "name": "viewport_width_share",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "`scene_tree` 位于视口左侧（矩形 { x: 10, y: 208, w: 370, h: 832 } vs 视口 矩形 { x: 401, y: 208, w: 1365, h: 832 }）",
+      "name": "panel_side_relations",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "`inspector` 位于视口右侧（矩形 { x: 1787, y: 208, w: 603, h: 1179 } vs 视口 矩形 { x: 401, y: 208, w: 1365, h: 832 }）",
+      "name": "panel_side_relations",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "`asset_browser` 位于视口下方（y=1097，视口底 1040）",
+      "name": "bottom_panel_below_viewport",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "当前主开发模式为 `2d`（2D）",
+      "name": "mode_selected",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "界面语言为 `zh-CN`（简体中文）",
+      "name": "language_selected",
+      "pass": true
+    },
+    {
+      "category": "ui",
+      "detail": "中文界面含中文文案",
+      "name": "cjk_present_in_chinese_ui",
+      "pass": true
+    }
+  ],
+  "dominant_color": "#1E1F22",
+  "evidence": "C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\.verify\\runs\\demo_2d\\demo_2d.json",
+  "evidence_meta": {
+    "app_version": "0.1.0",
+    "bevy_version": "0.20.0",
+    "icon_count": 0,
+    "language": "zh-CN",
+    "language_label": "简体中文",
+    "panel_titles": [
+      "检查器",
+      "历史",
+      "运行时 ECS",
+      "性能",
+      "资源",
+      "控制台",
+      "代码",
+      "场景树",
+      "视口"
+    ],
+    "pixels_per_point": 1.5,
+    "schema": 1,
+    "status_left": [
+      "✓ 已保存",
+      "实体 32",
+      "已选 0",
+      "scenes/营地.scene.ron"
+    ],
+    "status_right": [
+      "100%"
+    ],
+    "theme_accent": "#569CD6",
+    "theme_id": "dark",
+    "theme_panel_bg": "#1E1F22",
+    "theme_text": "#DEE2E6",
+    "ui_scale": 1.0,
+    "viewport_scale_percent": 100.0
+  },
+  "exit_code": 0,
+  "image": {
+    "height": 1425,
+    "width": 2400
+  },
+  "mean_luma": 34.78116989135742,
+  "png": "C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\.verify\\runs\\demo_2d\\demo_2d.png",
+  "verdict": "pass"
+}

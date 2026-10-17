@@ -118,6 +118,8 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                     项: vec![
                         菜单项::常可用("new_project_2", None),
                         菜单项::常可用("open_project", None),
+                        菜单项::常可用("open_2d_demo", None),
+                        菜单项::常可用("open_3d_demo", None),
                         菜单项::常可用("close_project", None),
                     ],
                 },
@@ -348,6 +350,12 @@ pub fn 菜单项动作(
             名称: 语言.取("my_game").to_string(),
         }),
         "open_project" => Some(UiAction::请求打开项目),
+        "open_2d_demo" => Some(UiAction::打开示例项目(
+            crate::dev_modes::示例项目::二维,
+        )),
+        "open_3d_demo" => Some(UiAction::打开示例项目(
+            crate::dev_modes::示例项目::三维,
+        )),
         "close_project" => Some(UiAction::关闭项目),
         "project_settings" => None, // 未实现
 

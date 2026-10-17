@@ -848,6 +848,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::重置当前工作区 => "重置当前工作区".to_string(),
         UiAction::重置全部内置工作区 => "重置全部内置工作区".to_string(),
         UiAction::切换模式(模式) => format!("切换模式({})", 模式.id()),
+        UiAction::打开示例项目(示例) => format!("打开示例项目({})", 示例.目录名()),
         UiAction::打开脚本(路径) => format!("打开脚本({})", 路径.文本()),
         UiAction::保存脚本 => "保存脚本".to_string(),
         UiAction::脚本另存为 => "脚本另存为".to_string(),

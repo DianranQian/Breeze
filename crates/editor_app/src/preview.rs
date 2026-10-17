@@ -614,9 +614,9 @@ pub fn 同步预览实体(
     mut 同步状态: ResMut<预览同步状态>,
     已有: Query<(Entity, &预览来源), With<预览实体>>,
     mut 贴图缓存: ResMut<贴图缓存>,
-    资源服务器: Res<AssetServer>,
     三维资源: Res<三维预览资源>,
     mut 材质表: ResMut<Assets<StandardMaterial>>,
+    mut 图片资源: ResMut<Assets<Image>>,
 ) {
     let 修订 = 编辑器.状态.文档修订();
     if 同步状态.已同步修订 == Some(修订) {
@@ -643,7 +643,7 @@ pub fn 同步预览实体(
             项.视觉.贴图路径.as_deref(),
             项目根.as_deref(),
             &mut 贴图缓存,
-            &资源服务器,
+            &mut 图片资源,
         );
 
         命令.spawn((
@@ -800,7 +800,7 @@ fn 解析贴图句柄(
     路径: Option<&str>,
     项目根: Option<&std::path::Path>,
     缓存: &mut 贴图缓存,
-    资源服务器: &AssetServer,
+    图片资源: &mut Assets<Image>,
 ) -> Handle<Image> {
     let (Some(路径), Some(根)) = (路径, 项目根) else {
         return Handle::default();
@@ -810,16 +810,42 @@ fn 解析贴图句柄(
         return 句柄.clone();
     }
 
-    // 场景里的路径是项目相对的（例如 `assets/textures/hero.png`）。
-    // Bevy 的资源根目录在启动时就固定了，无法在打开项目时改写，
-    // 因此这里用**绝对路径**加载：Bevy 的文件读取器会
-    // `root.join(路径)`，而 `Path::join` 遇到绝对路径时会直接替换，
-    // 于是绝对路径能正确绕过资源根目录的限制。
+    // 场景里的路径是项目相对的（例如 `assets/2d_demo/player.png`）。
+    //
+    // # 为什么不用 `AssetServer::load`
+    //
+    // Bevy 0.20 的资产服务器会拒绝加载"不在资产根目录下"的绝对路径
+    // （日志里是 `is unapproved`），而编辑器的资产根在启动时固定，
+    // 不可能随"打开的项目"切换。实测中这表现为**所有贴图都渲染成白方块**。
+    //
+    // 因此这里自己读文件、自己解码、直接插进 `Assets<Image>`：
+    // 路径与项目根都由编辑器掌控，不经过资产服务器的路径审核。
+    // 代价是同步 IO —— 贴图都是几 KB 的 PNG，编辑器量级完全可接受。
     let 绝对 = 根.join(路径.replace('/', std::path::MAIN_SEPARATOR_STR));
-    let 句柄 = if 绝对.is_file() {
-        Some(资源服务器.load::<Image>(bevy::asset::AssetPath::from_path_buf(绝对)))
-    } else {
-        None
+    let 句柄 = match std::fs::read(&绝对) {
+        Ok(字节) => match image::load_from_memory(&字节) {
+            Ok(图片) => {
+                let rgba = 图片.to_rgba8();
+                let 尺寸 = Extent3d {
+                    width: rgba.width(),
+                    height: rgba.height(),
+                    ..default()
+                };
+                let 图像 = Image::new(
+                    尺寸,
+                    TextureDimension::D2,
+                    rgba.into_raw(),
+                    TextureFormat::Rgba8UnormSrgb,
+                    bevy::asset::RenderAssetUsages::default(),
+                );
+                Some(图片资源.add(图像))
+            }
+            Err(错误) => {
+                warn!("贴图解码失败 {}：{错误}", 绝对.display());
+                None
+            }
+        },
+        Err(_) => None,
     };
     缓存.记录(路径.to_string(), 句柄.clone());
     句柄.unwrap_or_default()

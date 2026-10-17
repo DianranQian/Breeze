@@ -333,6 +333,26 @@ fn 执行单个动作(
             请求对话框(对话框, 编辑器, 文件对话框请求::选择项目目录);
         }
 
+        UiAction::打开示例项目(示例) => match 示例项目路径(示例) {
+            Some(目录) => match 编辑器.打开项目(&目录) {
+                Ok(()) => {
+                    let 语言 = 界面状态.语言;
+                    let _ = 界面状态.切换模式(示例.默认模式());
+                    界面状态.聚焦面板(editor_ui::Tab::视口);
+                    布局待保存.脏 = true;
+                    编辑器.结构化信息(
+                        "log_example_opened",
+                        vec![日志参数::用户数据(目录.display().to_string())],
+                    );
+                    let _ = 语言;
+                }
+                Err(错误) => {
+                    编辑器.错误(format!("{}：{错误}", 界面状态.语言.取("open_demo_failed")))
+                }
+            },
+            None => 编辑器.警告(界面状态.语言.填充("open_demo_missing", &[&示例.目录名()])),
+        },
+
         UiAction::打开项目(目录) => match 编辑器.打开项目(&目录) {
             Ok(()) => {}
             Err(错误) => 编辑器.错误(format!("打开项目失败：{错误}")),
@@ -1037,6 +1057,32 @@ pub fn 转发控制台日志到标准错误(
         }
     }
     *已转发 = 日志.len();
+}
+
+/// 定位仓库内置示例项目的目录。
+///
+/// 两种来源都要支持：
+///
+/// 1. **开发构建**：`CARGO_MANIFEST_DIR` 编译期写入，指向 `crates/editor_app`，
+///    上两级就是仓库根，示例在 `examples/<目录名>`；
+/// 2. **打包/绿色版**：可执行文件旁边放 `examples/<目录名>`。
+///
+/// 都找不到时返回 `None`，由调用方给出明确的错误提示，而不是静默无反应。
+fn 示例项目路径(示例: editor_ui::dev_modes::示例项目) -> Option<std::path::PathBuf> {
+    let 开发期根 = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("examples")
+        .join(示例.目录名());
+    if 开发期根.is_dir() {
+        return Some(开发期根);
+    }
+    let 发布期根 = std::env::current_exe()
+        .ok()?
+        .parent()?
+        .join("examples")
+        .join(示例.目录名());
+    发布期根.is_dir().then_some(发布期根)
 }
 
 /// 把脚本文本写入项目内的相对路径。

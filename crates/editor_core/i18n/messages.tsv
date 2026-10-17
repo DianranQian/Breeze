@@ -469,3 +469,8 @@ layout_archive_missing_mode	存档里缺少当前模式的布局	The archive is 
 color_overlay_bg	叠加条背景	Overlay background
 color_overlay_border	叠加条边框	Overlay border
 viewport3d_input_hint	右键/中键拖动旋转视角 · Shift+拖动平移 · 滚轮缩放 · 左键选择	Right/middle drag to orbit · Shift+drag to pan · wheel to zoom · left click to select
+open_2d_demo	打开 2D 示例项目	Open 2D Demo
+open_3d_demo	打开 3D 示例项目	Open 3D Demo
+log_example_opened	已打开示例项目：{}	Opened demo project: {}
+open_demo_failed	示例项目打开失败	Failed to open the demo project
+open_demo_missing	找不到示例项目 `{}`：请确认仓库里的 examples 目录存在	Demo project "{}" not found: make sure the examples directory exists

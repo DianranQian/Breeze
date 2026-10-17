@@ -144,7 +144,7 @@ pub fn 默认布局() -> DockState<Tab> {
     // 与 Godot 一致。
     let [主区, _右列] = 主表面.split_right(
         NodeIndex::root(),
-        0.26,
+        0.74,
         vec![Tab::检查器, Tab::历史, Tab::运行时ecs, Tab::性能],
     );
     let [上方, _底部] = 主表面.split_below(主区, 0.28, vec![Tab::资源浏览器, Tab::控制台]);

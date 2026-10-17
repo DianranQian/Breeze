@@ -33,7 +33,7 @@ pub use config::{
 };
 pub use plugin::{
     BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 文件对话框结果, 文件对话框请求,
-    文件对话框通道, 绘制一帧, 绘制环境, 缩略图缓存, 诊断资源, 配色资源,
+    文件对话框通道, 绘制一帧, 绘制环境, 缩略图缓存, 诊断资源,
 };
 pub use preview::{
     编辑器界面相机, 预览实体, 预览来源, 预览渲染目标, 预览相机, 预览相机状态

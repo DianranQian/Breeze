@@ -17,10 +17,12 @@ pub mod docks;
 pub mod fonts;
 pub mod hierarchy_panel;
 pub mod history_panel;
+pub mod icons;
 pub mod inspector_panel;
 pub mod menu_bar;
 pub mod state;
 pub mod theme;
+pub mod theme_editor;
 pub mod viewport_panel;
 pub mod workspace_bar;
 pub mod workspaces;
@@ -34,11 +36,12 @@ pub use editor_core::i18n::语言;
 pub use fonts::{
     内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
 };
+pub use icons::{图标, 图标库};
 pub use state::{
     UiAction, 动作队列, 区域快照, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态, 绘制上下文,
     视口拖拽, 视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
 };
-pub use theme::编辑器配色;
+pub use theme::{主题, 主题库, 外观, 明暗, 编辑器配色};
 
 use egui::{Ui, WidgetText};
 
@@ -61,7 +64,9 @@ use egui::{Ui, WidgetText};
 /// 因此这里三层嵌套：根 `Ui` → 三个边栏 → 中央的可停靠区域。
 /// 顺序（上、上、下、中央）会影响实际布局，不能随意调换。
 pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>) {
-    上下文.配色.应用(egui上下文);
+    // 主题先落地：样式、缩放、字号、圆角、停靠样式都在这里一次性设置好，
+    // 之后所有绘制只读 `上下文.配色` 的语义槽位。
+    上下文.主题.应用(egui上下文);
     let 配色 = 上下文.配色;
 
     // 每帧重新测量。清空而不是复用：区域数量会随面板开关变化，
@@ -98,6 +103,10 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
                 绘制上下文.界面.停靠_mut(),
                 egui_dock::DockState::new(Vec::new()),
             );
+
+            // 停靠样式必须由主题生成：否则用户在主题里改的标签色、
+            // 分隔条颜色不会出现在面板上（那是"主题只改了一半"的典型表现）。
+            let 停靠样式 = 绘制上下文.主题.dock样式(界面ui.style().as_ref());
 
             let mut 查看器 = 面板查看器 {
                 上下文: 绘制上下文
@@ -141,7 +150,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
 
             // 其余区域：可停靠面板
             egui_dock::DockArea::new(&mut 停靠)
-                .style(egui_dock::Style::from_egui(界面ui.style().as_ref()))
+                .style(停靠样式)
                 // 关闭按钮：让用户能把面板收起来，再从「窗口」菜单打开。
                 .show_close_buttons(true)
                 // 折叠按钮：把整个面板折成一条标题栏，腾出屏幕空间做编辑。
@@ -173,6 +182,22 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
         };
         绘制上下文.动作.推(UiAction::新建项目 { 名称 });
         绘制上下文.界面.显示新建项目 = false;
+    }
+}
+
+/// 场景的显示名：从未保存过时按界面语言显示"未命名"占位。
+///
+/// # 为什么要单独一个函数
+///
+/// 场景名属于**文档数据**，默认值在 `editor_core` 里（与界面语言无关）；
+/// 而"显示成什么"属于界面层。这个函数是两者之间唯一的转换点，
+/// 菜单栏、场景树、关于窗口都调用它，因此不会再出现
+/// "某处英文界面残留中文"的情况。
+pub fn 场景占位名(编辑器: &editor_core::state::编辑器状态, 语言: 语言) -> String {
+    if 编辑器.场景名是占位() {
+        语言.取("untitled_scene").to_string()
+    } else {
+        编辑器.场景名().to_string()
     }
 }
 
@@ -281,7 +306,7 @@ pub fn 计算状态栏内容(
 }
 
 /// 底部状态栏。
-fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
+fn 绘制_状态栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 内容 = 计算状态栏内容(
         上下文.编辑器,
         上下文.语言,
@@ -300,6 +325,15 @@ fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 10.0;
+        // 保存状态用图标先给一个"形状级"的提示：扫一眼就知道有没有未保存改动。
+        let (保存图标, 保存色) = if 上下文.编辑器.有未保存修改() {
+            (图标::保存, 上下文.配色.警告)
+        } else {
+            (图标::成功, 上下文.配色.成功)
+        };
+        上下文
+            .图标
+            .绘制(ui, 保存图标, 上下文.外观.图标尺寸 * 0.85, 保存色);
         for (下标, 条目) in 内容.左侧.iter().enumerate() {
             if 下标 > 0 {
                 ui.separator();
@@ -460,12 +494,20 @@ impl 面板查看器<'_, '_> {
     /// 每次调用都重新借用字段，因此不会长时间占用 `界面状态`，
     /// 也就不会与 `DockArea` 对停靠布局的借用冲突。
     fn 视图(&mut self) -> 绘制上下文<'_> {
+        // 每帧克隆一份主题：主题只有几百字节，而这样可以让面板同时拿到
+        // `&mut 界面状态` 与"当前主题"，不必把状态拆成两半（见 `绘制上下文`）。
+        let 主题 = self.上下文.主题.clone();
+        let 配色 = 主题.配色;
+        let 外观 = 主题.外观.收敛();
         绘制上下文 {
             编辑器: self.上下文.编辑器,
             语言: self.上下文.语言,
             界面: self.上下文.界面,
             动作: self.上下文.动作,
-            配色: self.上下文.配色,
+            主题,
+            配色,
+            外观,
+            图标: self.上下文.图标,
             缩略图: self.上下文.缩略图,
             视口纹理: self.上下文.视口纹理,
             正在运行: self.上下文.正在运行,
@@ -495,7 +537,8 @@ impl 面板查看器<'_, '_> {
     }
 
     fn 绘制状态栏(&mut self, ui: &mut Ui) {
-        绘制_状态栏(ui, &self.视图());
+        let mut 视图 = self.视图();
+        绘制_状态栏(ui, &mut 视图);
     }
 
     /// 绘制浮层窗口。
@@ -515,6 +558,16 @@ impl 面板查看器<'_, '_> {
         {
             self.上下文.动作.推(动作);
         }
+        // 主题编辑器：读写草稿，并把保存/取消等动作排进队列。
+        theme_editor::绘制(
+            egui上下文,
+            self.上下文.界面,
+            配色,
+            语言,
+            self.上下文.图标,
+            self.上下文.外观.图标尺寸,
+            self.上下文.动作,
+        );
     }
 }
 

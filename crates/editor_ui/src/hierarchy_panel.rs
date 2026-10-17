@@ -100,7 +100,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.horizontal(|ui| {
         ui.label(
-            RichText::new(编辑器.场景名())
+            RichText::new(crate::场景占位名(编辑器, 上下文.语言))
                 .strong()
                 .color(上下文.配色.文字),
         );

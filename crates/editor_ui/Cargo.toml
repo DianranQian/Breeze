@@ -17,6 +17,9 @@ serde.workspace = true
 ron.workspace = true
 # 字体加载错误的定义。
 thiserror.workspace = true
+# 图标 PNG 的运行时解码（图标本身以字节形式编进二进制，
+# 见 `crates/editor_ui/src/icons.rs` 与 `tools/icon_bake`）。
+image.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

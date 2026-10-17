@@ -44,7 +44,7 @@ use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy_egui::EguiContexts;
 use serde::Serialize;
 
-use crate::plugin::{EditorStateHolder, UiStateHolder, 诊断资源, 配色资源};
+use crate::plugin::{EditorStateHolder, UiStateHolder, 诊断资源};
 use crate::scene_bridge::运行时宿主;
 
 /// 采集的 PNG 输出路径。设置它才会启用采集。
@@ -179,8 +179,12 @@ struct 工作区记录 {
 /// 主题摘要：让验收工具能断言"这次截的确实是深色主题"。
 #[derive(Debug, Clone, Serialize)]
 struct 主题记录 {
-    /// 主题标识（`dark` / `light` / `high_contrast` / 用户自定义名）。
+    /// 主题标识（`dark` / `light` / `high_contrast` / 用户自定义 id）。
     id: String,
+    /// 当前语言下的主题名。
+    name: String,
+    /// 明暗属性：`dark` / `light`。
+    scheme: String,
     /// 面板背景色，`#RRGGBB`。
     panel_bg: String,
     /// 主文字色，`#RRGGBB`。
@@ -237,7 +241,6 @@ pub fn 采集一帧(
     mut commands: Commands,
     界面: Res<UiStateHolder>,
     编辑器: Res<EditorStateHolder>,
-    配色: Res<配色资源>,
     诊断: Res<诊断资源>,
     运行时: Res<运行时宿主>,
 ) {
@@ -311,10 +314,15 @@ pub fn 采集一帧(
             count: 界面.状态.工作区.列表().len(),
         },
         theme: 主题记录 {
-            id: "dark".to_string(),
-            panel_bg: 十六进制(配色.0.面板背景),
-            text: 十六进制(配色.0.文字),
-            accent: 十六进制(配色.0.强调),
+            id: 界面.状态.主题库.当前id().to_string(),
+            name: 界面.状态.主题库.当前().显示名(界面.状态.语言),
+            scheme: match 界面.状态.主题库.当前().明暗 {
+                editor_ui::明暗::深色 => "dark".to_string(),
+                editor_ui::明暗::浅色 => "light".to_string(),
+            },
+            panel_bg: 十六进制(界面.状态.主题库.当前().配色.面板背景),
+            text: 十六进制(界面.状态.主题库.当前().配色.文字),
+            accent: 十六进制(界面.状态.主题库.当前().配色.强调),
         },
         regions: 区域,
         status_left: 状态栏.左侧.into_iter().map(|条目| 条目.文本).collect(),

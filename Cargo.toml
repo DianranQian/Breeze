@@ -6,6 +6,7 @@ members = [
     "crates/editor_ui",
     "crates/editor_app",
     "crates/gui_probe",
+    "tools/icon_bake",
 ]
 
 [workspace.package]
@@ -29,7 +30,9 @@ repository = ""
 [workspace.dependencies]
 bevy = { version = "0.20.0", default-features = true }
 bevy_egui = "0.43.1"
-egui = "0.36"
+# `serde` 特性用于把颜色主题持久化成 RON（Color32 的序列化实现）。
+# 它与 egui_dock 的 `serde` 特性所启用的是同一个特性，不会引入第二个 egui 版本。
+egui = { version = "0.36", features = ["serde"] }
 # `serde` 特性用于把停靠布局持久化到磁盘（窗口布局恢复）。
 # 它只额外启用 `egui/serde`，不改变 egui 版本，因此不会影响兼容性。
 egui_dock = { version = "0.21.1", features = ["serde"] }

@@ -14,6 +14,7 @@ use editor_core::state::编辑器状态;
 use egui::{RichText, Ui};
 
 use crate::docks::Tab;
+use crate::icons::图标;
 use crate::state::{UiAction, 绘制上下文};
 
 /// 一个菜单项。
@@ -268,6 +269,22 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                         菜单项::常可用("workspace_reset_all", None),
                     ],
                 },
+                // 主题：与主题编辑器同源。切主题不影响工作区布局。
+                菜单分组 {
+                    标题: "theme",
+                    项: vec![
+                        菜单项::常可用("theme_dark", None),
+                        菜单项::常可用("theme_light", None),
+                        菜单项::常可用("theme_high_contrast", None),
+                    ],
+                },
+                菜单分组 {
+                    标题: "",
+                    项: vec![
+                        菜单项::常可用("theme_editor", None),
+                        菜单项::常可用("theme_reset_all_builtin", None),
+                    ],
+                },
                 // 浮动面板：显式的入口，不要求用户发现"把标签拖出窗口"这个手势。
                 菜单分组 {
                     标题: "",
@@ -416,6 +433,8 @@ pub fn 菜单项动作(
         }),
         "workspace_duplicate" => Some(UiAction::打开工作区对话框 { 复制当前: true }),
         "workspace_reset_all" => Some(UiAction::重置全部内置工作区),
+        "theme_editor" => Some(UiAction::显示主题编辑器(true)),
+        "theme_reset_all_builtin" => Some(UiAction::重置全部内置主题),
         "float_focused_panel" => Some(UiAction::浮动面板(Tab::检查器)),
         "dock_all_floating" => Some(UiAction::停靠全部浮动面板),
 
@@ -439,6 +458,10 @@ pub fn 菜单项动作(
             if let Some(内置) = crate::workspaces::内置工作区::从名称键(文本) {
                 return Some(UiAction::切换工作区(内置.id().to_string()));
             }
+            // 主题项：同样按 i18n 名称键反查。
+            if let Some(内置) = crate::theme::内置主题::从名称键(文本) {
+                return Some(UiAction::设置主题(内置.id().to_string()));
+            }
             None
         }
     }
@@ -456,6 +479,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         // 当前工作区 id 先拷出来：下面要在菜单项里打勾，同时还要推动作
         // （两者分别借用 `上下文.界面` 与 `上下文.动作`，先把值取出最省事）。
         let 当前工作区id = 上下文.界面.工作区.当前id().to_string();
+        let 当前主题id = 上下文.界面.主题库.当前id().to_string();
         for (菜单名, 分组列表) in 菜单定义() {
             // 菜单标题与每一项都用**当前语言**显示，
             // 但派发动作时仍然用中文原文（`项.文本`）——
@@ -493,6 +517,14 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                         let 标题 = match crate::workspaces::内置工作区::从名称键(项.文本)
                         {
                             Some(内置) if 内置.id() == 当前工作区id => {
+                                format!("✓ {}", 标题.trim_start())
+                            }
+                            Some(_) => format!("   {}", 标题.trim_start()),
+                            None => 标题,
+                        };
+                        // 主题项打勾：当前主题一目了然。
+                        let 标题 = match crate::theme::内置主题::从名称键(项.文本) {
+                            Some(内置) if 内置.id() == 当前主题id => {
                                 format!("✓ {}", 标题.trim_start())
                             }
                             Some(_) => format!("   {}", 标题.trim_start()),
@@ -539,7 +571,9 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             }
 
             // 当前场景名 + 未保存标记
-            let 场景名 = 编辑器.场景名().to_string();
+            // 未命名/未打开时按界面语言显示占位名：
+            // 否则英文界面顶部会残留两处中文（项目名与场景名）。
+            let 场景名 = crate::场景占位名(编辑器, 语言).to_string();
             let 脏 = 编辑器.有未保存修改();
             let 文本 = if 脏 {
                 语言.填充("window_title_unsaved_marker", &[&场景名])
@@ -549,46 +583,94 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             ui.label(RichText::new(文本).color(配色.次要文字));
 
             ui.separator();
-            ui.label(RichText::new(编辑器.项目名()).color(配色.次要文字).small());
+            let 项目名 = if 编辑器.项目.is_none() {
+                语言.取("no_project_open").to_string()
+            } else {
+                编辑器.项目名().to_string()
+            };
+            ui.label(RichText::new(项目名).color(配色.次要文字).small());
         });
     });
 }
 
 /// 绘制工具栏。
+///
+/// # 为什么图标与文字同时显示
+///
+/// 只有图标需要用户记住含义（对新用户不友好），只有文字则一屏放不下
+/// 几个操作。专业编辑器的通行做法是"图标 + 短文字"：
+/// 图标负责快速识别，文字负责首次学习，悬停再给完整说明。
 pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 编辑器 = 上下文.编辑器;
     let 正在运行 = 上下文.正在运行;
     let 已暂停 = 上下文.已暂停;
+    // 图标尺寸跟随主题，文字色也取主题的"主文字"，
+    // 这样浅色主题下图标自动变深，不需要为每个主题各画一套。
+    let 图标尺寸 = 上下文.外观.图标尺寸;
+    let 图标色 = 上下文.配色.文字;
+    let 次要色 = 上下文.配色.次要文字;
+    let 语言 = 上下文.语言;
 
     ui.horizontal(|ui| {
-        // 运行控制
-        if ui
-            .add_enabled(!正在运行, egui::Button::new(上下文.语言.取("run")).small())
-            .on_hover_text(上下文.语言.取("tooltip_run_current_scene"))
+        ui.spacing_mut().item_spacing.x = 4.0;
+
+        // ---- 运行控制 ----
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::运行,
+                Some(语言.取("run")),
+                图标尺寸,
+                图标色,
+                !正在运行,
+            )
+            .on_hover_text(语言.取("tooltip_run_current_scene"))
             .clicked()
         {
             上下文.动作.推(UiAction::运行场景);
         }
-        if ui
-            .add_enabled(
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::暂停,
+                Some(语言.取(if 已暂停 { "resume" } else { "pause" })),
+                图标尺寸,
+                图标色,
                 正在运行,
-                egui::Button::new(上下文.语言.取(if 已暂停 { "resume" } else { "pause" })).small(),
             )
-            .on_hover_text(上下文.语言.取("pause_or_resume_running_f6"))
+            .on_hover_text(语言.取("pause_or_resume_running_f6"))
             .clicked()
         {
             上下文.动作.推(UiAction::暂停运行);
         }
-        if ui
-            .add_enabled(已暂停, egui::Button::new(上下文.语言.取("step")).small())
-            .on_hover_text(上下文.语言.取("advance_one_frame_while_paused"))
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::单步,
+                Some(语言.取("step")),
+                图标尺寸,
+                图标色,
+                已暂停,
+            )
+            .on_hover_text(语言.取("advance_one_frame_while_paused"))
             .clicked()
         {
             上下文.动作.推(UiAction::单步一帧);
         }
-        if ui
-            .add_enabled(正在运行, egui::Button::new(上下文.语言.取("stop")).small())
-            .on_hover_text(上下文.语言.取("tooltip_stop_running"))
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::停止,
+                Some(语言.取("stop")),
+                图标尺寸,
+                图标色,
+                正在运行,
+            )
+            .on_hover_text(语言.取("tooltip_stop_running"))
             .clicked()
         {
             上下文.动作.推(UiAction::停止运行);
@@ -596,37 +678,48 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
         ui.separator();
 
-        // 编辑操作
-        if ui
-            .add_enabled(
+        // ---- 编辑 ----
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::撤销,
+                None,
+                图标尺寸,
+                图标色,
                 编辑器.撤销.可撤销步数() > 0,
-                egui::Button::new(上下文.语言.取("undo")).small(),
             )
-            .on_hover_text(上下文.语言.取("undo_the_previous_step_ctrl_z"))
+            .on_hover_text(语言.取("undo_the_previous_step_ctrl_z"))
             .clicked()
         {
             上下文.动作.推(UiAction::撤销);
         }
-        if ui
-            .add_enabled(
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::重做,
+                None,
+                图标尺寸,
+                图标色,
                 编辑器.撤销.可重做步数() > 0,
-                egui::Button::new(上下文.语言.取("redo")).small(),
             )
-            .on_hover_text(上下文.语言.取("redo_ctrl_y"))
+            .on_hover_text(语言.取("redo_ctrl_y"))
             .clicked()
         {
             上下文.动作.推(UiAction::重做);
         }
-
-        ui.separator();
-
-        // 场景操作
-        if ui
-            .add_enabled(
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                图标::保存,
+                None,
+                图标尺寸,
+                图标色,
                 编辑器.项目.is_some(),
-                egui::Button::new(上下文.语言.取("save_scene_2")).small(),
             )
-            .on_hover_text(上下文.语言.取("tooltip_save_current_scene"))
+            .on_hover_text(语言.取("tooltip_save_current_scene"))
             .clicked()
         {
             上下文.动作.推(UiAction::保存场景);
@@ -634,21 +727,20 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
         ui.separator();
 
-        // 新建实体
-        if ui
-            .button(上下文.语言.取("new_entity_3"))
-            .on_hover_text(上下文.语言.取("tooltip_new_child_entity"))
+        // ---- 实体 ----
+        if 上下文
+            .图标
+            .图标按钮(ui, 图标::新建, None, 图标尺寸, 图标色, true)
+            .on_hover_text(语言.取("tooltip_new_child_entity"))
             .clicked()
         {
             let 父 = 编辑器.选择.主选中();
             上下文.界面.开始新建实体(父);
         }
-        if ui
-            .add_enabled(
-                !编辑器.选择.为空(),
-                egui::Button::new(上下文.语言.取("delete_2")),
-            )
-            .on_hover_text(上下文.语言.取("tooltip_delete_entity_subtree"))
+        if 上下文
+            .图标
+            .图标按钮(ui, 图标::删除, None, 图标尺寸, 图标色, !编辑器.选择.为空())
+            .on_hover_text(语言.取("tooltip_delete_entity_subtree"))
             .clicked()
             && let Some(标识) = 编辑器.选择.主选中()
         {
@@ -657,16 +749,36 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
         ui.separator();
 
-        // 面板快捷方式
-        if ui.small_button(上下文.语言.取("scene_tree")).clicked() {
-            上下文.动作.推(UiAction::聚焦面板(Tab::场景树));
+        // ---- 面板快捷入口（图标即面板身份）----
+        for (面板, 图标项) in [
+            (Tab::场景树, 图标::场景树),
+            (Tab::资源浏览器, 图标::资源),
+            (Tab::控制台, 图标::控制台),
+            (Tab::历史, 图标::历史),
+            (Tab::运行时ecs, 图标::运行时ecs),
+            (Tab::性能, 图标::性能),
+        ] {
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标项, None, 图标尺寸, 次要色, true)
+                .on_hover_text(面板.标题(语言))
+                .clicked()
+            {
+                上下文.动作.推(UiAction::聚焦面板(面板));
+            }
         }
-        if ui.small_button(上下文.语言.取("assets")).clicked() {
-            上下文.动作.推(UiAction::聚焦面板(Tab::资源浏览器));
-        }
-        if ui.small_button(上下文.语言.取("console")).clicked() {
-            上下文.动作.推(UiAction::聚焦面板(Tab::控制台));
-        }
+
+        // ---- 右侧：主题编辑器入口 ----
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::主题, None, 图标尺寸, 次要色, true)
+                .on_hover_text(语言.取("theme_editor"))
+                .clicked()
+            {
+                上下文.动作.推(UiAction::显示主题编辑器(true));
+            }
+        });
     });
 }
 

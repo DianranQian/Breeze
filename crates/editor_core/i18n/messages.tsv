@@ -334,3 +334,84 @@ dock_all_floating	停靠全部浮动面板	Dock All Floating Panels
 panel_cannot_float	面板「{}」无法浮动（可能已在浮窗里）	Panel "{}" cannot float (it may already be a window)
 log_panel_floated	面板「{}」已浮动为独立窗口	Panel "{}" floated as a separate window
 log_panels_docked	已把 {} 个浮动面板停靠回主区域	Docked {} floating panels back
+theme	主题	Theme
+theme_dark	深色	Dark
+theme_light	浅色	Light
+theme_high_contrast	高对比度	High Contrast
+theme_not_found	找不到主题「{}」	Theme "{}" not found
+theme_builtin_protected	内置主题「{}」不能删除	Built-in theme "{}" cannot be deleted
+theme_name_empty	主题名称不能为空	Theme name cannot be empty
+theme_name_duplicate	已有同名主题「{}」	A theme named "{}" already exists
+theme_parse_failed	主题格式不合法：{}	Invalid theme format: {}
+theme_editor	主题编辑器	Theme Editor
+theme_list	主题列表	Themes
+theme_builtin_tag	内置	built-in
+theme_name	主题名称	Theme name
+theme_group_background	背景	Background
+theme_group_text	文字	Text
+theme_group_accent	强调与选中	Accent & Selection
+theme_group_border	边框与分隔	Borders & Separators
+theme_group_viewport	视口	Viewport
+theme_group_status	状态提示	Status
+theme_group_controls	控件	Controls
+theme_group_dock	停靠与标签	Dock & Tabs
+theme_group_appearance	外观	Appearance
+theme_ui_scale	UI 缩放	UI scale
+theme_font_size	基础字号	Base font size
+theme_corner_radius	控件圆角	Corner radius
+theme_spacing	控件间距	Spacing
+theme_icon_size	图标大小	Icon size
+theme_save	保存主题	Save Theme
+theme_save_hint	保存到当前主题（内置主题会写入用户覆盖层）	Save to the current theme (built-ins store an override)
+theme_save_as	另存为	Save As
+theme_save_as_hint	用当前颜色创建一个新的用户主题	Create a new user theme from the current colors
+theme_new_name	我的主题 {}	My Theme {}
+theme_delete	删除主题	Delete Theme
+theme_builtin_not_deletable	内置主题不能删除	Built-in themes cannot be deleted
+theme_reset_builtin	恢复内置配色	Reset Built-in Colors
+theme_reset_all_builtin	恢复全部内置主题	Reset All Built-in Themes
+theme_import	导入主题	Import Theme
+theme_export	导出主题	Export Theme
+theme_live_preview_hint	改动会实时预览；关闭窗口即放弃未保存的改动	Changes preview live; closing discards unsaved edits
+log_theme_switched	已切换到主题「{}」	Switched to theme "{}"
+log_theme_saved	已保存主题「{}」	Saved theme "{}"
+log_theme_created	已创建主题「{}」	Created theme "{}"
+log_theme_deleted	已删除主题「{}」	Deleted theme "{}"
+log_theme_reset	已恢复主题「{}」的出厂配色	Reset theme "{}" to factory colors
+log_theme_reset_all	已恢复 {} 个内置主题的出厂配色	Reset {} built-in themes
+log_theme_exported	主题已导出到 {}	Theme exported to {}
+log_theme_imported	已导入主题「{}」	Imported theme "{}"
+color_window_bg	窗口背景	Window background
+color_panel_bg	面板背景	Panel background
+color_panel_alt_bg	次级面板背景	Secondary panel
+color_input_bg	输入框背景	Input background
+color_hover_bg	悬停背景	Hover background
+color_active_bg	激活背景	Active background
+color_text	主文字	Text
+color_text_secondary	次要文字	Secondary text
+color_text_disabled	禁用文字	Disabled text
+color_link	链接	Link
+color_accent	强调色	Accent
+color_accent_bright	强调色（亮）	Accent (bright)
+color_selection	选中色	Selection
+color_border	边框	Border
+color_border_strong	强边框	Strong border
+color_separator	分隔线	Separator
+color_viewport_bg	视口背景	Viewport background
+color_grid_major	网格主线	Grid major
+color_grid_minor	网格次线	Grid minor
+color_axis_x	X 轴	X axis
+color_axis_y	Y 轴	Y axis
+color_selection_box	选择框	Selection box
+color_info	信息	Info
+color_success	成功	Success
+color_warning	警告	Warning
+color_error	错误	Error
+color_button_bg	按钮背景	Button background
+color_button_hover	按钮悬停	Button hover
+color_button_active	按钮按下	Button active
+color_tab_bar_bg	标签栏背景	Tab bar background
+color_tab_active_bg	激活标签背景	Active tab background
+color_tab_text	标签文字	Tab text
+no_project_open	未打开项目	No Project
+untitled_scene	未命名场景	Untitled Scene

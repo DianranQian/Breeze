@@ -75,6 +75,12 @@ pub struct 编辑器配置 {
     /// 而不会让配置文件里其它字段跟着作废。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 工作区: Option<String>,
+    /// 主题库的 RON 文本（格式版本 2 起）。
+    ///
+    /// 主题与工作区是两个独立的配置维度：一个存颜色/外观，一个存布局。
+    /// 分开存的好处是"删掉主题配置不会丢工作区"、"换主题不会改布局"。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub 主题: Option<String>,
     /// 最近打开的项目目录。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 最近项目: Option<PathBuf>,
@@ -89,6 +95,7 @@ impl Default for 编辑器配置 {
             格式版本: 配置格式版本,
             布局: None,
             工作区: None,
+            主题: None,
             最近项目: None,
             偏好: std::collections::BTreeMap::new(),
         }
@@ -222,6 +229,7 @@ mod 测试 {
             格式版本: 配置格式版本,
             布局: Some("(布局内容)".to_string()),
             工作区: Some("(工作区内容)".to_string()),
+            主题: Some("(主题内容)".to_string()),
             最近项目: Some(PathBuf::from("C:/games/我的游戏")),
             偏好: [("主题".to_string(), "深色".to_string())]
                 .into_iter()

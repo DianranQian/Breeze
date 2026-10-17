@@ -1,0 +1,18 @@
+﻿[package]
+name = "icon_bake"
+description = "把 Tabler Icons 的 SVG 源图烘焙成编辑器用的 2x PNG 图标（构建期工具，不参与运行时）。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "icon_bake"
+path = "src/main.rs"
+
+[dependencies]
+# 纯 Rust 的 SVG 渲染器。只在**构建期工具**里用：
+# 运行时一个 SVG 依赖都不引入，图标以 PNG 字节编进二进制。
+resvg = { version = "0.45", default-features = false }
+# 校验阶段要读 PNG 头，确认尺寸正确。
+png = "0.17"

@@ -31,7 +31,7 @@ use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use editor_core::state::编辑器状态;
 use editor_ui::{
-    state::UiAction, 动作队列, 界面状态, 绘制上下文, 编辑器配色, 视口渲染结果, 运行时诊断,
+    state::UiAction, 动作队列, 界面状态, 绘制上下文, 视口渲染结果, 运行时诊断
 };
 
 use crate::scene_bridge::{运行时宿主, 运行状态, 默认组件注册表};
@@ -80,9 +80,12 @@ impl UiStateHolder {
     }
 }
 
-/// 配色资源。
+// 配色不再是独立资源：它是**主题**的一部分，住在 界面状态.主题库 里。
+// 早期版本把配色单列成资源，导致"主题改了但某个面板还在用旧配色"。
+
+/// 图标纹理缓存（全局一份，跨帧复用）。
 #[derive(Resource, Default)]
-pub struct 配色资源(pub 编辑器配色);
+pub struct 图标资源(pub editor_ui::图标库);
 
 /// 缩略图缓存：资源路径文本 → egui 纹理。
 ///
@@ -118,6 +121,10 @@ pub enum 文件对话框请求 {
     重命名资源(PathBuf),
     /// 确认删除资源。
     确认删除资源(PathBuf),
+    /// 把主题 RON 文本导出到用户选择的文件。
+    导出主题(String),
+    /// 让用户选择一个主题文件并读入。
+    导入主题,
 }
 
 /// 文件对话框结果。
@@ -127,6 +134,15 @@ pub enum 文件对话框结果 {
     选定目录(PathBuf),
     /// 选择了一个文件。
     选定文件(PathBuf),
+    /// 主题已成功导出到该路径。
+    主题已导出(PathBuf),
+    /// 读取到的主题文本。
+    主题文本 {
+        /// 来源路径（用于日志）。
+        路径: PathBuf,
+        /// 文件内容。
+        文本: String,
+    },
     /// 新建项目的父目录 + 项目名。
     新建项目 {
         /// 项目名。
@@ -226,6 +242,31 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
             None => 文件对话框结果::取消,
         },
 
+        文件对话框请求::导出主题(文本) => match rfd::FileDialog::new()
+            .set_title("导出主题")
+            .add_filter("Bevy Studio 主题", &["ron"])
+            .set_file_name("我的主题.theme.ron")
+            .save_file()
+        {
+            Some(路径) => match std::fs::write(&路径, 文本) {
+                Ok(()) => 文件对话框结果::主题已导出(路径),
+                Err(_) => 文件对话框结果::取消,
+            },
+            None => 文件对话框结果::取消,
+        },
+
+        文件对话框请求::导入主题 => match rfd::FileDialog::new()
+            .set_title("导入主题")
+            .add_filter("Bevy Studio 主题", &["ron"])
+            .pick_file()
+        {
+            Some(路径) => match std::fs::read_to_string(&路径) {
+                Ok(文本) => 文件对话框结果::主题文本 { 路径, 文本 },
+                Err(_) => 文件对话框结果::取消,
+            },
+            None => 文件对话框结果::取消,
+        },
+
         // 重命名与删除需要文本输入与二次确认，本版本尚未提供对应对话框，
         // 因此如实返回"取消"，而不是假装成功。
         文件对话框请求::重命名资源(_) | 文件对话框请求::确认删除资源(_) => {
@@ -245,8 +286,8 @@ impl Plugin for BevyStudio插件 {
         app.add_plugins(EguiPlugin::default())
             .init_resource::<EditorStateHolder>()
             .insert_resource(UiStateHolder::新建())
-            .init_resource::<配色资源>()
             .init_resource::<缩略图缓存>()
+            .init_resource::<图标资源>()
             .init_resource::<诊断资源>()
             .init_resource::<运行时宿主>()
             .init_resource::<文件对话框通道>()
@@ -275,6 +316,8 @@ impl Plugin for BevyStudio插件 {
                     // 放在打开项目之后：那时才有选中实体，Inspector 才有内容可看。
                     按环境变量聚焦面板,
                     恢复窗口布局,
+                    按环境变量设置语言,
+                    按环境变量打开主题编辑器,
                     打印启动信息,
                 )
                     .chain(),
@@ -525,6 +568,34 @@ fn 恢复窗口布局(mut 界面: ResMut<UiStateHolder>, 配置: Res<编辑器�
         }
     }
 
+    // 主题：与工作区完全独立的维度。主题存档坏了只回退主题，
+    // 工作区与语言都不受影响。
+    if let Some(文本) = 配置.0.主题.as_deref() {
+        match editor_ui::主题库::从文本恢复(文本) {
+            Ok(库) => {
+                info!("已恢复主题库，当前主题为 `{}`", 库.当前id());
+                界面.状态.主题库 = 库;
+            }
+            Err(错误) => warn!(
+                "主题存档无法恢复（{}），改用内置主题",
+                错误.文案(界面.状态.语言)
+            ),
+        }
+    }
+    // 环境变量覆盖：自动验收要能指定"这次跑哪个主题"。
+    if let Ok(id) = std::env::var(主题环境变量) {
+        let id = id.trim();
+        if !id.is_empty() {
+            match 界面.状态.主题库.切换(id) {
+                Ok(()) => info!("已按环境变量切换到主题 `{id}`"),
+                Err(错误) => warn!(
+                    "环境变量 {主题环境变量} 指定的主题 `{id}` 无法切换：{}",
+                    错误.文案(界面.状态.语言)
+                ),
+            }
+        }
+    }
+
     // 校验与修复：损坏的单个工作区不应让整个编辑器失去布局。
     let 修复 = 界面.状态.工作区.修复();
     for 说明 in &修复 {
@@ -555,6 +626,47 @@ fn 恢复窗口布局(mut 界面: ResMut<UiStateHolder>, 配置: Res<编辑器�
 /// 指定启动时切到哪个工作区（内置 id 或用户工作区 id）。
 pub const 工作区环境变量: &str = "BEVY_STUDIO_WORKSPACE";
 
+/// 指定启动时使用哪个主题（内置 id 或用户主题 id）。
+pub const 主题环境变量: &str = "BEVY_STUDIO_THEME";
+
+/// 指定启动界面语言（`zh` / `en`）。
+pub const 语言环境变量: &str = "BEVY_STUDIO_LANGUAGE";
+
+/// 按环境变量覆盖界面语言。
+///
+/// 语言本来存在配置的 `偏好` 里；自动验收需要一个不依赖配置文件历史的
+/// 确定性入口，否则"英文截图"可能因为上一轮配置残留而拍成中文。
+fn 按环境变量设置语言(mut 界面: ResMut<UiStateHolder>) {
+    let Ok(代号) = std::env::var(语言环境变量) else {
+        return;
+    };
+    let 代号 = 代号.trim();
+    if 代号.is_empty() {
+        return;
+    }
+    界面.状态.语言 = editor_ui::i18n::语言::从代号(代号);
+    info!("已按环境变量设置界面语言：{}", 界面.状态.语言.自称());
+}
+
+/// 让验收脚本可以直接打开主题编辑器（`1` 表示打开）。
+pub const 主题编辑器环境变量: &str = "BEVY_STUDIO_OPEN_THEME_EDITOR";
+
+/// 按环境变量打开主题编辑器。
+///
+/// 主题编辑器是浮窗而不是面板，"打开它"在自动验收里没有鼠标可点。
+/// 有了这个入口，截图就能覆盖"主题编辑器真的画出来了、颜色可编辑"这件事。
+fn 按环境变量打开主题编辑器(mut 界面: ResMut<UiStateHolder>) {
+    let Ok(值) = std::env::var(主题编辑器环境变量) else {
+        return;
+    };
+    if matches!(值.trim(), "0" | "false" | "no" | "") {
+        return;
+    }
+    界面.状态.显示主题编辑器 = true;
+    界面.状态.主题草稿 = Some(界面.状态.主题库.当前().clone());
+    info!("已按环境变量打开主题编辑器");
+}
+
 /// 启动时在控制台写一行说明，便于确认版本与环境。
 fn 打印启动信息() {
     info!(
@@ -575,8 +687,9 @@ fn 打印启动信息() {
 pub struct 绘制环境<'平台> {
     /// 编辑器权威状态。
     pub 编辑器: &'平台 编辑器状态,
-    /// 配色。
-    pub 配色: 编辑器配色,
+    /// 图标纹理缓存。
+    pub 图标: &'平台 mut editor_ui::图标库,
+
     /// 资源缩略图纹理表。
     pub 缩略图: &'平台 BTreeMap<String, egui::TextureHandle>,
     /// 视口的 Bevy 渲染结果。`None` 表示预览尚未就绪。
@@ -597,6 +710,14 @@ pub fn 绘制一帧(
     界面: &mut 界面状态,
     动作: &mut 动作队列,
 ) {
+    // 本帧生效的主题：主题编辑器打开时用**草稿**（实时预览），
+    // 否则用主题库里的当前主题。
+    let 主题 = 界面
+        .主题草稿
+        .clone()
+        .unwrap_or_else(|| 界面.主题库.当前().clone());
+    let 配色 = 主题.配色;
+    let 外观 = 主题.外观.收敛();
     let mut 绘制 = 绘制上下文 {
         编辑器: 环境.编辑器,
         // 语言是界面状态的一部分（用户可在「窗口 → 界面语言」里切换），
@@ -604,7 +725,10 @@ pub fn 绘制一帧(
         语言: 界面.语言,
         界面,
         动作,
-        配色: 环境.配色,
+        主题,
+        配色,
+        外观,
+        图标: 环境.图标,
         缩略图: 环境.缩略图,
         视口纹理: 环境.视口纹理,
         正在运行: 环境.运行时.状态.在运行(),
@@ -680,6 +804,16 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::重置全部内置工作区 => "重置全部内置工作区".to_string(),
         UiAction::浮动面板(面板) => format!("浮动面板({})", 面板.中文标题()),
         UiAction::停靠全部浮动面板 => "停靠全部浮动面板".to_string(),
+        UiAction::设置主题(id) => format!("设置主题({id})"),
+        UiAction::显示主题编辑器(显示) => format!("显示主题编辑器({显示})"),
+        UiAction::关闭主题编辑器 => "关闭主题编辑器".to_string(),
+        UiAction::保存主题草稿 => "保存主题草稿".to_string(),
+        UiAction::另存为主题 { 名称 } => format!("另存为主题({名称})"),
+        UiAction::删除主题(id) => format!("删除主题({id})"),
+        UiAction::重置内置主题 => "重置内置主题".to_string(),
+        UiAction::重置全部内置主题 => "重置全部内置主题".to_string(),
+        UiAction::导出主题 => "导出主题".to_string(),
+        UiAction::导入主题 => "导入主题".to_string(),
         UiAction::设置语言(语言) => format!("设置语言({})", 语言.自称()),
         UiAction::清空控制台 => "清空控制台".to_string(),
         UiAction::显示关于 => "显示关于".to_string(),

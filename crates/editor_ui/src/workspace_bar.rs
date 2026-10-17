@@ -20,6 +20,7 @@
 use egui::{Button, Color32, CornerRadius, RichText, Ui};
 
 use crate::i18n::语言;
+use crate::icons::图标;
 use crate::state::{UiAction, 工作区对话框, 工作区对话框模式, 绘制上下文};
 use crate::theme::编辑器配色;
 
@@ -46,8 +47,10 @@ fn 截断名称(名称: &str) -> (String, bool) {
 pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 语言 = 上下文.语言;
     let 配色 = 上下文.配色;
+    let 图标尺寸 = 上下文.外观.图标尺寸;
+    let 图标色 = 上下文.配色.文字;
 
-    // 先把需要的数据拷出来：下面要可变借用 `上下文.界面`（打开对话框）。
+    // 先把需要的数据拷出来：下面要可变借用 `上下文.图标` 与 `上下文.界面`。
     let 当前id = 上下文.界面.工作区.当前id().to_string();
     let 条目: Vec<(String, String, bool)> = 上下文
         .界面
@@ -57,18 +60,99 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         .map(|项| (项.id.clone(), 项.显示名(语言), 项.内置))
         .collect();
     let 当前是内置 = 上下文.界面.工作区.当前().内置;
+    let 当前名称 = 上下文.界面.工作区.当前().显示名(语言);
 
     let mut 待推: Vec<UiAction> = Vec::new();
     let mut 新对话框: Option<工作区对话框> = None;
 
     ui.horizontal_centered(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+        ui.spacing_mut().item_spacing = egui::vec2(3.0, 0.0);
         ui.add_space(4.0);
 
-        // ---- 右侧动作组：先占位，保证窗口变窄时不会被标签挤出去 ----
+        // 左侧的身份标识：让用户一眼知道这条栏是干什么的。
+        上下文.图标.绘制(ui, 图标::工作区, 图标尺寸, 配色.次要文字);
+        ui.add_space(2.0);
+        ui.label(
+            RichText::new(语言.取("workspace"))
+                .small()
+                .color(配色.次要文字),
+        );
+        ui.add_space(4.0);
+
+        // ---- 工作区标签 ----
+        for (id, 名称, 内置) in &条目 {
+            let 激活 = *id == 当前id;
+            let (显示, _截断) = 截断名称(名称);
+            let 文本颜色 = if 激活 {
+                配色.文字
+            } else {
+                配色.次要文字
+            };
+            let mut 文本 = RichText::new(显示).color(文本颜色).size(12.0);
+            if 激活 {
+                文本 = 文本.strong();
+            }
+            let 按钮 = Button::new(文本)
+                .frame(false)
+                .corner_radius(CornerRadius::same(3))
+                .fill(if 激活 {
+                    配色.强调淡
+                } else {
+                    Color32::TRANSPARENT
+                })
+                .stroke(if 激活 {
+                    egui::Stroke::new(1.0, 配色.强调)
+                } else {
+                    egui::Stroke::NONE
+                })
+                .min_size(egui::vec2(0.0, 20.0));
+            let 提示 = if *内置 {
+                语言.填充("workspace_builtin_hint", &[名称])
+            } else {
+                名称.clone()
+            };
+            let 响应 = ui.add(按钮).on_hover_text(提示);
+            if 响应.clicked() && !激活 {
+                待推.push(UiAction::切换工作区(id.clone()));
+            }
+            // 右键菜单：用户工作区可直接复制/重命名/删除（内置项禁用）。
+            响应.context_menu(|ui| {
+                if ui.button(语言.取("workspace_duplicate")).clicked() {
+                    新对话框 = Some(工作区对话框::新建(
+                        true,
+                        语言.填充("workspace_copy_name", &[名称]),
+                    ));
+                    ui.close();
+                }
+                if ui
+                    .add_enabled(!*内置, Button::new(语言.取("workspace_rename")))
+                    .clicked()
+                {
+                    新对话框 = Some(工作区对话框::重命名(id.clone(), 名称.clone()));
+                    ui.close();
+                }
+                if ui
+                    .add_enabled(!*内置, Button::new(语言.取("workspace_delete")))
+                    .clicked()
+                {
+                    待推.push(UiAction::删除工作区(id.clone()));
+                    ui.close();
+                }
+            });
+        }
+
+        // ---- 右侧动作组：先占位，窗口变窄时优先丢弃标签而不是按钮 ----
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            // 「更多」菜单：低频但重要的操作。
-            ui.menu_button("⋯", |ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+
+            // 「更多」菜单。
+            ui.add(
+                Button::new("⋯")
+                    .frame(false)
+                    .min_size(egui::vec2(20.0, 20.0)),
+            )
+            .on_hover_text(语言.取("workspace_more"))
+            .context_menu(|ui| {
                 if ui.button(语言.取("restore_default_layout")).clicked() {
                     待推.push(UiAction::重置当前工作区);
                     ui.close();
@@ -77,167 +161,76 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     待推.push(UiAction::重置全部内置工作区);
                     ui.close();
                 }
-            })
-            .response
-            .on_hover_text(语言.取("workspace_more"));
+            });
 
             ui.add_space(2.0);
 
             // 重置当前工作区布局。
-            let 重置 = ui
-                .add_enabled(
-                    true,
-                    Button::new("⟲")
-                        .frame(false)
-                        .min_size(egui::vec2(22.0, 20.0)),
-                )
-                .on_hover_text(语言.取("workspace_reset_current"));
-            if 重置.clicked() {
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::刷新, None, 图标尺寸, 图标色, true)
+                .on_hover_text(语言.取("workspace_reset_current"))
+                .clicked()
+            {
                 待推.push(UiAction::重置当前工作区);
             }
 
             // 删除：仅用户工作区可用。
-            let 删除 = ui
-                .add_enabled(
-                    !当前是内置,
-                    Button::new(RichText::new("✖").color(配色.错误))
-                        .frame(false)
-                        .min_size(egui::vec2(22.0, 20.0)),
-                )
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::删除, None, 图标尺寸, 配色.错误, !当前是内置)
                 .on_hover_text(if 当前是内置 {
                     语言.取("workspace_builtin_not_deletable")
                 } else {
                     语言.取("workspace_delete")
-                });
-            if 删除.clicked() {
+                })
+                .clicked()
+            {
                 待推.push(UiAction::删除工作区(当前id.clone()));
             }
 
             // 重命名：仅用户工作区可用。
-            let 重命名 = ui
-                .add_enabled(
-                    !当前是内置,
-                    Button::new("✎")
-                        .frame(false)
-                        .min_size(egui::vec2(22.0, 20.0)),
-                )
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::重命名, None, 图标尺寸, 图标色, !当前是内置)
                 .on_hover_text(if 当前是内置 {
                     语言.取("workspace_builtin_not_renamable")
                 } else {
                     语言.取("workspace_rename")
-                });
-            if 重命名.clicked() {
-                let 当前名称 = 上下文.界面.工作区.当前().显示名(语言);
-                新对话框 = Some(工作区对话框::重命名(当前id.clone(), 当前名称));
+                })
+                .clicked()
+            {
+                新对话框 = Some(工作区对话框::重命名(
+                    当前id.clone(),
+                    当前名称.clone(),
+                ));
             }
 
             // 复制当前工作区。
-            let 复制 = ui
-                .add_enabled(
-                    true,
-                    Button::new("⧉")
-                        .frame(false)
-                        .min_size(egui::vec2(22.0, 20.0)),
-                )
-                .on_hover_text(语言.取("workspace_duplicate"));
-            if 复制.clicked() {
-                let 建议 = 上下文.界面.工作区.当前().显示名(语言);
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::复制, None, 图标尺寸, 图标色, true)
+                .on_hover_text(语言.取("workspace_duplicate"))
+                .clicked()
+            {
                 新对话框 = Some(工作区对话框::新建(
                     true,
-                    语言.填充("workspace_copy_name", &[&建议]),
+                    语言.填充("workspace_copy_name", &[&当前名称]),
                 ));
             }
 
             // 新建工作区。
-            let 新建 = ui
-                .add_enabled(
-                    true,
-                    Button::new("＋")
-                        .frame(false)
-                        .min_size(egui::vec2(22.0, 20.0)),
-                )
-                .on_hover_text(语言.取("workspace_new"));
-            if 新建.clicked() {
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::新建, None, 图标尺寸, 图标色, true)
+                .on_hover_text(语言.取("workspace_new"))
+                .clicked()
+            {
                 新对话框 = Some(工作区对话框::新建(
                     false,
                     语言.填充("workspace_new_name", &[&(条目.len() + 1)]),
                 ));
             }
-
-            ui.add_space(4.0);
-            ui.separator();
-            ui.add_space(4.0);
-
-            // ---- 左侧：工作区标签 ----
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
-                ui.add_space(2.0);
-                for (id, 名称, 内置) in &条目 {
-                    let 激活 = *id == 当前id;
-                    let (显示, 截断) = 截断名称(名称);
-                    let 文本颜色 = if 激活 {
-                        配色.文字
-                    } else {
-                        配色.次要文字
-                    };
-                    let mut 文本 = RichText::new(显示).color(文本颜色).size(12.0);
-                    if 激活 {
-                        文本 = 文本.strong();
-                    }
-                    let 按钮 = Button::new(文本)
-                        .frame(false)
-                        .corner_radius(CornerRadius::same(3))
-                        .fill(if 激活 {
-                            配色.强调淡
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .stroke(if 激活 {
-                            egui::Stroke::new(1.0, 配色.强调)
-                        } else {
-                            egui::Stroke::NONE
-                        })
-                        .min_size(egui::vec2(0.0, 20.0));
-                    let 响应 = ui.add(按钮);
-                    // 悬停提示始终给出完整名称：长名称在标签里被截断，
-                    // 但用户永远能通过悬停看到全名（以及"内置"标记）。
-                    let 提示 = if *内置 {
-                        语言.填充("workspace_builtin_hint", &[名称])
-                    } else {
-                        名称.clone()
-                    };
-                    let 响应 = 响应.on_hover_text(提示);
-                    let _ = 截断;
-                    if 响应.clicked() && !激活 {
-                        待推.push(UiAction::切换工作区(id.clone()));
-                    }
-                    // 右键菜单：用户工作区可直接重命名/删除（内置项禁用）。
-                    响应.context_menu(|ui| {
-                        if ui.button(语言.取("workspace_duplicate")).clicked() {
-                            新对话框 = Some(工作区对话框::新建(
-                                true,
-                                语言.填充("workspace_copy_name", &[名称]),
-                            ));
-                            ui.close();
-                        }
-                        if ui
-                            .add_enabled(!*内置, Button::new(语言.取("workspace_rename")))
-                            .clicked()
-                        {
-                            新对话框 =
-                                Some(工作区对话框::重命名(id.clone(), 名称.clone()));
-                            ui.close();
-                        }
-                        if ui
-                            .add_enabled(!*内置, Button::new(语言.取("workspace_delete")))
-                            .clicked()
-                        {
-                            待推.push(UiAction::删除工作区(id.clone()));
-                            ui.close();
-                        }
-                    });
-                }
-            });
         });
     });
 

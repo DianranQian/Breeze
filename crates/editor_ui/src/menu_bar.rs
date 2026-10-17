@@ -15,7 +15,7 @@ use egui::{RichText, Ui};
 
 use crate::docks::Tab;
 use crate::icons::图标;
-use crate::state::{UiAction, 绘制上下文};
+use crate::state::{UiAction, 区域快照, 绘制上下文};
 
 /// 一个菜单项。
 #[derive(Debug, Clone)]
@@ -605,6 +605,30 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
 /// 绘制工具栏。
 ///
+/// # 一条工具栏，一组职责
+///
+/// 从左到右依次是：模式专用工具 → **预览控制（编辑器内）** →
+/// **项目运行（独立进程）** → 编辑 → 实体 → 面板快捷入口 → 主题编辑器。
+/// 每一组之间用分隔线隔开，组内顺序固定。
+///
+/// # 为什么运行要有两组，而且必须改名
+///
+/// 本编辑器里有两种**完全不同**的"运行"：
+///
+/// | | 预览（编辑器内） | 项目运行（独立进程） |
+/// | --- | --- | --- |
+/// | 做什么 | 在编辑器自己的 World 里推进当前场景 | 起一个真实子进程执行项目的运行目标 |
+/// | 数据 | 编辑器文档 → 运行时世界（单向桥） | 与编辑器进程完全隔离 |
+/// | 日志 | 运行时统计（帧率/帧耗时） | 子进程 stdout/stderr 逐行进控制台 |
+/// | 停止 | 冻结运行时世界 | 结束进程树 |
+///
+/// 整改前两者都叫「▶ 运行」，图标文字完全一样，而且**在运行模式下
+/// 同一行里各画了一次**（模式工具栏 + 通用工具栏），用户点到的很可能是
+/// 另一个"运行"，于是一个真实存在的功能看起来"点了没反应"。
+///
+/// 现在：一个概念一个入口，并且用不同的文案把目标类型写清楚
+/// （"预览" = 编辑器内；"运行项目" = 独立进程）。
+///
 /// # 为什么图标与文字同时显示
 ///
 /// 只有图标需要用户记住含义（对新用户不友好），只有文字则一屏放不下
@@ -630,66 +654,130 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             ui.separator();
         }
 
-        // ---- 运行控制 ----
-        if 上下文
+        // ---- 预览控制（编辑器内）----
+        //
+        // 文案写"预览"而不是"运行"：它的效果只是让编辑器内的运行时世界
+        // 推进并显示统计，不会生成任何可交付的游戏进程。
+        let 响应 = 上下文
             .图标
             .图标按钮(
                 ui,
                 图标::运行,
-                Some(语言.取("run")),
+                Some(语言.取("preview_scene")),
                 图标尺寸,
                 图标色,
                 !正在运行,
             )
-            .on_hover_text(语言.取("tooltip_run_current_scene"))
-            .clicked()
-        {
+            .on_hover_text(语言.取("preview_scene_hint"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_preview_scene",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
             上下文.动作.推(UiAction::运行场景);
         }
-        if 上下文
+        let 响应 = 上下文
             .图标
-            .图标按钮(
-                ui,
-                图标::暂停,
-                Some(语言.取(if 已暂停 { "resume" } else { "pause" })),
-                图标尺寸,
-                图标色,
-                正在运行,
-            )
-            .on_hover_text(语言.取("pause_or_resume_running_f6"))
-            .clicked()
-        {
+            .图标按钮(ui, 图标::暂停, None, 图标尺寸, 图标色, 正在运行)
+            .on_hover_text(语言.取("pause_or_resume_running_f6"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_pause_preview",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
             上下文.动作.推(UiAction::暂停运行);
         }
-        if 上下文
+        let 响应 = 上下文
             .图标
-            .图标按钮(
-                ui,
-                图标::单步,
-                Some(语言.取("step")),
-                图标尺寸,
-                图标色,
-                已暂停,
-            )
-            .on_hover_text(语言.取("advance_one_frame_while_paused"))
-            .clicked()
-        {
+            .图标按钮(ui, 图标::单步, None, 图标尺寸, 图标色, 已暂停)
+            .on_hover_text(语言.取("advance_one_frame_while_paused"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_step_preview",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
             上下文.动作.推(UiAction::单步一帧);
         }
-        if 上下文
+        let 响应 = 上下文
+            .图标
+            .图标按钮(ui, 图标::停止, None, 图标尺寸, 图标色, 正在运行)
+            .on_hover_text(语言.取("tooltip_stop_running"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_stop_preview",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
+            上下文.动作.推(UiAction::停止运行);
+        }
+        // 预览状态：与"项目运行"的状态分开显示，避免两个状态混成一个。
+        let 预览状态 = if 已暂停 {
+            语言.取("paused_2")
+        } else if 正在运行 {
+            语言.取("running_2")
+        } else {
+            语言.取("run_state_stopped")
+        };
+        ui.label(RichText::new(预览状态).small().color(if 正在运行 {
+            上下文.配色.成功
+        } else {
+            次要色
+        }));
+
+        ui.separator();
+
+        // ---- 项目运行（独立进程）----
+        //
+        // 这里的三个按钮原来只存在于"运行模式"的专用工具栏里，
+        // 于是切到 2D / 3D / 代码模式后完全没有办法运行项目。
+        // 运行是"操作"而不是"编辑面"，它必须在所有模式下都可用。
+        let 项目在跑 = 上下文.界面.项目运行中;
+        let 响应 = 上下文
             .图标
             .图标按钮(
                 ui,
-                图标::停止,
-                Some(语言.取("stop")),
+                图标::运行,
+                Some(语言.取("run_project")),
                 图标尺寸,
                 图标色,
-                正在运行,
+                !项目在跑,
             )
-            .on_hover_text(语言.取("tooltip_stop_running"))
-            .clicked()
-        {
-            上下文.动作.推(UiAction::停止运行);
+            .on_hover_text(语言.取("run_project_hint"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_run_project",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
+            上下文.动作.推(UiAction::运行项目);
+        }
+        let 响应 = 上下文
+            .图标
+            .图标按钮(ui, 图标::刷新, None, 图标尺寸, 图标色, true)
+            .on_hover_text(语言.取("rerun_project_hint"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_rerun_project",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
+            上下文.动作.推(UiAction::重新运行项目);
+        }
+        let 响应 = 上下文
+            .图标
+            .图标按钮(ui, 图标::停止, None, 图标尺寸, 图标色, 项目在跑)
+            .on_hover_text(语言.取("stop_project_hint"));
+        上下文.界面.布局快照.push(区域快照 {
+            标识: "btn_stop_project",
+            矩形: 响应.rect,
+        });
+        if 响应.clicked() {
+            上下文.动作.推(UiAction::停止项目);
+        }
+        let 摘要 = 上下文.界面.项目运行摘要.clone();
+        if !摘要.is_empty() {
+            ui.label(RichText::new(摘要).small().color(if 项目在跑 {
+                上下文.配色.成功
+            } else {
+                次要色
+            }));
         }
 
         ui.separator();

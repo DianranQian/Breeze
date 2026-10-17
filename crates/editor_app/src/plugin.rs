@@ -307,6 +307,7 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<图标资源>()
             .init_resource::<诊断资源>()
             .init_resource::<运行时宿主>()
+            .init_resource::<crate::run::项目运行管理器>()
             .init_resource::<文件对话框通道>()
             // ---- 配置与布局持久化 ----
             //
@@ -343,7 +344,10 @@ impl Plugin for BevyStudio插件 {
             //
             // 顺序即数据流，见模块头部说明。
             // ---- Last：退出前把配置落盘 ----
-            .add_systems(Last, actions::退出时保存配置)
+            .add_systems(
+                Last,
+                (actions::退出时保存配置, crate::run::退出时停止项目运行),
+            )
             .add_systems(
                 Update,
                 (
@@ -366,11 +370,15 @@ impl Plugin for BevyStudio插件 {
                     // 分成两个三元组再 `chain`：Bevy 的 `chain` 对元组
                     // 元素个数有上限，6 个直接链会编译不过。
                     (
+                        // 外部改 `.terrain.ron` 时先让同步状态失效，下一帧重烘。
+                        preview::监视地形文件,
                         preview::同步三维相机,
                         preview::同步预览实体,
                         preview::同步预览相机,
                         preview::同步渲染尺寸,
                         preview::模型诊断,
+                        crate::run::轮询项目运行,
+                        同步项目运行状态,
                         输入诊断,
                     )
                         .chain(),
@@ -554,6 +562,7 @@ fn 恢复窗口布局(
     mut 界面: ResMut<UiStateHolder>,
     配置: Res<编辑器配置资源>,
     mut 布局待保存: ResMut<布局待保存>,
+    编辑器: Res<EditorStateHolder>,
 ) {
     // 语言先恢复：它不依赖布局，而且越早生效越好 ——
     // 晚一帧恢复的话，首帧会先按中文画一次，然后闪一下变成英文。
@@ -627,20 +636,25 @@ fn 恢复窗口布局(
         }
     }
 
-    // 环境变量覆盖：自动验收要能指定"这次跑哪个主开发模式"。
+    // 环境变量覆盖：自动验收要能指定"这次跑哪个编辑模式"。
     if let Ok(id) = std::env::var(模式环境变量) {
         let id = id.trim();
         if !id.is_empty() {
-            match editor_ui::开发模式::从id(id) {
-                Some(模式) => match 界面.状态.切换模式(模式) {
-                    Ok(()) => {
-                        布局待保存.脏 = true;
-                        info!("已按环境变量切换到模式 `{id}`");
+            match editor_ui::开发模式::兼容旧id(id) {
+                editor_ui::dev_modes::旧模式迁移::当前(模式) => {
+                    match 界面.状态.切换模式(模式) {
+                        Ok(()) => {
+                            布局待保存.脏 = true;
+                            info!("已按环境变量切换到模式 `{id}`");
+                        }
+                        Err(错误) => warn!("环境变量 {模式环境变量} 切换模式失败：{错误}"),
                     }
-                    Err(错误) => warn!("环境变量 {模式环境变量} 切换模式失败：{错误}"),
-                },
-                None => warn!(
-                    "环境变量 {模式环境变量} 的值 `{id}` 不是已知模式；可用值：2d / 3d / script / run / assets"
+                }
+                editor_ui::dev_modes::旧模式迁移::已移除 { id: 旧id, 代替 } => {
+                    warn!("环境变量 {模式环境变量} 用的是已移除的模式 `{旧id}`：{代替}")
+                }
+                editor_ui::dev_modes::旧模式迁移::未知 => warn!(
+                    "环境变量 {模式环境变量} 的值 `{id}` 不是已知模式；可用值：2d / 3d / script"
                 ),
             }
         }
@@ -665,15 +679,23 @@ fn 恢复窗口布局(
             }
         }
     }
+    // 启动时就打开了项目（`BEVY_STUDIO_OPEN_PROJECT`）：
+    // 2D 视口自动框住整张地图，首帧就能看到全貌；3D 保持默认近景，
+    // 因为把 48×48 竞技场拉成全景会让角色只剩十几像素。
+    if 编辑器.状态.项目.is_some() && !界面.状态.模式.是三维() {
+        界面.状态.视口命令.适应窗口 = true;
+    }
 }
-
-/// 指定启动时切到哪个工作区（内置 id 或用户工作区 id）。
-pub const 工作区环境变量: &str = "BEVY_STUDIO_WORKSPACE";
 
 /// 指定启动时使用哪个主题（内置 id 或用户主题 id）。
 pub const 主题环境变量: &str = "BEVY_STUDIO_THEME";
+/// 指定启动时切到哪个工作区（内置 id 或用户工作区 id）。
+pub const 工作区环境变量: &str = "BEVY_STUDIO_WORKSPACE";
 
-/// 指定启动时进入哪个主开发模式（2d / 3d / script / run / assets）。
+/// 指定启动时进入哪个编辑模式（2d / 3d / script）。
+///
+/// 早期版本还有 `run` / `assets` 两个模式，它们已并入工具栏与工作区；
+/// 用旧值启动不会静默失败 —— [`editor_ui::开发模式::兼容旧id`] 会给出说明。
 pub const 模式环境变量: &str = "BEVY_STUDIO_MODE";
 
 /// 指定启动界面语言（`zh` / `en`）。
@@ -850,6 +872,9 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::重置当前工作区 => "重置当前工作区".to_string(),
         UiAction::重置全部内置工作区 => "重置全部内置工作区".to_string(),
         UiAction::切换模式(模式) => format!("切换模式({})", 模式.id()),
+        UiAction::运行项目 => "运行项目".to_string(),
+        UiAction::停止项目 => "停止项目".to_string(),
+        UiAction::重新运行项目 => "重新运行项目".to_string(),
         UiAction::打开示例项目(示例) => format!("打开示例项目({})", 示例.目录名()),
         UiAction::打开脚本(路径) => format!("打开脚本({})", 路径.文本()),
         UiAction::保存脚本 => "保存脚本".to_string(),
@@ -899,4 +924,13 @@ pub fn 输入诊断(
             窗口.cursor_position()
         );
     }
+}
+
+/// 把运行管理器状态同步到界面（工具栏摘要/按钮可用性）。
+fn 同步项目运行状态(
+    管理器: Res<crate::run::项目运行管理器>,
+    mut 界面: ResMut<UiStateHolder>,
+) {
+    界面.状态.项目运行摘要 = 管理器.摘要();
+    界面.状态.项目运行中 = 管理器.状态.在运行();
 }

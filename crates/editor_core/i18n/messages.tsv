@@ -475,3 +475,41 @@ log_example_opened	已打开示例项目：{}	Opened demo project: {}
 open_demo_failed	示例项目打开失败	Failed to open the demo project
 open_demo_missing	找不到示例项目 `{}`：请确认仓库里的 examples 目录存在	Demo project "{}" not found: make sure the examples directory exists
 app_title	微风 (Breeze)	Breeze
+sprite_field_model	模型	Model
+sprite_field_model_tooltip	指向 assets 下的 glTF/GLB 模型；设置后按真实模型渲染	Points to a glTF/GLB model under assets; when set the entity renders as a real model
+tile_terrain_field_file	地形文件	Terrain File
+tile_terrain_field_file_tooltip	项目相对的 .terrain.ron 路径；文件里存地表/覆盖两层字符网格	Project-relative .terrain.ron path; the file stores surface and overlay character grids
+tile_terrain_field_atlas	图集目录	Atlas Directory
+tile_terrain_field_atlas_tooltip	目录内放 10 张 64×64 四角图集与 1 张 112×96 变体表，文件名固定	Holds ten 64×64 corner atlases and one 112×96 variant sheet with fixed file names
+tile_terrain_field_display_size	显示尺寸	Display Size
+tile_terrain_field_display_size_tooltip	地形铺开后的世界尺寸；视口包围框也用它	World size of the baked terrain; also used for the viewport bounding box
+tile_terrain_field_cell_pixels	每格像素	Pixels per Cell
+tile_terrain_field_cell_pixels_tooltip	烘焙分辨率：16 为原生尺寸，64 为默认清晰档	Bake resolution: 16 is native, 64 is the default crisp setting
+tile_terrain_field_variant_chance	变体概率	Variant Chance
+tile_terrain_field_variant_chance_tooltip	整格瓦片抽到手绘变体的概率，原项目为 0.35	Chance that a full tile uses a hand-drawn variant; the original project uses 0.35
+primitive_field_shape	形状	Shape
+primitive_field_shape_tooltip	Cuboid = 长方体；Plane = 水平面	Cuboid = box; Plane = horizontal plane
+primitive_field_size	尺寸	Size
+primitive_field_size_tooltip	世界尺寸 (x, y, z)；平面使用 (x, z)	World size (x, y, z); planes use (x, z)
+primitive_field_texture	贴图	Texture
+primitive_field_texture_tooltip	受光材质的基色贴图；UV 会按贴图重复缩放	Base color texture of the lit material; UVs are scaled by Texture Repeat
+primitive_field_tint	颜色	Tint
+primitive_field_uv_repeat	贴图重复	Texture Repeat
+primitive_field_uv_repeat_tooltip	纹理在 U/V 方向重复的次数，例如 48m 地面用 6×6	How many times the texture repeats in U/V, e.g. 6×6 for a 48m floor
+primitive_field_lit	受光	Lit
+primitive_field_lit_tooltip	开启后使用 PBR 受光材质，会接收方向光与阴影	When on, uses a lit PBR material that receives the directional light and shadows
+primitive_field_double_sided	双面	Double Sided
+primitive_field_double_sided_tooltip	关闭背面剔除，薄墙从两面都可见	Disables back-face culling so thin walls are visible from both sides
+mode_label	模式	Mode
+workspace_label	工作区	Workspace
+preview_scene	预览	Preview
+preview_scene_hint	在编辑器内推进当前场景（不生成独立进程，也不是游戏运行时）	Advance the current scene inside the editor (no separate process, not a game runtime)
+run_project	运行项目	Run Project
+run_project_hint	启动当前项目的运行目标（独立子进程）；输出逐行进控制台，可停止	Start the project's run target as a separate process; output streams into the console and can be stopped
+rerun_project_hint	停止后重新启动项目运行	Stop and start the project run again
+stop_project_hint	停止项目运行，并结束其进程树	Stop the project run and kill its process tree
+run_target_title	运行目标	Run Target
+run_target_preview_process	独立预览进程（默认：再次启动微风并打开同一项目）	Separate preview process (default: launch Breeze again and open the same project)
+run_target_game	项目声明的真实可执行程序	A real executable declared by the project
+run_target_missing_program	项目的运行目标不存在：{}	The project's run target does not exist: {}
+run_target_not_declared	项目未声明运行目标，已退回「独立预览进程」（这不是游戏运行时）	The project declares no run target; falling back to a separate preview process (this is not a game runtime)

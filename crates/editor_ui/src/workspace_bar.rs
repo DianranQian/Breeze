@@ -21,8 +21,25 @@ use egui::{Button, Color32, CornerRadius, RichText, Ui};
 
 use crate::i18n::语言;
 use crate::icons::图标;
-use crate::state::{UiAction, 工作区对话框, 工作区对话框模式, 绘制上下文};
+use crate::state::{
+    UiAction, 区域快照, 工作区对话框, 工作区对话框模式, 绘制上下文
+};
 use crate::theme::编辑器配色;
+
+/// 内置工作区标签在证据文件里的稳定标识。
+///
+/// `区域快照.标识` 需要 `&'static str`；内置工作区的 id 是静态的，
+/// 正好够用。用户自建工作区的标签不入证据（它的 id 是运行期生成的），
+/// 它们的验收走"布局指纹"而不是坐标点击。
+fn 内置工作区快照标识(内置: crate::workspaces::内置工作区) -> &'static str {
+    use crate::workspaces::内置工作区;
+    match 内置 {
+        内置工作区::通用 => "ws_general",
+        内置工作区::场景 => "ws_scene",
+        内置工作区::资源 => "ws_assets",
+        内置工作区::调试 => "ws_debug",
+    }
+}
 
 /// 工作区栏高度（逻辑像素）。
 pub const 工作区栏高度: f32 = 26.0;
@@ -70,10 +87,14 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         ui.add_space(4.0);
 
         // 左侧的身份标识：让用户一眼知道这条栏是干什么的。
+        //
+        // 它与上一行的「模式」是两个不同维度：模式决定"我在编辑什么"，
+        // 这里决定"面板怎么摆"。两行都有身份标识，才不会看起来像
+        // 两排长得一样的文字按钮（那正是整改前"两行功能重复"的观感来源）。
         上下文.图标.绘制(ui, 图标::工作区, 图标尺寸, 配色.次要文字);
         ui.add_space(2.0);
         ui.label(
-            RichText::new(语言.取("workspace"))
+            RichText::new(语言.取("workspace_label"))
                 .small()
                 .color(配色.次要文字),
         );
@@ -112,6 +133,16 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 名称.clone()
             };
             let 响应 = ui.add(按钮).on_hover_text(提示);
+            // 内置工作区的标签矩形进证据文件，让"切换工作区"可以被
+            // 按真实矩形中心点击验收（用户工作区 id 是动态的，
+            // 而 `区域快照.标识` 需要 `&'static str`，故只登记内置项）。
+            if let Some(标识) = crate::workspaces::内置工作区::从id(id).map(内置工作区快照标识)
+            {
+                上下文.界面.布局快照.push(区域快照 {
+                    标识,
+                    矩形: 响应.rect,
+                });
+            }
             if 响应.clicked() && !激活 {
                 待推.push(UiAction::切换工作区(id.clone()));
             }

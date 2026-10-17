@@ -234,6 +234,55 @@ struct 主题记录 {
     accent: String,
 }
 
+/// 一个矩形（物理像素，截图坐标系）。
+#[derive(Debug, Clone, Copy, Serialize)]
+struct 矩形记录 {
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+}
+
+/// 场景树一行的证据。
+///
+/// 自动验收靠它拿到**真实的箭头矩形**去点击，并按 `expanded` 与
+/// 可见行列表判断折叠是否真的生效 —— 不再靠猜坐标。
+#[derive(Debug, Clone, Serialize)]
+struct 场景行记录 {
+    id: String,
+    name: String,
+    depth: i32,
+    has_children: bool,
+    expanded: bool,
+    row: 矩形记录,
+    /// 折叠箭头矩形；没有子实体时为 `null`。
+    arrow: Option<矩形记录>,
+}
+
+/// 项目运行状态证据。
+///
+/// 让验收工具能断言"点了运行之后确实起了子进程、确实有 stdout 行进了控制台、
+/// 点了停止之后进程确实不在了"，而不是只看按钮高亮。
+#[derive(Debug, Clone, Serialize)]
+struct 运行记录 {
+    /// 状态文案（`空闲` / `启动中` / `运行中` / `已停止` / `失败`）。
+    status: String,
+    /// 是否在运行（含启动中）。
+    running: bool,
+    /// 子进程 PID；未运行时为 `null`。
+    pid: Option<u32>,
+    /// 交给编辑器控制台的原样摘要。
+    summary: String,
+    /// 最近一次命令的显示文本（程序 + 参数）。
+    command: Option<String>,
+    /// 最近一次错误。
+    last_error: Option<String>,
+    /// 最近若干行子进程输出（含 `[stderr]` 前缀行）。
+    log_tail: Vec<String>,
+    /// 运行目标类型：`preview-process`（独立预览进程）或 `game`（项目声明的真实程序）。
+    target_kind: String,
+}
+
 /// 采集证据。
 #[derive(Debug, Clone, Serialize)]
 struct 采集证据 {
@@ -267,6 +316,20 @@ struct 采集证据 {
     viewport_scale_percent: f32,
     /// 已加载的图标数量（图标系统接入后由 0 变为实际值）。
     icon_count: usize,
+    /// 场景树的可见行（含真实行矩形与箭头矩形）。
+    scene_rows: Vec<场景行记录>,
+    /// 项目运行状态（独立进程）。
+    project_run: 运行记录,
+    /// 场景树折叠集合里的实体数（判断"折叠了但没有可见效果"用）。
+    collapsed_count: usize,
+    /// 控制台（可见日志区域）里的最后若干行文本。
+    ///
+    /// 与 `project_run.log_tail` 的区别：那个是**运行管理器自己的缓冲**，
+    /// 这个是**界面真正会画出来的控制台内容**。子进程输出必须走到后者，
+    /// 否则"日志进了缓冲区但用户看不到"这件事无法被发现。
+    console_log_tail: Vec<String>,
+    /// 控制台总行数（用于判断"点击后确实新增了输出"）。
+    console_log_count: usize,
 }
 
 /// 一次界面绘制结束后写证据并请求截图。
@@ -285,6 +348,7 @@ pub fn 采集一帧(
     编辑器: Res<EditorStateHolder>,
     诊断: Res<诊断资源>,
     运行时: Res<运行时宿主>,
+    项目运行: Res<crate::run::项目运行管理器>,
 ) {
     if !采集.已启用() {
         return;
@@ -302,11 +366,12 @@ pub fn 采集一帧(
         let 帧号 = 采集.已过帧;
         if 发起一次采集(
             &mut commands,
-            &egui上下文,
+            egui上下文,
             &界面,
             &编辑器,
             &诊断,
             &运行时,
+            &项目运行,
             图片.as_deref(),
             报告.as_deref(),
             帧号,
@@ -327,11 +392,12 @@ pub fn 采集一帧(
         let 帧号 = 采集.已过帧;
         if 发起一次采集(
             &mut commands,
-            &egui上下文,
+            egui上下文,
             &界面,
             &编辑器,
             &诊断,
             &运行时,
+            &项目运行,
             图片.as_deref(),
             报告.as_deref(),
             帧号,
@@ -355,6 +421,7 @@ fn 发起一次采集(
     编辑器: &EditorStateHolder,
     诊断: &诊断资源,
     运行时: &运行时宿主,
+    项目运行: &crate::run::项目运行管理器,
     图片: Option<&Path>,
     报告: Option<&Path>,
     帧号: u32,
@@ -397,6 +464,40 @@ fn 发起一次采集(
         }
     }
 
+    // ---- 场景树几何：把真实行矩形与箭头矩形交给验收工具 ----
+    let 转矩形 = |r: egui::Rect| 矩形记录 {
+        x: 物理(r.min.x),
+        y: 物理(r.min.y),
+        w: 尺寸(r.width()),
+        h: 尺寸(r.height()),
+    };
+    let 场景行: Vec<场景行记录> = 界面
+        .状态
+        .场景行几何
+        .iter()
+        .map(|行| 场景行记录 {
+            id: 行.标识.clone(),
+            name: 行.名称.clone(),
+            depth: 行.深度 as i32,
+            has_children: 行.有子实体,
+            expanded: 行.展开,
+            row: 转矩形(行.行矩形),
+            arrow: 行.箭头矩形.map(转矩形),
+        })
+        .collect();
+
+    // ---- 项目运行状态 ----
+    let 运行记录 = 运行记录 {
+        status: 项目运行.状态.文案().to_string(),
+        running: 项目运行.状态.在运行(),
+        pid: 项目运行.进程号,
+        summary: 项目运行.摘要(),
+        command: 项目运行.命令.as_ref().map(|命令| 命令.显示()),
+        last_error: 项目运行.最近错误.clone(),
+        log_tail: 项目运行.日志.iter().rev().take(12).rev().cloned().collect(),
+        target_kind: 项目运行.运行目标类型.代号().to_string(),
+    };
+
     let 证据 = 采集证据 {
         schema: 1,
         app_version: env!("CARGO_PKG_VERSION"),
@@ -437,6 +538,19 @@ fn 发起一次采集(
         panel_keys: 面板键,
         viewport_scale_percent: 界面.状态.相机.缩放 * 100.0,
         icon_count: 0,
+        scene_rows: 场景行,
+        project_run: 运行记录,
+        collapsed_count: 界面.状态.折叠集合().len(),
+        console_log_tail: 编辑器
+            .状态
+            .日志列表()
+            .iter()
+            .rev()
+            .take(20)
+            .rev()
+            .map(|条目| 条目.渲染(界面.状态.语言))
+            .collect(),
+        console_log_count: 编辑器.状态.日志列表().len(),
     };
 
     if let Some(报告路径) = 报告.map(Path::to_path_buf) {

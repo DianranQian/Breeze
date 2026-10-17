@@ -8,6 +8,10 @@ members = [
     "crates/editor_app",
     "crates/gui_probe",
     "tools/icon_bake",
+    # 最小真实运行时样例：给「运行项目」的声明式运行目标提供一个
+    # 能真跑、能停止、能被断言的可执行对象。它不是 Bevy 游戏，
+    # 也**不**是示例项目（示例绝不进 workspace）。
+    "tools/miniruntime",
 ]
 
 [workspace.package]

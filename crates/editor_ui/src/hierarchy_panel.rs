@@ -204,6 +204,9 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     let 主选中 = 编辑器.选择.主选中();
 
+    // 每帧重算：行数会随折叠/过滤变化，复用旧值会让证据里出现过期的箭头。
+    上下文.界面.场景行几何.clear();
+
     egui::ScrollArea::both()
         .auto_shrink([false, false])
         .show(ui, |ui| {
@@ -227,6 +230,10 @@ fn 绘制行(
 
     let 选中 = 上下文.编辑器.选择.包含(行.标识);
     let 行高 = ui.spacing().interact_size.y;
+    // 折叠箭头的矩形要**带出闭包**：自动验收必须按箭头的真实中心点击，
+    // 否则点偏了会落到名称标签上（那是"选择"，不是"折叠"），
+    // 于是"功能坏了"与"落点错了"无法区分。
+    let mut 箭头矩形: Option<egui::Rect> = None;
 
     let 整行 = ui.horizontal(|ui| {
         ui.add_space(行.深度 as f32 * ui.spacing().indent);
@@ -236,14 +243,13 @@ fn 绘制行(
             let 符号 = if 行.展开 { "▾" } else { "▸" };
             // 折叠是界面状态：只改 `界面状态.折叠集合`，不产生撤销命令、
             // 不写场景文档。控件的点击区域由按钮自身的最小尺寸保证。
-            if ui
-                .add(
-                    egui::Button::new(符号)
-                        .frame(false)
-                        .min_size(egui::vec2(18.0, 行高.max(18.0))),
-                )
-                .clicked()
-            {
+            let 箭头 = ui.add(
+                egui::Button::new(符号)
+                    .frame(false)
+                    .min_size(egui::vec2(18.0, 行高.max(18.0))),
+            );
+            箭头矩形 = Some(箭头.rect);
+            if 箭头.clicked() {
                 上下文.界面.切换折叠(行.标识);
             }
         } else {
@@ -304,6 +310,21 @@ fn 绘制行(
 
     // 整行点击选择。
     let 响应 = 整行.inner;
+
+    // 记录这一行的真实几何（整行 + 折叠箭头），供自动验收按**箭头中心**点击。
+    //
+    // 记录放在这里而不是绘制中：`整行.response.rect` 要等水平布局结束
+    // 才会有正确宽度，此时所有子控件的矩形也已经确定。
+    上下文.界面.场景行几何.push(crate::state::场景行几何 {
+        标识: format!("{:?}", 行.标识),
+        名称: 行.名称.clone(),
+        深度: 行.深度,
+        有子实体: 行.有子实体,
+        展开: 行.展开,
+        行矩形: 整行.response.rect,
+        箭头矩形,
+    });
+
     if 响应.clicked() {
         let 修饰 = ui.input(|输入| 输入.modifiers);
         上下文.动作.推(UiAction::选择(if 修饰.command {

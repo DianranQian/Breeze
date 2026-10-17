@@ -50,6 +50,48 @@ pub mod 目录名 {
     pub const 源码: &str = "src";
 }
 
+/// 项目的运行目标声明（`project.ron` 里的 `运行` 字段）。
+///
+/// # 为什么运行目标必须是项目契约，而不是编辑器的固定行为
+///
+/// 「运行项目」有两种完全不同的含义，编辑器**不可以**替用户猜：
+///
+/// | 目标 | 是什么 | 由谁决定 |
+/// | --- | --- | --- |
+/// | 独立预览进程 | 再启动一个微风实例打开同一项目 | 编辑器默认行为 |
+/// | 真实游戏可执行程序 | 项目自己编译出的游戏 | **项目清单** |
+///
+/// 后者必须显式声明，否则编辑器会在用户以为"在跑游戏"的时候
+/// 只是又开了一个编辑器窗口。因此清单里有一个可选的 `运行` 段：
+/// 声明了就按声明执行，没声明就走默认的独立预览进程，
+/// 并在界面上把目标类型写清楚（见 `editor_app::run::运行目标类型`）。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct 运行目标清单 {
+    /// 可执行程序。
+    ///
+    /// 三种写法都支持：
+    /// * 绝对路径 —— 直接使用；
+    /// * 含分隔符的相对路径 —— 相对**项目根目录**解析；
+    /// * 不含分隔符的裸名字 —— 在 `PATH` 上查找。
+    pub 程序: String,
+    /// 命令行参数。
+    #[serde(default)]
+    pub 参数: Vec<String>,
+    /// 追加给子进程的环境变量。
+    #[serde(default)]
+    pub 环境: BTreeMap<String, String>,
+    /// 工作目录（项目相对路径）。留空表示项目根目录。
+    #[serde(default)]
+    pub 工作目录: Option<String>,
+}
+
+impl 运行目标清单 {
+    /// 是否声明了运行目标。
+    pub fn 已声明(&self) -> bool {
+        !self.程序.trim().is_empty()
+    }
+}
+
 /// 项目清单。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct 项目清单 {
@@ -66,6 +108,9 @@ pub struct 项目清单 {
     /// 项目自定义配置，供游戏代码与插件读取。
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub 配置: BTreeMap<String, String>,
+    /// 运行目标声明。`None` 表示该项目只能以"独立预览进程"方式运行。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub 运行: Option<运行目标清单>,
 }
 
 impl 项目清单 {
@@ -77,6 +122,7 @@ impl 项目清单 {
             说明: String::new(),
             启动场景: None,
             配置: BTreeMap::new(),
+            运行: None,
         }
     }
 }

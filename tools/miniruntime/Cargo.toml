@@ -1,0 +1,13 @@
+[package]
+name = "miniruntime"
+description = "最小真实运行时样例：一个可被项目清单声明的独立可执行程序，用于验证「运行项目」的完整链路（启动/PID/stdout/stderr/停止/重跑）。它不是 Bevy 游戏。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "miniruntime"
+path = "src/main.rs"
+
+[dependencies]

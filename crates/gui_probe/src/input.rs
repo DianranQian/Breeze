@@ -131,12 +131,36 @@ pub fn 抬起() -> bool {
     发送鼠标(取当前指针(), MOUSEEVENTF_LEFTUP)
 }
 
-/// 在当前指针位置单击一次。
-pub fn 单击() -> bool {
-    按下() && {
-        sleep(Duration::from_millis(60));
-        抬起()
-    }
+/// 在指定屏幕坐标完成一次**真实单击**。
+///
+/// # 为什么"点一下"不能用拖拽流程代替（这是按钮点击验收的关键）
+///
+/// 用 [`执行拖拽`] 去"点"一个按钮会失败，而且是**静默失败**：
+/// 拖拽流程按下后要等待预热、24 段移动、抬起，整个过程约 1.0 秒；
+/// 而 egui 的 `InputOptions::max_click_duration` 默认 **0.8 秒** ——
+/// 超过它就不再算点击（egui 源码里的原话：
+/// "If the pointer is down for longer than this it will no longer register as a click"）。
+///
+/// 结果是：坐标完全正确、指针事件也确实到达了应用，但 `Response::clicked()`
+/// 永远是 `false`。上一轮"Run 按钮点了没反应"就是这样被误判成产品缺陷的 ——
+/// 断点不在产品里，在这条注入路径里。
+///
+/// 因此真实单击必须是：移动 → 按下 → **短暂停顿** → 抬起，全程远小于 0.8 秒。
+pub fn 执行单击(坐标: (i32, i32)) -> 注入结果 {
+    let mut 结果 = 注入结果 {
+        移动成功: 移动到(坐标),
+        按下成功: false,
+        抬起成功: false,
+        移动步数: 0,
+    };
+    // 指针必须先落在目标上，再按下：egui 的命中判定用的是上一帧的指针位置。
+    sleep(Duration::from_millis(130));
+    结果.按下成功 = 按下();
+    // 80ms 的"按住"足够长到被真实计入，又远小于 egui 的 0.8s 点击上限。
+    sleep(Duration::from_millis(80));
+    结果.抬起成功 = 抬起();
+    sleep(Duration::from_millis(80));
+    结果
 }
 
 /// 读取当前指针位置（屏幕物理像素）。

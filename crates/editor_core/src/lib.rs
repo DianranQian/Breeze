@@ -29,6 +29,12 @@ pub mod selection;
 pub mod state;
 pub mod undo;
 
+// 模块名是中文，但 Rust 的模块文件查找只接受 ASCII 文件名，
+// 所以这里用 `#[path]` 指向中文文件名 —— 与仓库里"测试文件用中文命名"的
+// 习惯保持一致，同时不牺牲源码的可读性。
+#[path = "模板.rs"]
+pub mod 模板;
+
 pub use command::{命令结果, 编辑器命令};
 pub use i18n::{词条, 词表, 语言};
 pub use project::{
@@ -38,3 +44,7 @@ pub use project::{
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};
 pub use undo::{撤销条目, 撤销栈, 默认内存预算字节, 默认最大步数};
+pub use 模板::{
+    从根集合发现, 从环境值发现, 发现模板, 复制模板到, 复制结果, 复制选项, 打开已有项目目录,
+    模板来源, 模板目录环境变量, 模板错误, 解析资源路径, 项目摘要,
+};

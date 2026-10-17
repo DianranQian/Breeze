@@ -2673,6 +2673,7 @@ dependencies = [
  "ron",
  "scene_doc",
  "serde",
+ "serde_json",
  "tempfile",
  "uuid",
 ]
@@ -3295,6 +3296,16 @@ dependencies = [
  "presser",
  "thiserror 2.0.21",
  "windows",
+]
+
+[[package]]
+name = "gui_probe"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "serde",
+ "serde_json",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

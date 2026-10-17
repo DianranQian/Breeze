@@ -23,6 +23,8 @@ bevy.workspace = true
 bevy_egui.workspace = true
 egui.workspace = true
 serde.workspace = true
+# 采集证据（GUI 自动验收的 JSON）序列化。
+serde_json.workspace = true
 # 编辑器配置（窗口布局）与场景文件用同一套 RON 序列化，
 # 但存在完全不同的位置，两者互不干扰。
 ron.workspace = true

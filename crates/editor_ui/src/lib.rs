@@ -33,8 +33,8 @@ pub use fonts::{
     内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
 };
 pub use state::{
-    UiAction, 动作队列, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态, 绘制上下文, 视口拖拽,
-    视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
+    UiAction, 动作队列, 区域快照, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态, 绘制上下文,
+    视口拖拽, 视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
 };
 pub use theme::编辑器配色;
 
@@ -61,6 +61,10 @@ use egui::{Ui, WidgetText};
 pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>) {
     上下文.配色.应用(egui上下文);
     let 配色 = 上下文.配色;
+
+    // 每帧重新测量。清空而不是复用：区域数量会随面板开关变化，
+    // 复用会让已经关闭的面板以旧矩形残留在证据文件里。
+    上下文.界面.布局快照.clear();
 
     let 视口矩形 = egui上下文.viewport_rect();
     let mut 根界面 = Ui::new(
@@ -101,6 +105,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
             egui::Panel::top("bevy_studio_菜单栏")
                 .exact_size(24.0)
                 .show(界面ui, |ui| {
+                    查看器.记录区域("menubar", ui.max_rect());
                     查看器.绘制菜单栏(ui);
                 });
 
@@ -108,6 +113,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
             egui::Panel::top("bevy_studio_工具栏")
                 .exact_size(28.0)
                 .show(界面ui, |ui| {
+                    查看器.记录区域("toolbar", ui.max_rect());
                     查看器.绘制工具栏(ui);
                 });
 
@@ -115,6 +121,7 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
             egui::Panel::bottom("bevy_studio_状态栏")
                 .exact_size(22.0)
                 .show(界面ui, |ui| {
+                    查看器.记录区域("statusbar", ui.max_rect());
                     查看器.绘制状态栏(ui);
                 });
 
@@ -159,71 +166,152 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
     }
 }
 
+/// 状态栏条目的语义色调。
+///
+/// 不直接存 `Color32`：状态栏条目要先被算出来（便于自动验收与单元测试
+/// 断言"英文模式下这里没有中文"），再由绘制函数按当前主题上色。
+/// 若在这里固化成具体颜色，换主题时就得重新计算一遍条目。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 条目色调 {
+    /// 主文字。
+    正常,
+    /// 次要文字（计数、路径）。
+    次要,
+    /// 提示/警告。
+    警告,
+    /// 错误。
+    错误,
+    /// 成功。
+    成功,
+}
+
+/// 状态栏的一个条目。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 状态栏条目 {
+    /// 显示文本。
+    pub 文本: String,
+    /// 语义色调。
+    pub 色调: 条目色调,
+}
+
+/// 状态栏的两侧内容。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct 状态栏内容 {
+    /// 左侧条目（保存状态、计数、场景路径）。
+    pub 左侧: Vec<状态栏条目>,
+    /// 右侧条目（问题数、帧率、缩放）。
+    pub 右侧: Vec<状态栏条目>,
+}
+
+/// 计算当前状态栏应显示的内容。
+///
+/// 抽成纯函数的直接收益：自动验收工具可以把这些文本写进证据文件，
+/// 从而在**不看图**的前提下断言"英文界面里没有中文残留""问题数为 0 时
+/// 不显示问题条目"。绘制与验收读的是同一份计算，不会各说各话。
+pub fn 计算状态栏内容(
+    编辑器: &editor_core::state::编辑器状态,
+    语言: 语言,
+    正在运行: bool,
+    运行时: &crate::state::运行时诊断,
+    缩放百分比: f32,
+) -> 状态栏内容 {
+    let 脏 = 编辑器.有未保存修改();
+    // 路径条目在"尚未关联文件"时退化为一句提示，这与改造前一致：
+    // 状态栏永远显示四段信息，用户不会看到某一格突然消失。
+    let 左侧 = vec![
+        状态栏条目 {
+            文本: 语言.取(if 脏 { "unsaved" } else { "saved" }).to_string(),
+            色调: if 脏 {
+                条目色调::警告
+            } else {
+                条目色调::次要
+            },
+        },
+        状态栏条目 {
+            文本: 语言.填充("entities", &[&编辑器.会话.文档.实体数量()]),
+            色调: 条目色调::次要,
+        },
+        状态栏条目 {
+            文本: 语言.填充("selected", &[&编辑器.选择.数量()]),
+            色调: 条目色调::次要,
+        },
+        状态栏条目 {
+            文本: 编辑器
+                .会话
+                .路径
+                .as_ref()
+                .map(|路径| 路径.文本().to_string())
+                .unwrap_or_else(|| 语言.取("not_saved_to_a_file_yet").to_string()),
+            色调: 条目色调::次要,
+        },
+    ];
+
+    // 「已保存 / 未保存」是同一个语义位，只留一条。
+    // 上面刻意用 if 表达式保证只有一条。
+    let mut 右侧 = Vec::new();
+    if 正在运行 {
+        右侧.push(状态栏条目 {
+            文本: format!("{:.0} FPS · {:.1} ms", 运行时.帧率, 运行时.帧耗时毫秒),
+            色调: 条目色调::次要,
+        });
+    }
+    let 问题数 = 编辑器.问题数量();
+    if 问题数 > 0 {
+        右侧.push(状态栏条目 {
+            文本: 语言.填充("problems", &[&问题数]),
+            色调: 条目色调::警告,
+        });
+    }
+    右侧.push(状态栏条目 {
+        文本: format!("{缩放百分比:.0}%"),
+        色调: 条目色调::次要,
+    });
+
+    状态栏内容 { 左侧, 右侧 }
+}
+
 /// 底部状态栏。
 fn 绘制_状态栏(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
-    let 编辑器 = 上下文.编辑器;
+    let 内容 = 计算状态栏内容(
+        上下文.编辑器,
+        上下文.语言,
+        上下文.正在运行,
+        上下文.运行时信息,
+        上下文.界面.相机.缩放 * 100.0,
+    );
+
+    let 取色 = |色调: 条目色调| match 色调 {
+        条目色调::正常 => 上下文.配色.文字,
+        条目色调::次要 => 上下文.配色.次要文字,
+        条目色调::警告 => 上下文.配色.警告,
+        条目色调::错误 => 上下文.配色.错误,
+        条目色调::成功 => 上下文.配色.成功,
+    };
+
     ui.horizontal(|ui| {
-        ui.label(
-            egui::RichText::new(if 编辑器.有未保存修改() {
-                上下文.语言.取("unsaved")
-            } else {
-                上下文.语言.取("saved")
-            })
-            .small()
-            .color(if 编辑器.有未保存修改() {
-                上下文.配色.警告
-            } else {
-                上下文.配色.次要文字
-            }),
-        );
-
-        ui.separator();
-        ui.label(
-            egui::RichText::new(
-                上下文
-                    .语言
-                    .填充("entities", &[&编辑器.会话.文档.实体数量()]),
-            )
-            .small()
-            .color(上下文.配色.次要文字),
-        );
-        ui.label(
-            egui::RichText::new(上下文.语言.填充("selected", &[&编辑器.选择.数量()]))
-                .small()
-                .color(上下文.配色.次要文字),
-        );
-
-        ui.separator();
-        let 场景路径 = 编辑器
-            .会话
-            .路径
-            .as_ref()
-            .map(|路径| 路径.文本().to_string())
-            .unwrap_or_else(|| 上下文.语言.取("not_saved_to_a_file_yet").to_string());
-        ui.label(
-            egui::RichText::new(场景路径)
-                .small()
-                .color(上下文.配色.次要文字),
-        );
-
-        // 右侧：问题计数与运行时帧率
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let 问题数 = 编辑器.问题数量();
-            if 问题数 > 0 {
-                ui.label(
-                    egui::RichText::new(上下文.语言.填充("problems", &[&问题数]))
-                        .small()
-                        .color(上下文.配色.警告),
-                );
+        ui.spacing_mut().item_spacing.x = 10.0;
+        for (下标, 条目) in 内容.左侧.iter().enumerate() {
+            if 下标 > 0 {
+                ui.separator();
             }
-            if 上下文.正在运行 {
-                ui.label(
-                    egui::RichText::new(format!(
-                        "{:.0} FPS · {:.1} ms",
-                        上下文.运行时信息.帧率, 上下文.运行时信息.帧耗时毫秒
-                    ))
+            ui.label(
+                egui::RichText::new(&条目.文本)
                     .small()
-                    .color(上下文.配色.次要文字),
+                    .color(取色(条目.色调)),
+            );
+        }
+
+        // 右侧：从右往左排，与 egui 的布局方向一致。
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.spacing_mut().item_spacing.x = 10.0;
+            for (下标, 条目) in 内容.右侧.iter().enumerate() {
+                if 下标 > 0 {
+                    ui.separator();
+                }
+                ui.label(
+                    egui::RichText::new(&条目.文本)
+                        .small()
+                        .color(取色(条目.色调)),
                 );
             }
         });
@@ -380,6 +468,14 @@ impl 面板查看器<'_, '_> {
         menu_bar::绘制(ui, &mut self.视图());
     }
 
+    /// 记录一块区域的真实矩形（供自动验收与调试）。
+    fn 记录区域(&mut self, 标识: &'static str, 矩形: egui::Rect) {
+        self.上下文
+            .界面
+            .布局快照
+            .push(crate::state::区域快照 { 标识, 矩形 });
+    }
+
     fn 绘制工具栏(&mut self, ui: &mut Ui) {
         menu_bar::绘制工具栏(ui, &mut self.视图());
     }
@@ -425,21 +521,11 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        // 临时诊断（受环境变量控制）：打印真实应用里每个叶子拿到的矩形，
-        // 并把矩形与面板身份绑定，避免靠位置猜。
-        if std::env::var("BEVY_STUDIO_DUMP_LEAF_RECTS").is_ok() {
-            let r = ui.max_rect();
-            eprintln!(
-                "[LEAF] {:?} min=({:.1},{:.1}) max=({:.1},{:.1}) w={:.1} h={:.1}",
-                tab,
-                r.min.x,
-                r.min.y,
-                r.max.x,
-                r.max.y,
-                r.width(),
-                r.height()
-            );
-        }
+        // 记录每个叶子实际拿到的矩形，并与面板身份绑定。
+        // 自动验收工具用它把截图里的像素区域与面板对上号；
+        // 它同时也是"fraction 方向写反"这类缺陷的可观测输出。
+        self.记录区域(tab.菜单键(), ui.max_rect());
+
         let mut 上下文 = self.视图();
         match tab {
             Tab::场景树 => hierarchy_panel::绘制(ui, &mut 上下文),

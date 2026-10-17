@@ -22,6 +22,7 @@
 //! 而只有 `editor_app` 需要拉起真正的 Bevy 应用。
 
 pub mod actions;
+pub mod capture;
 pub mod config;
 pub mod plugin;
 pub mod preview;

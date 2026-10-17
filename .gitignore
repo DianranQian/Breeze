@@ -29,6 +29,8 @@ desktop.ini
 .DS_Store
 
 /.verify/示例项目/
+# GUI 自动验收的运行产物（截图、证据 JSON、报告、隔离的配置目录）
+/.verify/runs/
 
 # 仓库根目录下的截图中间产物（可随时重新生成）
 /*.raw

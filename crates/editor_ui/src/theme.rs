@@ -28,6 +28,8 @@ pub struct 编辑器配色 {
     pub 警告: Color32,
     /// 错误。
     pub 错误: Color32,
+    /// 成功/正常。
+    pub 成功: Color32,
     /// 视口背景。
     pub 视口背景: Color32,
     /// 网格主线。
@@ -53,6 +55,7 @@ impl Default for 编辑器配色 {
             强调淡: Color32::from_rgba_premultiplied(40, 70, 100, 120),
             警告: Color32::from_rgb(220, 180, 80),
             错误: Color32::from_rgb(232, 106, 106),
+            成功: Color32::from_rgb(110, 190, 120),
             视口背景: Color32::from_rgb(22, 23, 26),
             网格主: Color32::from_rgb(70, 74, 80),
             网格次: Color32::from_rgb(44, 47, 52),

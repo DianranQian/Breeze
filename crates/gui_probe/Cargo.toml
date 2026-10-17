@@ -1,0 +1,25 @@
+[package]
+name = "gui_probe"
+description = "Bevy Studio 的 GUI 自动验收工具：启动真实应用、确认窗口、读取进程内截图与布局证据、做像素与几何断言。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "gui_probe"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+image.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# 只用到最基础的窗口查询（枚举窗口、取矩形/DPI），不引入 WinRT：
+# 真正确认"画面对不对"靠的是进程内的渲染目标回读，而不是 GDI 抓屏。
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_HiDpi",
+] }

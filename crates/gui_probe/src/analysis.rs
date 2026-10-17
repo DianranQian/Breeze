@@ -61,10 +61,16 @@ impl 布局轮廓 {
     /// 由工作区 id 推断轮廓。
     pub fn 从id(id: &str) -> Self {
         match id {
+            // 布局预设 id
             "general" => Self::通用,
             "scene" => Self::场景,
             "assets" => Self::资源,
             "debug" => Self::调试,
+            // 主开发模式 id（工作区没指定时按模式推断）
+            "2d" => Self::通用,
+            "3d" => Self::场景,
+            "run" => Self::调试,
+            "script" => Self::无,
             _ => Self::无,
         }
     }
@@ -85,6 +91,8 @@ pub struct 期望 {
     pub 状态栏包含: Vec<String>,
     /// 必须处于激活状态的工作区 id。
     pub 工作区: Option<String>,
+    /// 必须处于激活状态的主开发模式 id。
+    pub 模式: Option<String>,
     /// 布局轮廓（通常由工作区 id 推断）。
     pub 轮廓: 布局轮廓,
 }
@@ -98,6 +106,7 @@ impl Default for 期望 {
             最小视口宽度占比: 0.30,
             状态栏包含: Vec::new(),
             工作区: None,
+            模式: None,
             轮廓: 布局轮廓::无,
         }
     }
@@ -600,6 +609,14 @@ pub fn 分析(输入: 输入<'_>) -> 分析结果 {
             // 未指定轮廓时只做"存在且不退化"的最低检查。
             布局轮廓::无 => {}
         }
+    } else if 证据.mode.id == "script" || 证据.mode.id == "assets" {
+        // 脚本/资源模式的默认布局里视口是**标签之一**，不一定处于激活状态，
+        // 因此不把"没有视口矩形"当成缺陷。
+        收集.通过(
+            "viewport_present",
+            断言类别::界面,
+            format!("模式 `{}` 允许视口不是激活标签", 证据.mode.id),
+        );
     } else {
         收集.失败(
             "viewport_present",
@@ -623,6 +640,19 @@ pub fn 分析(输入: 输入<'_>) -> 分析结果 {
     // ---------------------------------------------------------------
     // 5. 文案与语言
     // ---------------------------------------------------------------
+    if let Some(模式) = 期望.模式.as_deref() {
+        收集.要求(
+            证据.mode.id == 模式,
+            "mode_selected",
+            断言类别::界面,
+            format!("当前主开发模式为 `{}`（{}）", 证据.mode.id, 证据.mode.name),
+            format!(
+                "期望模式 `{模式}`，实际 `{}`（{}）",
+                证据.mode.id, 证据.mode.name
+            ),
+        );
+    }
+
     if let Some(工作区) = 期望.工作区.as_deref() {
         收集.要求(
             证据.workspace.id == 工作区,
@@ -795,6 +825,10 @@ mod 测试 {
             window: 尺寸 {
                 width: 宽,
                 height: 高,
+            },
+            mode: crate::evidence::模式证据 {
+                id: "2d".into(),
+                name: "2D".into(),
             },
             workspace: crate::evidence::工作区证据 {
                 id: "general".into(),

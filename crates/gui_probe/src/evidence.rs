@@ -13,6 +13,15 @@ pub struct 尺寸 {
     pub height: u32,
 }
 
+/// 证据里的主开发模式摘要。
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct 模式证据 {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+}
+
 /// 证据里的工作区摘要。
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct 工作区证据 {
@@ -87,6 +96,8 @@ pub struct 证据 {
     #[serde(default = "默认倍数")]
     pub pixels_per_point: f32,
     pub window: 尺寸,
+    #[serde(default)]
+    pub mode: 模式证据,
     #[serde(default)]
     pub workspace: 工作区证据,
     #[serde(default)]

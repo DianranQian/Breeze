@@ -35,6 +35,8 @@
 //! 两者都是"文档的消费者"，互不干扰。
 
 use bevy::camera::{RenderTarget, ScalingMode, visibility::RenderLayers};
+use bevy::pbr::{MeshMaterial3d, StandardMaterial};
+use bevy::prelude::AlphaMode;
 use bevy::prelude::*;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -64,6 +66,26 @@ pub struct 预览来源(pub 实体标识);
 /// 预览相机的标记。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct 预览相机;
+
+/// 三维预览层：与 2D 预览层分开。
+///
+/// 2D 相机只画精灵层、3D 相机只画网格层。否则 2D 的正交相机也会把
+/// 三维网格当成"扁平的方块"画出来，看起来像多了一堆莫名其妙的矩形。
+pub const 三维渲染层: usize = 预览渲染层 + 1;
+
+/// 三维预览用的共享网格（1×1 四边形，按实体尺寸缩放）。
+#[derive(Resource)]
+pub struct 三维预览资源 {
+    /// 四边形网格句柄。
+    pub 四边形: Handle<Mesh>,
+}
+
+/// 三维预览的当前状态。
+#[derive(Resource, Default)]
+pub struct 三维预览状态 {
+    /// 预览相机当前是否是三维相机。
+    pub 已三维: bool,
+}
 
 /// 编辑器界面相机标记。
 ///
@@ -368,6 +390,7 @@ pub fn 颜色转_bevy(颜色: 颜色值) -> Color {
 /// 3. 预览相机用 `RenderLayers` 与它隔离。
 pub fn 初始化预览资源(
     mut 命令: Commands,
+    mut 网格资源: ResMut<Assets<Mesh>>,
     mut 图片资源: ResMut<Assets<Image>>,
     mut egui纹理表: ResMut<EguiUserTextures>,
     mut egui全局设置: ResMut<bevy_egui::EguiGlobalSettings>,
@@ -465,6 +488,12 @@ pub fn 初始化预览资源(
     });
     命令.insert_resource(贴图缓存::default());
     命令.insert_resource(预览同步状态::default());
+    // 三维实体用同一个 1×1 四边形，按实体显示尺寸缩放：
+    // 一个网格句柄服务全部实体，比每个实体建一个网格省得多。
+    命令.insert_resource(三维预览资源 {
+        四边形: 网格资源.add(Rectangle::new(1.0, 1.0)),
+    });
+    命令.insert_resource(三维预览状态::default());
 
     info!("预览视口已初始化：512×512 渲染目标 + 预览相机 + 界面相机");
 }
@@ -522,6 +551,11 @@ pub fn 同步预览相机(
     mut 相机查询: Query<(&mut Transform, &mut Projection), With<预览相机>>,
     界面: Res<crate::plugin::UiStateHolder>,
 ) {
+    // 三维模式下相机由 `同步三维相机` 驱动，这里必须让位：
+    // 否则 2D 的正交投影会把三维相机覆盖成"看不见东西"的状态。
+    if 界面.状态.模式.是三维() {
+        return;
+    }
     let 视口相机 = 界面.状态.相机;
     let 视口尺寸 = 界面.状态.视口尺寸;
     if 视口尺寸.x <= 0.0 || 视口尺寸.y <= 0.0 {
@@ -573,6 +607,7 @@ pub fn 同步预览相机(
 ///
 /// 这是刻意的取舍，不是偷懒：**正确性优先于这点性能**。
 /// 若将来大场景实测成为瓶颈，再引入 diff。
+#[allow(clippy::too_many_arguments)]
 pub fn 同步预览实体(
     mut 命令: Commands,
     编辑器: Res<EditorStateHolder>,
@@ -580,6 +615,8 @@ pub fn 同步预览实体(
     已有: Query<(Entity, &预览来源), With<预览实体>>,
     mut 贴图缓存: ResMut<贴图缓存>,
     资源服务器: Res<AssetServer>,
+    三维资源: Res<三维预览资源>,
+    mut 材质表: ResMut<Assets<StandardMaterial>>,
 ) {
     let 修订 = 编辑器.状态.文档修订();
     if 同步状态.已同步修订 == Some(修订) {
@@ -613,7 +650,7 @@ pub fn 同步预览实体(
             预览实体,
             预览来源(项.来源),
             Sprite {
-                image: 图片,
+                image: 图片.clone(),
                 color: 颜色转_bevy(项.视觉.颜色),
                 flip_x: 项.视觉.水平翻转,
                 flip_y: 项.视觉.垂直翻转,
@@ -623,10 +660,135 @@ pub fn 同步预览实体(
             项.变换,
             RenderLayers::layer(预览渲染层),
         ));
+
+        // ---- 三维对应物 ----
+        //
+        // 精灵在 3D 相机下不可见（Bevy 的精灵是 2D 管线），因此每个实体
+        // 额外生成一个"贴了同一张图的四边形"，放在独立渲染层上由 Camera3d 渲染。
+        // 它复用实体的完整三维变换（平移/旋转/缩放），所以 3D 视图里的
+        // 位置就是文档里的真实坐标 —— 不是另算一份。
+        let mut 材质 = StandardMaterial {
+            base_color: 颜色转_bevy(项.视觉.颜色),
+            unlit: true,
+            alpha_mode: AlphaMode::Blend,
+            // 双面可见：编辑器经常从背面看一个精灵。
+            cull_mode: None,
+            ..default()
+        };
+        if !图片.is_strong() {
+            // 没有贴图时保持纯色方块，而不是显示一张 1×1 的占位图。
+        } else {
+            材质.base_color_texture = Some(图片.clone());
+        }
+        let 材质句柄 = 材质表.add(材质);
+        let mut 三维变换 = 项.变换;
+        三维变换.scale.x *= 项.显示尺寸.0;
+        三维变换.scale.y *= 项.显示尺寸.1;
+        命令.spawn((
+            预览实体,
+            预览来源(项.来源),
+            Mesh3d(三维资源.四边形.clone()),
+            MeshMaterial3d(材质句柄),
+            三维变换,
+            RenderLayers::layer(三维渲染层),
+        ));
     }
 
     同步状态.已同步修订 = Some(修订);
     同步状态.预览实体数 = 待渲染.len();
+}
+
+/// 三维模式下驱动预览相机：换成 `Camera3d`、跟随轨道相机。
+///
+/// # 为什么"换相机"而不是一直留两台
+///
+/// 留两台相机（一台 2D、一台 3D）同时渲染到同一张纹理，结果是两张图
+/// 叠加在一起、并且每帧多跑一遍完整渲染。模式切换是低频操作
+/// （人不会一秒切十次），despawn + spawn 一台相机的代价完全可以接受，
+/// 换来的是"任何时候只有一条渲染路径"的简单性。
+pub fn 同步三维相机(
+    mut 命令: Commands,
+    mut 相机状态: ResMut<预览相机状态>,
+    mut 三维状态: ResMut<三维预览状态>,
+    渲染目标: Res<预览渲染目标>,
+    界面: Res<crate::plugin::UiStateHolder>,
+    mut 相机查询: Query<&mut Transform, With<预览相机>>,
+) {
+    let 想要三维 = 界面.状态.模式.是三维();
+
+    if 想要三维 != 三维状态.已三维 {
+        if let Some(旧) = 相机状态.相机实体.take() {
+            命令.entity(旧).despawn();
+        }
+        let 实体 = if 想要三维 {
+            命令
+                .spawn((
+                    预览相机,
+                    Camera3d::default(),
+                    Camera {
+                        order: -1,
+                        // 三维视图也要让 egui 叠加层透过来：清成透明。
+                        clear_color: ClearColorConfig::Custom(Color::NONE),
+                        ..default()
+                    },
+                    Projection::Perspective(PerspectiveProjection {
+                        fov: 界面.状态.三维相机.视场角,
+                        ..default()
+                    }),
+                    RenderTarget::Image(渲染目标.图片.clone().into()),
+                    RenderLayers::layer(三维渲染层),
+                    Transform::default(),
+                ))
+                .id()
+        } else {
+            命令
+                .spawn((
+                    预览相机,
+                    Camera2d,
+                    Camera {
+                        order: -1,
+                        clear_color: ClearColorConfig::Custom(Color::NONE),
+                        ..default()
+                    },
+                    Projection::Orthographic(OrthographicProjection {
+                        scaling_mode: ScalingMode::Fixed {
+                            width: 512.0,
+                            height: 512.0,
+                        },
+                        ..OrthographicProjection::default_2d()
+                    }),
+                    RenderTarget::Image(渲染目标.图片.clone().into()),
+                    RenderLayers::layer(预览渲染层),
+                    Transform::default(),
+                ))
+                .id()
+        };
+        相机状态.相机实体 = Some(实体);
+        三维状态.已三维 = 想要三维;
+        info!(
+            "预览相机已切换为{}",
+            if 想要三维 {
+                "三维透视"
+            } else {
+                "二维正交"
+            }
+        );
+        return;
+    }
+
+    if !想要三维 {
+        return;
+    }
+
+    // 跟随轨道相机：位置由同一组参数推导，与 egui 叠加层的投影一致。
+    let 相机 = 界面.状态.三维相机;
+    let 位置 = 相机.位置();
+    if let Some(实体) = 相机状态.相机实体
+        && let Ok(mut 变换) = 相机查询.get_mut(实体)
+    {
+        变换.translation = Vec3::new(位置.0, 位置.1, 位置.2);
+        变换.look_at(Vec3::new(相机.目标.0, 相机.目标.1, 相机.目标.2), Vec3::Y);
+    }
 }
 
 /// 解析贴图句柄，带缓存。

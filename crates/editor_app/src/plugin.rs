@@ -125,6 +125,8 @@ pub enum 文件对话框请求 {
     导出主题(String),
     /// 让用户选择一个主题文件并读入。
     导入主题,
+    /// 脚本另存为：携带待写入的文本。
+    脚本另存为(String),
 }
 
 /// 文件对话框结果。
@@ -136,6 +138,8 @@ pub enum 文件对话框结果 {
     选定文件(PathBuf),
     /// 主题已成功导出到该路径。
     主题已导出(PathBuf),
+    /// 脚本已保存到该路径。
+    脚本已保存(PathBuf),
     /// 读取到的主题文本。
     主题文本 {
         /// 来源路径（用于日志）。
@@ -255,6 +259,19 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
             None => 文件对话框结果::取消,
         },
 
+        文件对话框请求::脚本另存为(文本) => match rfd::FileDialog::new()
+            .set_title("脚本另存为")
+            .add_filter("Rust 源文件", &["rs"])
+            .set_file_name("script.rs")
+            .save_file()
+        {
+            Some(路径) => match std::fs::write(&路径, 文本) {
+                Ok(()) => 文件对话框结果::脚本已保存(路径),
+                Err(_) => 文件对话框结果::取消,
+            },
+            None => 文件对话框结果::取消,
+        },
+
         文件对话框请求::导入主题 => match rfd::FileDialog::new()
             .set_title("导入主题")
             .add_filter("Bevy Studio 主题", &["ron"])
@@ -349,6 +366,7 @@ impl Plugin for BevyStudio插件 {
                     // 分成两个三元组再 `chain`：Bevy 的 `chain` 对元组
                     // 元素个数有上限，6 个直接链会编译不过。
                     (
+                        preview::同步三维相机,
                         preview::同步预览实体,
                         preview::同步预览相机,
                         preview::同步渲染尺寸,
@@ -544,33 +562,23 @@ fn 恢复窗口布局(
 
     // 布局恢复失败**不能**影响语言：两者互相独立，
     // 用 `return` 会把语言的恢复一起取消掉。
-    if let Some(文本) = 配置.0.工作区.as_deref() {
-        match editor_ui::workspaces::工作区集::从文本恢复(文本) {
-            Ok(集) => {
+    // 布局存档：格式版本 3（模式 + 每模式工作区集）优先；
+    // 读取失败会依次尝试版本 2（单一工作区集）与版本 1（单份 DockState），
+    // 因此旧配置不需要删除。
+    let 存档文本 = 配置.0.工作区.as_deref().or(配置.0.布局.as_deref());
+    if let Some(文本) = 存档文本 {
+        match 界面.状态.从布局存档恢复(文本) {
+            Ok(备注) => {
                 info!(
-                    "已恢复 {} 个工作区，当前为 `{}`",
-                    集.列表().len(),
-                    集.当前id()
+                    "已恢复布局：当前模式 `{}`，共 {} 个模式的布局",
+                    界面.状态.模式.id(),
+                    界面.状态.模式布局().len() + 1
                 );
-                界面.状态.工作区 = 集;
+                for 说明 in &备注 {
+                    info!("布局迁移：{说明}");
+                }
             }
-            Err(错误) => warn!(
-                "工作区存档无法恢复（{}），改用内置工作区",
-                错误.文案(界面.状态.语言)
-            ),
-        }
-    } else if let Some(旧布局) = 配置.0.布局.as_deref() {
-        // 旧配置只有一份布局：迁移成工作区，不丢用户上次看到的布局。
-        match editor_ui::workspaces::工作区集::从旧布局迁移(旧布局, 界面.状态.语言)
-        {
-            Ok(集) => {
-                info!("已把旧版单布局配置迁移为工作区");
-                界面.状态.工作区 = 集;
-            }
-            Err(错误) => warn!(
-                "旧版布局无法迁移（{}），改用内置工作区",
-                错误.文案(界面.状态.语言)
-            ),
+            Err(错误) => warn!("布局存档无法恢复（{错误}），改用出厂布局"),
         }
     }
 
@@ -617,6 +625,25 @@ fn 恢复窗口布局(
         }
     }
 
+    // 环境变量覆盖：自动验收要能指定"这次跑哪个主开发模式"。
+    if let Ok(id) = std::env::var(模式环境变量) {
+        let id = id.trim();
+        if !id.is_empty() {
+            match editor_ui::开发模式::从id(id) {
+                Some(模式) => match 界面.状态.切换模式(模式) {
+                    Ok(()) => {
+                        布局待保存.脏 = true;
+                        info!("已按环境变量切换到模式 `{id}`");
+                    }
+                    Err(错误) => warn!("环境变量 {模式环境变量} 切换模式失败：{错误}"),
+                },
+                None => warn!(
+                    "环境变量 {模式环境变量} 的值 `{id}` 不是已知模式；可用值：2d / 3d / script / run / assets"
+                ),
+            }
+        }
+    }
+
     // 环境变量覆盖：自动验收要能指定"这次跑哪个工作区"。
     if let Ok(id) = std::env::var(工作区环境变量) {
         let id = id.trim();
@@ -643,6 +670,9 @@ pub const 工作区环境变量: &str = "BEVY_STUDIO_WORKSPACE";
 
 /// 指定启动时使用哪个主题（内置 id 或用户主题 id）。
 pub const 主题环境变量: &str = "BEVY_STUDIO_THEME";
+
+/// 指定启动时进入哪个主开发模式（2d / 3d / script / run / assets）。
+pub const 模式环境变量: &str = "BEVY_STUDIO_MODE";
 
 /// 指定启动界面语言（`zh` / `en`）。
 pub const 语言环境变量: &str = "BEVY_STUDIO_LANGUAGE";
@@ -817,6 +847,14 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::删除工作区(id) => format!("删除工作区({id})"),
         UiAction::重置当前工作区 => "重置当前工作区".to_string(),
         UiAction::重置全部内置工作区 => "重置全部内置工作区".to_string(),
+        UiAction::切换模式(模式) => format!("切换模式({})", 模式.id()),
+        UiAction::打开脚本(路径) => format!("打开脚本({})", 路径.文本()),
+        UiAction::保存脚本 => "保存脚本".to_string(),
+        UiAction::脚本另存为 => "脚本另存为".to_string(),
+        UiAction::视口适应窗口 => "视口适应窗口".to_string(),
+        UiAction::视口重置视图 => "视口重置视图".to_string(),
+        UiAction::三维重置轨道 => "三维重置轨道".to_string(),
+        UiAction::聚焦选中实体 => "聚焦选中实体".to_string(),
         UiAction::浮动面板(面板) => format!("浮动面板({})", 面板.中文标题()),
         UiAction::停靠全部浮动面板 => "停靠全部浮动面板".to_string(),
         UiAction::设置主题(id) => format!("设置主题({id})"),

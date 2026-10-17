@@ -29,6 +29,8 @@ pub enum Tab {
     运行时ecs,
     /// 性能统计。
     性能,
+    /// 脚本编辑器。
+    脚本,
 }
 
 impl Tab {
@@ -54,6 +56,7 @@ impl Tab {
             Tab::历史 => "history",
             Tab::运行时ecs => "runtime_ecs",
             Tab::性能 => "performance",
+            Tab::脚本 => "script",
         }
     }
 
@@ -71,6 +74,7 @@ impl Tab {
             Tab::历史 => "历史",
             Tab::运行时ecs => "运行时 ECS",
             Tab::性能 => "性能",
+            Tab::脚本 => "脚本",
         }
     }
 
@@ -88,6 +92,7 @@ impl Tab {
             Tab::历史 => "history",
             Tab::运行时ecs => "runtime_ecs",
             Tab::性能 => "performance",
+            Tab::脚本 => "script",
         }
     }
 
@@ -110,6 +115,7 @@ impl Tab {
             Tab::历史,
             Tab::运行时ecs,
             Tab::性能,
+            Tab::脚本,
         ]
     }
 }
@@ -167,7 +173,8 @@ pub fn 默认布局() -> DockState<Tab> {
         vec![Tab::检查器, Tab::历史, Tab::运行时ecs, Tab::性能],
     );
     // 0.72 = 上方（旧节点）占 72%，底部 28%。
-    let [上方, _底部] = 主表面.split_below(主区, 0.72, vec![Tab::资源浏览器, Tab::控制台]);
+    let [上方, _底部] =
+        主表面.split_below(主区, 0.72, vec![Tab::资源浏览器, Tab::控制台, Tab::脚本]);
     // 0.22 = 左侧（新节点）占 22%。
     let [_视口, _场景树] = 主表面.split_left(上方, 0.22, vec![Tab::场景树]);
 

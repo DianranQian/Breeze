@@ -244,6 +244,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                         菜单项::常可用("history", None),
                         菜单项::常可用("runtime_ecs", None),
                         菜单项::常可用("performance", None),
+                        菜单项::常可用("script", None),
                     ],
                 },
                 菜单分组 {
@@ -325,6 +326,7 @@ pub fn 窗口菜单对应面板(文本: &str) -> Option<Tab> {
         "history" => Some(Tab::历史),
         "runtime_ecs" => Some(Tab::运行时ecs),
         "performance" => Some(Tab::性能),
+        "script" => Some(Tab::脚本),
         _ => None,
     }
 }
@@ -613,6 +615,12 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
+
+        // ---- 模式专用工具 ----
+        // 放在最左边：它随主开发模式变化，是"当前任务"最直接的入口。
+        if crate::dev_mode_bar::绘制模式工具栏(ui, 上下文) {
+            ui.separator();
+        }
 
         // ---- 运行控制 ----
         if 上下文

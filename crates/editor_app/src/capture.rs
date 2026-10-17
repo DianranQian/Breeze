@@ -163,6 +163,13 @@ struct 尺寸记录 {
     height: u32,
 }
 
+/// 主开发模式摘要。
+#[derive(Debug, Clone, Serialize)]
+struct 模式记录 {
+    id: String,
+    name: String,
+}
+
 /// 工作区摘要：让验收工具能断言"这次跑的确实是目标工作区"。
 #[derive(Debug, Clone, Serialize)]
 struct 工作区记录 {
@@ -209,6 +216,7 @@ struct 采集证据 {
     /// 一个逻辑点等于多少物理像素。
     pixels_per_point: f32,
     window: 尺寸记录,
+    mode: 模式记录,
     workspace: 工作区记录,
     theme: 主题记录,
     /// 各区域矩形（物理像素）。
@@ -306,6 +314,10 @@ pub fn 采集一帧(
         window: 尺寸记录 {
             width: 物理(屏幕矩形.width()) as u32,
             height: 物理(屏幕矩形.height()) as u32,
+        },
+        mode: 模式记录 {
+            id: 界面.状态.模式.id().to_string(),
+            name: 界面.状态.语言.取(界面.状态.模式.名称键()).to_string(),
         },
         workspace: 工作区记录 {
             id: 界面.状态.工作区.当前id().to_string(),

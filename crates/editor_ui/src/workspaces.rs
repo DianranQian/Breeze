@@ -154,7 +154,7 @@ fn 场景预设() -> egui_dock::DockState<Tab> {
         0.76,
         vec![Tab::检查器, Tab::历史],
     );
-    let [上方, _底部] = 主.split_below(主区, 0.82, vec![Tab::控制台, Tab::性能]);
+    let [上方, _底部] = 主.split_below(主区, 0.82, vec![Tab::控制台, Tab::性能, Tab::脚本]);
     let [_视口, _左列] = 主.split_left(
         上方,
         0.20,
@@ -178,7 +178,7 @@ fn 资源预设() -> egui_dock::DockState<Tab> {
     let 主 = 布局.main_surface_mut();
     let [中区, 右列] = 主.split_right(egui_dock::NodeIndex::root(), 0.70, vec![Tab::视口]);
     let [_右上半, _右下半] = 主.split_below(右列, 0.60, vec![Tab::检查器, Tab::历史, Tab::性能]);
-    let [_资源, _左列] = 主.split_left(中区, 0.34, vec![Tab::场景树, Tab::运行时ecs]);
+    let [_资源, _左列] = 主.split_left(中区, 0.34, vec![Tab::场景树, Tab::运行时ecs, Tab::脚本]);
     布局
 }
 
@@ -203,7 +203,7 @@ fn 调试预设() -> egui_dock::DockState<Tab> {
     let [上方, _底部] = 主.split_below(
         主区,
         0.55,
-        vec![Tab::控制台, Tab::运行时ecs, Tab::资源浏览器],
+        vec![Tab::控制台, Tab::运行时ecs, Tab::资源浏览器, Tab::脚本],
     );
     let [_视口, _左列] = 主.split_left(上方, 0.20, vec![Tab::场景树]);
     布局
@@ -504,6 +504,41 @@ impl 工作区集 {
         self.当前 = 目标.id;
         self.当前布局 = 新布局;
         Ok(())
+    }
+
+    /// 登记一个"模式默认布局"并设为当前布局。
+    ///
+    /// 用于主开发模式：每个模式有一套自己的出厂布局，名字随语言变化
+    /// （例如"2D 默认布局"）。它以**用户工作区**的形式存在，因此：
+    ///
+    /// * 不会被"重置全部内置工作区"清掉；
+    /// * 用户可以复制、改名、改成自己的布局而不会丢；
+    /// * 内置的四个预设仍然完整可用。
+    ///
+    /// 同 id 的旧登记会被覆盖（重建布局后重新登记）。
+    pub fn 承认内建布局(
+        &mut self, 布局: egui_dock::DockState<Tab>, 名称: &str
+    ) -> String {
+        let id = "user-mode-default".to_string();
+        let 文本 = 序列化布局(&布局);
+        self.同步当前布局();
+        if let Some(项) = self.项.iter_mut().find(|项| 项.id == id) {
+            项.名称 = Some(名称.to_string());
+            项.布局 = 文本.clone();
+            项.基线布局 = 文本;
+        } else {
+            self.项.push(工作区 {
+                id: id.clone(),
+                名称: Some(名称.to_string()),
+                内置: false,
+                布局: 文本.clone(),
+                基线布局: 文本,
+                布局版本,
+            });
+        }
+        self.当前 = id.clone();
+        self.当前布局 = 布局;
+        id
     }
 
     /// 直接替换当前布局（测试与"恢复默认"用）。

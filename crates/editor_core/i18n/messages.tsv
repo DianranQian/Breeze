@@ -415,3 +415,57 @@ color_tab_active_bg	激活标签背景	Active tab background
 color_tab_text	标签文字	Tab text
 no_project_open	未打开项目	No Project
 untitled_scene	未命名场景	Untitled Scene
+mode_2d	2D	2D
+mode_3d	3D	3D
+mode_script	脚本	Script
+mode_run	运行	Run
+mode_assets	资源	Assets
+mode_2d_hint	二维场景编辑：网格、精灵、选择与移动	2D scene editing: grid, sprites, selection and move
+mode_3d_hint	三维场景：透视视口、轨道相机、空间坐标	3D scene: perspective viewport, orbit camera, spatial coordinates
+mode_script_hint	脚本编辑：代码文件、查找、保存	Script editing: code files, find, save
+mode_run_hint	运行与观察：播放控制、Console、Runtime ECS、Performance	Run & observe: playback, console, runtime ECS, performance
+mode_assets_hint	项目内资源浏览与搜索	Browse and search project assets
+layout_2d_default	2D 默认布局	2D Default
+layout_3d_default	3D 默认布局	3D Default
+layout_script_default	脚本默认布局	Script Default
+layout_run_default	运行默认布局	Run Default
+layout_assets_default	资源默认布局	Assets Default
+script	脚本	Script
+fit_window	适应窗口	Fit Window
+fit_window_hint	把视口缩放到刚好容纳整个场景	Zoom the viewport to fit the whole scene
+reset_view_hint	把视口视图重置为原点与 100%	Reset the viewport to origin and 100%
+axes	坐标轴	Axes
+tooltip_toggle_grid	显示/隐藏网格	Show/hide the grid
+orbit_reset	重置视角	Reset View
+orbit_reset_hint	把三维相机重置到默认视角	Reset the 3D camera to its default view
+focus_selection_hint	把视口对准选中的实体	Aim the viewport at the selected entity
+camera	视角	Camera
+script_save	保存	Save
+script_save_as	另存为	Save As
+script_save_hint	保存脚本（Ctrl+S）	Save the script (Ctrl+S)
+script_find	查找	Find
+script_find_hint	在文件内查找	Find in this file
+script_no_match	无匹配	No matches
+script_match_count	{} 处匹配	{} matches
+script_line_count	{} 行	{} lines
+script_untitled	未命名脚本	Untitled Script
+script_unsaved	未保存	Unsaved
+script_no_file	未打开脚本	No script open
+script_empty_hint	没有打开的脚本文件	No script file is open
+script_empty_hint_2	在资源浏览器里双击一个 .rs 文件即可开始编辑	Double-click a .rs file in the Assets panel to start editing
+script_no_project	尚未打开项目，无法读写脚本文件	Open a project first to read or write scripts
+script_open_failed	打开脚本失败：{}	Failed to open script: {}
+script_save_failed	保存脚本失败：{}	Failed to save script: {}
+script_unsaved_outside_project	脚本已保存，但不在当前项目目录内，无法加入资源列表	Script saved, but it is outside the project and cannot be listed
+log_script_opened	已打开脚本「{}」	Opened script "{}"
+log_script_saved	已保存脚本「{}」	Saved script "{}"
+log_mode_switched	已切换到 {} 模式	Switched to {} mode
+stopped	已停止	Stopped
+open_assets_folder	打开资源目录	Open Assets Folder
+back_to_2d	回到 2D	Back to 2D
+back_to_2d_hint	切回二维场景编辑模式	Switch back to 2D scene editing
+asset_mode_note	资源浏览器：在此模式下占中央主体	Assets panel: the main area in this mode
+layout_archive_missing_mode	存档里缺少当前模式的布局	The archive is missing the layout of the current mode
+color_overlay_bg	叠加条背景	Overlay background
+color_overlay_border	叠加条边框	Overlay border
+viewport3d_input_hint	右键/中键拖动旋转视角 · Shift+拖动平移 · 滚轮缩放 · 左键选择	Right/middle drag to orbit · Shift+drag to pan · wheel to zoom · left click to select

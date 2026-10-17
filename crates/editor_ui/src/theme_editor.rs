@@ -67,6 +67,12 @@ fn 颜色分组() -> Vec<颜色组> {
                 槽("color_input_bg", |c| c.输入框背景, |c, v| c.输入框背景 = v),
                 槽("color_hover_bg", |c| c.悬停背景, |c, v| c.悬停背景 = v),
                 槽("color_active_bg", |c| c.激活背景, |c, v| c.激活背景 = v),
+                槽("color_overlay_bg", |c| c.叠加背景, |c, v| c.叠加背景 = v),
+                槽(
+                    "color_overlay_border",
+                    |c| c.叠加边框,
+                    |c, v| c.叠加边框 = v,
+                ),
             ],
         },
         颜色组 {

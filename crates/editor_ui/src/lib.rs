@@ -13,6 +13,8 @@
 
 pub mod assets_panel;
 pub mod console_panel;
+pub mod dev_mode_bar;
+pub mod dev_modes;
 pub mod docks;
 pub mod fonts;
 pub mod hierarchy_panel;
@@ -20,9 +22,11 @@ pub mod history_panel;
 pub mod icons;
 pub mod inspector_panel;
 pub mod menu_bar;
+pub mod script;
 pub mod state;
 pub mod theme;
 pub mod theme_editor;
+pub mod viewport3d;
 pub mod viewport_panel;
 pub mod workspace_bar;
 pub mod workspaces;
@@ -31,6 +35,7 @@ pub mod workspaces;
 // 这里把模块整个再导出，于是界面代码仍可写 `crate::i18n::语言`。
 pub use editor_core::i18n;
 // 常用类型的便捷再导出，避免调用方到处写 `i18n::`。
+pub use dev_modes::开发模式;
 pub use docks::Tab;
 pub use editor_core::i18n::语言;
 pub use fonts::{
@@ -118,6 +123,14 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
                 .show(界面ui, |ui| {
                     查看器.记录区域("menubar", ui.max_rect());
                     查看器.绘制菜单栏(ui);
+                });
+
+            // 顶部：主开发模式栏（2D / 3D / 脚本 / 运行 / 资源）
+            egui::Panel::top("bevy_studio_mode_bar")
+                .exact_size(dev_mode_bar::模式栏高度)
+                .show(界面ui, |ui| {
+                    查看器.记录区域("modebar", ui.max_rect());
+                    查看器.绘制模式栏(ui);
                 });
 
             // 顶部：工作区栏（切换 / 新建 / 复制 / 重命名 / 删除 / 重置）
@@ -532,6 +545,10 @@ impl 面板查看器<'_, '_> {
         menu_bar::绘制工具栏(ui, &mut self.视图());
     }
 
+    fn 绘制模式栏(&mut self, ui: &mut Ui) {
+        dev_mode_bar::绘制(ui, &mut self.视图());
+    }
+
     fn 绘制工作区栏(&mut self, ui: &mut Ui) {
         workspace_bar::绘制(ui, &mut self.视图());
     }
@@ -613,6 +630,7 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             Tab::历史 => history_panel::绘制历史(ui, &mut 上下文),
             Tab::运行时ecs => history_panel::绘制运行时(ui, &mut 上下文),
             Tab::性能 => history_panel::绘制性能(ui, &mut 上下文),
+            Tab::脚本 => script::绘制(ui, &mut 上下文),
         }
     }
 

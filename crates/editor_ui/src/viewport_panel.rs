@@ -20,7 +20,7 @@
 //! 详细评估记录在 `功能路线图.md` 与 `工作日志.md` 中。
 
 use editor_core::state::编辑器状态;
-use egui::{Color32, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui};
+use egui::{Painter, Pos2, Rect, RichText, Sense, Stroke, Ui};
 use scene_doc::document::{变换数据, 场景文档, 实体标识};
 
 use crate::state::{UiAction, 绘制上下文, 视口拖拽, 选择意图};
@@ -166,6 +166,13 @@ pub fn 世界包围盒(文档: &场景文档) -> Option<((f32, f32), (f32, f32))
 
 /// 绘制视口内容。所有几何绘制都相对 `内容矩形`（视口面板内实际可画区域）。
 pub fn 绘制内容(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Rect) {
+    // 三维模式：渲染由 Bevy 的 Camera3d 完成，叠加层由 `viewport3d` 绘制。
+    // 两条路径共用同一个相机参数，因此网格与实体的位置按构造一致。
+    if crate::viewport3d::活动(上下文) {
+        上下文.界面.视口尺寸 = 内容矩形.size();
+        crate::viewport3d::绘制(ui, 上下文, 内容矩形);
+        return;
+    }
     let 尺寸 = 内容矩形.size();
     上下文.界面.视口尺寸 = 尺寸;
 
@@ -589,7 +596,10 @@ fn 绘制状态栏(
     );
 
     egui::Frame::NONE
-        .fill(Color32::from_rgba_premultiplied(20, 21, 24, 200))
+        // 叠加条的颜色来自主题：浅色主题下必须换成浅底深字，
+        // 否则深色半透明底 + 深色次要文字几乎看不清（上一轮遗留缺陷）。
+        .fill(上下文.配色.叠加背景)
+        .stroke(egui::Stroke::new(1.0, 上下文.配色.叠加边框))
         .inner_margin(egui::Margin::symmetric(6, 2))
         .corner_radius(3)
         .show(&mut 子界面, |ui| {

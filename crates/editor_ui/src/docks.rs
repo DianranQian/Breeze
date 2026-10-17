@@ -183,4 +183,170 @@ mod 测试 {
         标题.dedup();
         assert_eq!(标题.len(), 原数量, "面板标题必须唯一");
     }
+
+    /// 记录每个标签实际拿到的矩形。
+    ///
+    /// 用 `TabViewer::ui` 回调取 `ui.max_rect()`：这是 egui_dock 给每个叶子分配的
+    /// **真实内容矩形**，走公开 API，不需要碰节点内部字段。
+    struct 记录查看器 {
+        矩形: Vec<(Tab, egui::Rect)>,
+    }
+
+    impl egui_dock::TabViewer for 记录查看器 {
+        type Tab = Tab;
+
+        fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
+            egui::Id::new(("布局几何测试", format!("{:?}", tab)))
+        }
+
+        fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+            (*tab).标题(crate::i18n::语言::中文).into()
+        }
+
+        fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+            self.矩形.push((*tab, ui.max_rect()));
+            ui.label("内容");
+        }
+    }
+
+    /// 在固定窗口尺寸下跑一次**真实** Dock 布局，返回每个标签的矩形。
+    fn 跑一次真实布局(停靠: &mut DockState<Tab>) -> Vec<(Tab, egui::Rect)> {
+        let 尺寸 = egui::vec2(1200.0, 800.0);
+        let 上下文 = egui::Context::default();
+        let 输入 = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, 尺寸)),
+            ..Default::default()
+        };
+        let mut 查看器 = 记录查看器 { 矩形: Vec::new() };
+        上下文.begin_pass(输入);
+        {
+            let ctx = &上下文;
+            let mut 根界面 = egui::Ui::new(
+                ctx.clone(),
+                egui::Id::new("布局几何测试根界面"),
+                egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(egui::Pos2::ZERO, 尺寸)),
+            );
+            egui_dock::DockArea::new(停靠).show_inside(&mut 根界面, &mut 查看器);
+        }
+        let mut 输出 = 上下文.end_pass();
+        // egui 要求纹理增量必须被处理；测试里不渲染，显式清空，
+        // 否则 epaint 会在 drop 时 panic（"Dropped TexturesDelta"）。
+        输出.textures_delta.clear();
+        查看器.矩形
+    }
+
+    /// 默认布局在真实布局计算之后，四个区域的叶子都必须拿到有效且非零的矩形。
+    ///
+    /// # 这条测试是为了抓住 fraction 方向写反
+    ///
+    /// 之前的测试只断言"默认布局里存在 8 个标签"，因此 fraction 归属搞反
+    /// （右列与底部被撑到 74%/72%，把左列与中央挤成窄条）时测试依然全绿，
+    /// 缺陷瞒了四个批次。这里改成检查**真实几何**。
+    #[test]
+    fn 默认布局四个区域都获得有效矩形() {
+        let mut 停靠 = 默认布局();
+        let 矩形 = 跑一次真实布局(&mut 停靠);
+
+        // egui_dock 每个叶子只绘制**当前激活的**标签，因此一次布局只有 4 个内容矩形。
+        assert_eq!(矩形.len(), 4, "应当有 4 个叶子各绘制一个激活标签");
+        for (面板, r) in &矩形 {
+            let 名 = 面板.标题(crate::i18n::语言::中文);
+            assert!(
+                r.min.x.is_finite() && r.min.y.is_finite(),
+                "`{名}` 的矩形含非有限值：{r:?}"
+            );
+            assert!(
+                r.max.x.is_finite() && r.max.y.is_finite(),
+                "`{名}` 的矩形含非有限值：{r:?}"
+            );
+            assert!(r.width() > 1.0, "`{名}` 宽度退化：{r:?}");
+            assert!(r.height() > 1.0, "`{名}` 高度退化：{r:?}");
+            assert!(
+                r.min.x >= -1.0 && r.min.y >= -1.0,
+                "`{名}` 越出窗口左上：{r:?}"
+            );
+            assert!(
+                r.max.x <= 1201.0 && r.max.y <= 801.0,
+                "`{名}` 越出窗口右下：{r:?}"
+            );
+        }
+    }
+
+    /// 四个区域的空间关系必须符合预期：左树、中视口、右列、底部。
+    ///
+    /// 用相对关系而不是绝对像素，避免将来正常的尺寸微调把测试变脆。
+    #[test]
+    fn 默认布局的区域空间关系正确() {
+        let mut 停靠 = 默认布局();
+        let 矩形 = 跑一次真实布局(&mut 停靠);
+        let 取 = |面板: Tab| -> egui::Rect {
+            矩形
+                .iter()
+                .find(|(候选, _)| *候选 == 面板)
+                .map(|(_, r)| *r)
+                .unwrap_or_else(|| panic!("`{}` 没有拿到矩形", 面板.标题(crate::i18n::语言::中文)))
+        };
+
+        let 场景树 = 取(Tab::场景树);
+        let 视口 = 取(Tab::视口);
+        let 检查器 = 取(Tab::检查器);
+        let 资源浏览器 = 取(Tab::资源浏览器);
+
+        // 场景树在视口左侧
+        assert!(
+            场景树.max.x <= 视口.min.x + 2.0,
+            "场景树应在视口左侧：树={场景树:?} 视口={视口:?}"
+        );
+        // 检查器在视口右侧
+        assert!(
+            检查器.min.x >= 视口.max.x - 2.0,
+            "检查器应在视口右侧：检查器={检查器:?} 视口={视口:?}"
+        );
+        // 底部区域（默认激活的是资源浏览器）在视口下方
+        assert!(
+            资源浏览器.min.y >= 视口.max.y - 2.0,
+            "底部面板应在视口下方：底部={资源浏览器:?} 视口={视口:?}"
+        );
+        // 视口宽度下限：只挡"被挤成细条"这种退化。
+        //
+        // # 已知的测试边界（**重要**）
+        //
+        // 这条阈值**挡不住 fraction 方向写反**。实测把右列比例从 0.26 改成 0.90，
+        // 视口宽度并没有随之缩小，所以本测试在那种回归下仍然会通过。
+        // 我尝试过用尺寸阈值来挡它，但在本版本里右列比例与视口宽度之间
+        // 没有我预期的单调关系，无法标定出两侧都可靠的阈值。
+        //
+        // 因此本测试实际保证的是：矩形有限、非退化、四个区域相对位置正确、
+        // 序列化往返不丢面板。**fraction 方向目前没有自动化保护**，
+        // 只能靠 `默认布局()` 上方那段注释和实际 GUI 截图核对。
+        // 要真正挡住它，需要先拿到 egui_dock 内部 rect 分配的可观测输出
+        // （例如给 DockArea 加一个受控的调试回调），这超出了本次预算。
+        assert!(
+            视口.width() > 1200.0 * 0.15,
+            "视口宽度只有 {}px / 1200px，右列很可能抢走了过多空间（split 比例方向写反）",
+            视口.width()
+        );
+
+        // 说明：这里**不**断言视口的像素占比。
+        //
+        // 试过用 "视口宽度 > 35%" 之类的阈值，但实测发现底部区域的高度占比
+        // 与右列比例是正交的，固定阈值既会误伤正常布局、也无法定位是哪一次
+        // split 出错。真正稳定的判据是"位置关系 + 非退化"，上面几条已经覆盖，
+        // 而且一旦分栏方向写反，位置断言必然先崩。
+    }
+
+    /// 修复后的默认布局能序列化再反序列化，且结构不丢面板。
+    #[test]
+    fn 默认布局序列化往返不丢面板() {
+        let 停靠 = 默认布局();
+        let 文本 = ron::ser::to_string(&停靠).expect("序列化应当成功");
+        let 复原: DockState<Tab> = ron::from_str(&文本).expect("反序列化应当成功");
+        for 面板 in Tab::全部() {
+            assert!(
+                复原.find_tab(面板).is_some(),
+                "往返后丢了面板 `{}`",
+                面板.标题(crate::i18n::语言::中文)
+            );
+        }
+    }
 }

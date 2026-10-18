@@ -748,3 +748,49 @@ fn 可以从最近项目里移除单条记录() {
         "移除操作应当在控制台留下记录"
     );
 }
+
+#[test]
+fn 换项目会清空上一个项目的构建报告() {
+    let mut 世界 = 建测试世界();
+    let (_目录, 根) = 建项目(&mut 世界);
+
+    // 先在当前项目上发起一次构建：项目里没有 Cargo.toml，因此会很快失败，
+    // 但足以把报告从"空闲"变成非默认状态（这正是要清理的东西）。
+    推动作(&mut 世界, vec![UiAction::开始构建]);
+    执行动作(&mut 世界);
+    {
+        // 等一次失败结果落进报告（轮询上传线程，最多 20 秒）。
+        let mut 等待 = 0;
+        loop {
+            {
+                let mut 构建 = 世界.resource_mut::<editor_app::构建宿主>();
+                构建.轮询();
+                if 构建.报告().状态 != editor_core::build::构建状态::空闲 {
+                    break;
+                }
+            }
+            等待 += 1;
+            assert!(等待 < 400, "构建应当很快失败，但没有产生任何状态");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }
+    assert_ne!(
+        世界.resource::<editor_app::构建宿主>().报告().状态,
+        editor_core::build::构建状态::空闲,
+        "构建失败后报告应当是非默认状态"
+    );
+
+    // 打开另一个项目：报告必须回到空闲，否则面板会显示上一个项目的产物。
+    let 另一个 = 根.parent().unwrap().join("另一个项目");
+    std::fs::create_dir_all(&另一个).unwrap();
+    let 项目 = 项目描述::创建(&另一个, "另一个项目").expect("创建第二个项目");
+    项目.保存清单().expect("写清单");
+    推动作(&mut 世界, vec![UiAction::打开项目(另一个)]);
+    执行动作(&mut 世界);
+
+    assert_eq!(
+        世界.resource::<editor_app::构建宿主>().报告().状态,
+        editor_core::build::构建状态::空闲,
+        "换项目后必须清空构建报告"
+    );
+}

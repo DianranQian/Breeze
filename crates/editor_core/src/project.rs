@@ -116,6 +116,13 @@ pub struct 项目清单 {
     /// 运行目标声明。`None` 表示该项目只能以"独立预览进程"方式运行。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 运行: Option<运行目标清单>,
+    /// 设计分辨率（游戏 UI 的布局空间，也是导出窗口的基准尺寸）。
+    ///
+    /// 与 Godot 的 `display/window/size/viewport_width/height` 同一个概念：
+    /// 界面按这个尺寸布局，实际窗口与预览纹理的缩放只是显示缩放。
+    /// 旧项目没有这一项时用 1920×1080（最常见的设计稿尺寸）。
+    #[serde(default = "默认设计分辨率")]
+    pub 设计分辨率: (u32, u32),
     /// 构建配置。`None` 表示用默认配置（`cargo build`）。
     ///
     /// 与 [`Self::运行`] 同一条原则：**构建怎么打是项目契约**，
@@ -128,6 +135,13 @@ pub struct 项目清单 {
     pub 打包: Option<crate::package::打包配置>,
 }
 
+/// 默认设计分辨率。
+///
+/// 1080p 是最常见的设计稿尺寸。
+pub const fn 默认设计分辨率() -> (u32, u32) {
+    (1920, 1080)
+}
+
 impl 项目清单 {
     /// 以项目名创建一个新清单。
     pub fn 新建(名称: impl Into<String>) -> Self {
@@ -138,6 +152,7 @@ impl 项目清单 {
             启动场景: None,
             配置: BTreeMap::new(),
             运行: None,
+            设计分辨率: 默认设计分辨率(),
             构建: None,
             打包: None,
         }
@@ -763,6 +778,7 @@ impl 项目描述 {
             运行参数: 运行.参数.clone(),
             运行工作目录: 运行.工作目录.clone(),
             构建: self.清单.构建.clone().unwrap_or_default(),
+            设计分辨率: self.清单.设计分辨率,
         }
     }
 
@@ -835,6 +851,16 @@ impl 项目描述 {
         self.清单.说明 = 设置.说明.trim().to_string();
         self.清单.启动场景 = 启动场景;
         self.清单.运行 = 运行;
+        // 设计分辨率必须为正：0 宽的布局空间会让所有百分比锚点退化到 0。
+        if 设置.设计分辨率.0 == 0 || 设置.设计分辨率.1 == 0 {
+            return Err(项目错误::设置非法("设计分辨率不能为 0".to_string()));
+        }
+        if 设置.设计分辨率.0 > 16384 || 设置.设计分辨率.1 > 16384 {
+            return Err(项目错误::设置非法(
+                "设计分辨率过大（上限 16384）".to_string(),
+            ));
+        }
+        self.清单.设计分辨率 = 设置.设计分辨率;
         self.清单.构建 = Some(设置.构建.clone());
         Ok(())
     }
@@ -860,6 +886,8 @@ pub struct 项目设置 {
     pub 运行工作目录: Option<String>,
     /// 构建配置。
     pub 构建: crate::build::构建配置,
+    /// 设计分辨率（UI 布局空间）。
+    pub 设计分辨率: (u32, u32),
 }
 
 impl Default for 项目设置 {
@@ -872,6 +900,7 @@ impl Default for 项目设置 {
             运行参数: Vec::new(),
             运行工作目录: None,
             构建: crate::build::构建配置::default(),
+            设计分辨率: 默认设计分辨率(),
         }
     }
 }

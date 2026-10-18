@@ -633,6 +633,40 @@ fn 绘制_项目设置对话框(
                 });
 
             ui.add_space(4.0);
+            // 设计分辨率放在"显示"分组、构建分组之前：
+            // 它决定 UI 的布局空间，是比"怎么构建"更靠前的项目契约。
+            ui.label(
+                egui::RichText::new(语言.取("display"))
+                    .strong()
+                    .color(配色.文字),
+            );
+            egui::Grid::new("project_settings_display_grid")
+                .num_columns(2)
+                .spacing([8.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label(语言.取("design_resolution"))
+                        .on_hover_text(语言.取("design_resolution_hint"));
+                    ui.horizontal(|ui| {
+                        let mut 宽 = 草稿.设计分辨率.0;
+                        let mut 高 = 草稿.设计分辨率.1;
+                        // 两个数字框都允许直接键入；任一改动都要写回草稿，
+                        // 因此用一个 `mut` 标记而不是链式 `|`（`Response` 不支持）。
+                        let mut 改变 = false;
+                        改变 |= ui
+                            .add(egui::DragValue::new(&mut 宽).range(1..=16384).speed(1.0))
+                            .changed();
+                        ui.label("×");
+                        改变 |= ui
+                            .add(egui::DragValue::new(&mut 高).range(1..=16384).speed(1.0))
+                            .changed();
+                        if 改变 {
+                            草稿.设计分辨率 = (宽, 高);
+                        }
+                    });
+                    ui.end_row();
+                });
+
+            ui.add_space(4.0);
             ui.label(
                 egui::RichText::new(语言.取("build"))
                     .strong()

@@ -248,6 +248,20 @@ pub fn 同步界面元素(
             项.len()
         );
     }
+    // 布局空间 = 项目的**设计分辨率**，而不是渲染目标尺寸。
+    //
+    // 设计分辨率回答"界面按多大的画布排版"（Godot 的
+    // `display/window/size/viewport_width/height`）；渲染目标只是看它的窗口。
+    // 两者不同时按等比缩放 + 居中留边（letterbox），这样 1920×1080 设计稿
+    // 在 512×512 预览里仍然完整可见，而不是只剩左上角一块。
+    let (设计宽, 设计高) = 编辑器
+        .状态
+        .项目
+        .as_ref()
+        .map(|项目| 项目.清单().设计分辨率)
+        .unwrap_or(editor_core::project::默认设计分辨率());
+    let 适配 = editor_core::ui_layout::适配缩放(设计宽 as f32, 设计高 as f32, 视口.0, 视口.1);
+
     let 字体 = 确保字体(&mut 状态, &mut 字体资源);
     for (序号, 面板) in 项.iter().enumerate() {
         // 锚点 + 偏移 + 尺寸 → 像素矩形。换算逻辑在 `editor_core::ui_layout`：
@@ -260,22 +274,22 @@ pub fn 同步界面元素(
                 宽: 面板.尺寸.0,
                 高: 面板.尺寸.1,
             },
-            视口.0,
-            视口.1,
+            设计宽 as f32,
+            设计高 as f32,
         );
         let mut 实体命令 = 命令.spawn((
             界面预览实体,
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(矩形.左),
-                top: Val::Px(矩形.上),
+                left: Val::Px(矩形.左 * 适配.缩放 + 适配.偏移x),
+                top: Val::Px(矩形.上 * 适配.缩放 + 适配.偏移y),
                 width: if 矩形.宽 > 0.0 {
-                    Val::Px(矩形.宽)
+                    Val::Px(矩形.宽 * 适配.缩放)
                 } else {
                     Val::Auto
                 },
                 height: if 矩形.高 > 0.0 {
-                    Val::Px(矩形.高)
+                    Val::Px(矩形.高 * 适配.缩放)
                 } else {
                     Val::Auto
                 },
@@ -296,12 +310,14 @@ pub fn 同步界面元素(
                     Text(文案.文本.clone()),
                     TextFont {
                         font: bevy::text::FontSource::Handle(字体.clone()),
-                        font_size: FontSize::Px(文案.字号),
+                        // 字号也要跟着适配缩放：布局缩了而字号没缩，
+                        // 文字会撑出盒子（实测就是面板变成一条细带、文字外溢）。
+                        font_size: FontSize::Px(文案.字号 * 适配.缩放),
                         ..default()
                     },
                     TextColor(颜色转_bevy(文案.颜色)),
                     Node {
-                        margin: UiRect::all(Val::Px(8.0)),
+                        margin: UiRect::all(Val::Px(8.0 * 适配.缩放)),
                         ..default()
                     },
                 ));

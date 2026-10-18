@@ -281,6 +281,25 @@ pub fn 处理文件对话框结果(
             }
         }
 
+        文件对话框结果::子场景保存到(文件) => {
+            let 相对 = 编辑器
+                .状态
+                .项目
+                .as_ref()
+                .and_then(|项目| 项目.相对路径(&文件));
+            match 相对 {
+                Some(路径) => match 编辑器.状态.选择.主选中() {
+                    Some(根) => 界面.动作.推(UiAction::导出子场景 { 根, 路径 }),
+                    None => 编辑器
+                        .状态
+                        .警告(界面.状态.语言.取("subscene_need_selection").to_string()),
+                },
+                None => 编辑器
+                    .状态
+                    .错误(format!("所选路径不在当前项目目录内：{}", 文件.display())),
+            }
+        }
+
         文件对话框结果::选定文件(文件) => {
             // 现在只有「场景另存为」会产生这个结果：打开场景与实例化
             // 各有专用结果，不再靠"文件存不存在"猜意图。
@@ -518,6 +537,49 @@ fn 执行单个动作(
                 return;
             }
             请求对话框(对话框, 编辑器, 文件对话框请求::实例化场景文件);
+        }
+
+        UiAction::请求导出子场景 => {
+            if 编辑器.项目.is_none() {
+                编辑器.警告(界面状态.语言.取("log_build_no_project").to_string());
+                return;
+            }
+            if 编辑器.选择.主选中().is_none() {
+                编辑器.警告(界面状态.语言.取("subscene_need_selection").to_string());
+                return;
+            }
+            请求对话框(对话框, 编辑器, 文件对话框请求::子场景另存为);
+        }
+
+        UiAction::导出子场景 { 根, 路径 } => {
+            let Some(项目) = 编辑器.项目.as_ref() else {
+                编辑器.警告(界面状态.语言.取("log_build_no_project").to_string());
+                return;
+            };
+            let 场景名 = 路径
+                .文件名()
+                .trim_end_matches(".scene.ron")
+                .trim_end_matches(".ron")
+                .to_string();
+            let Some(新文档) = editor_core::instance::导出子树(&编辑器.会话.文档, 根, &场景名)
+            else {
+                编辑器.结构化警告(
+                    "log_subscene_missing_root",
+                    vec![日志参数::用户数据(根.to_string())],
+                );
+                return;
+            };
+            let 数量 = 新文档.实体数量();
+            match 项目.保存场景(&路径, &新文档) {
+                Ok(()) => 编辑器.结构化信息(
+                    "log_subscene_done",
+                    vec![
+                        日志参数::用户数据(路径.文本().to_string()),
+                        日志参数::用户数据(数量.to_string()),
+                    ],
+                ),
+                Err(错误) => 编辑器.错误(format!("保存子场景失败：{错误}")),
+            }
         }
 
         UiAction::实例化场景(源路径) => {

@@ -181,6 +181,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                     标题: "",
                     项: vec![
                         菜单项::常可用("instantiate_scene", None).需要(可用性::需要项目),
+                        菜单项::常可用("save_subscene", None).需要(可用性::需要选中),
                         菜单项::常可用("focus_selection", Some("F")).需要(可用性::需要选中),
                     ],
                 },
@@ -409,6 +410,8 @@ pub fn 菜单项动作(
         // 实例化：把另一个场景的内容并入当前场景。
         // 选中容器时挂到它下面，否则作为顶层实体。
         "instantiate_scene" => Some(UiAction::请求实例化场景),
+        // 把选中子树另存为独立场景：实例化的反向操作。
+        "save_subscene" => Some(UiAction::请求导出子场景),
         "focus_selection" => Some(UiAction::聚焦面板(Tab::视口)),
 
         // ---- 实体 ----
@@ -996,24 +999,34 @@ mod 测试 {
     #[test]
     fn 未实现的菜单项被如实标注() {
         let 编辑器 = 编辑器状态::新建();
-        // 这些是本版本确实没做的功能，必须返回 None 以便界面显示为禁用。
+        // 本版本确实没做的功能必须返回 `None`，界面才会显示为禁用。
         //
-        // 「项目设置」曾经也在这张名单里 —— 它现在有真实实现
-        // （校验 + 写回 project.ron），因此从名单移除，并补一条正向断言：
-        // 一个功能从"未实现"变成"已实现"时，测试必须同时改，
+        // 名单在持续缩短：项目设置、打开场景、资源刷新、检查依赖、实例化场景
+        // 都已经有真实实现，因此从"未实现"名单移除，并各补一条正向断言 ——
+        // 一个功能从"未实现"变成"已实现"时测试必须同时改，
         // 否则名单会变成"永远为真"的摆设。
-        for 文本 in ["tooltip_feature_not_implemented"] {
+        let 未实现 = ["tooltip_feature_not_implemented"];
+        for 文本 in 未实现 {
             assert!(
                 菜单项动作(文本, crate::i18n::语言::中文, &编辑器).is_none(),
                 "`{文本}` 尚未实现，菜单项动作必须返回 None 而不是假装能用"
             );
         }
-        assert!(
-            matches!(
-                菜单项动作("project_settings", crate::i18n::语言::中文, &编辑器),
-                Some(UiAction::显示项目设置(true))
-            ),
-            "项目设置已经实现，必须返回真实动作"
+        assert!(matches!(
+            菜单项动作("project_settings", crate::i18n::语言::中文, &编辑器),
+            Some(UiAction::显示项目设置(true))
+        ));
+        assert!(matches!(
+            菜单项动作("open_scene", crate::i18n::语言::中文, &编辑器),
+            Some(UiAction::请求打开场景)
+        ));
+        assert_eq!(
+            菜单项动作("instantiate_scene", crate::i18n::语言::中文, &编辑器),
+            Some(UiAction::请求实例化场景)
+        );
+        assert_eq!(
+            菜单项动作("save_subscene", crate::i18n::语言::中文, &编辑器),
+            Some(UiAction::请求导出子场景)
         );
         assert_eq!(
             菜单项动作("refresh_the_asset_list", crate::i18n::语言::中文, &编辑器),

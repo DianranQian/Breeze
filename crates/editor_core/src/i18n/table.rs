@@ -80,6 +80,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "assets_empty_hint", 中文: "没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。", 英文: "No assets.\nDrop images, audio, and other files into the project's assets/ directory and they will be detected." },
     词条 { 键: "assets_loaded", 中文: "已加载资源数", 英文: "Assets Loaded" },
     词条 { 键: "assets_no_project_hint", 中文: "尚未打开项目。\n请在「文件 → 打开项目」里选择一个项目目录。", 英文: "No project is open yet.\nUse \"File -> Open Project\" to choose a project directory." },
+    词条 { 键: "audio_audition", 中文: "试听实体音频", 英文: "Audition Entity Audio" },
     词条 { 键: "audio_field_autoplay", 中文: "自动播放", 英文: "Autoplay" },
     词条 { 键: "audio_field_autoplay_tooltip", 中文: "进入游戏时立即播放；编辑器里不会自动播", 英文: "Play as soon as the game starts; the editor never auto-plays" },
     词条 { 键: "audio_field_clip", 中文: "音频", 英文: "Clip" },

@@ -342,20 +342,27 @@ fn 绘制空白右键菜单(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 /// 右侧状态开关 / 行内空白区），而它们必须给出**完全相同**的菜单项。
 /// 逐个写一遍的话，迟早会出现"右键名称能删除、右键空白不能"这种不一致。
 fn 绘制行右键菜单(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行) {
+    // 只有挂了 `音频` 组件的实体才给"试听"：否则菜单里会出现一个点了
+    // 必然失败的项。菜单项列表同时驱动 GUI 证据，因此必须与真正画出来的
+    // 按钮一致，不能只在画的时候判断。
+    let 有音频 = 上下文
+        .编辑器
+        .会话
+        .文档
+        .取(行.标识)
+        .is_some_and(|实体| 实体.有组件(editor_core::collision::音频组件名));
+
     // 先记录，再画：证据要说明"这一帧弹出的到底是哪种菜单、作用于谁"。
     // 记的是**语言键**而不是当前语言下的文案，因此中英文证据可直接比对。
+    let mut 项 = vec!["rename", "duplicate", "new_child_entity_here"];
+    if 有音频 {
+        项.push("audio_audition");
+    }
+    项.extend(["move_up", "move_down", "move_to_top_level", "delete"]);
     上下文.界面.场景右键菜单 = Some(右键菜单记录 {
         种类: 右键菜单种类::场景行,
         目标: Some(行.名称.clone()),
-        项: vec![
-            "rename",
-            "duplicate",
-            "new_child_entity_here",
-            "move_up",
-            "move_down",
-            "move_to_top_level",
-            "delete",
-        ],
+        项,
     });
 
     if ui.button(上下文.语言.取("rename")).clicked() {
@@ -368,6 +375,10 @@ fn 绘制行右键菜单(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: 
     }
     if ui.button(上下文.语言.取("new_child_entity_here")).clicked() {
         上下文.界面.开始新建实体(Some(行.标识));
+        ui.close();
+    }
+    if 有音频 && ui.button(上下文.语言.取("audio_audition")).clicked() {
+        上下文.动作.推(UiAction::试听实体音频(行.标识));
         ui.close();
     }
     ui.separator();

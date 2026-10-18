@@ -27,7 +27,7 @@ use scene_doc::property::{属性值, 资源引用值, 资源类别};
 use scene_doc::registry::{属性描述, 属性种类, 组件注册表, 组件类型};
 
 /// 音频组件在场景文件里的类型名。
-pub const 音频组件名: &str = "音频";
+pub const 音频组件名: &str = editor_core::collision::音频组件名;
 
 /// 音频组件属性。
 #[derive(Debug, Clone, PartialEq)]

@@ -745,3 +745,4 @@ ui_field_text_align_tooltip	只有节点有明确宽度时才看得出对齐效�
 text_align_left	左	Left
 text_align_center	居中	Center
 text_align_right	右	Right
+audio_audition	试听实体音频	Audition Entity Audio

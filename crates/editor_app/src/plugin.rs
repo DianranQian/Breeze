@@ -1249,7 +1249,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::打开动画(路径) => format!("打开动画({})", 路径.文本()),
         UiAction::试听资源(路径) => format!("试听资源({})", 路径.文本()),
         UiAction::停止试听 => "停止试听".to_string(),
-        UiAction::试听选中实体音频 => "试听选中实体音频".to_string(),
+        UiAction::试听实体音频(标识) => format!("试听实体音频({标识})"),
         UiAction::请求打开场景 => "请求打开场景".to_string(),
         UiAction::请求实例化场景 => "请求实例化场景".to_string(),
         UiAction::实例化场景(路径) => format!("实例化场景({})", 路径.文本()),

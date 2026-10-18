@@ -565,12 +565,8 @@ fn 执行单个动作(
             };
         }
 
-        UiAction::试听选中实体音频 => {
-            let Some(实体) = 编辑器
-                .选择
-                .主选中()
-                .and_then(|标识| 编辑器.会话.文档.取(标识))
-            else {
+        UiAction::试听实体音频(标识) => {
+            let Some(实体) = 编辑器.会话.文档.取(标识) else {
                 编辑器.警告(界面状态.语言.取("log_nothing_selected").to_string());
                 return;
             };

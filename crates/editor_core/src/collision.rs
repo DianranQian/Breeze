@@ -17,6 +17,13 @@ pub const 碰撞体组件名: &str = "碰撞体2d";
 /// 刚体组件的类型名。
 pub const 刚体组件名: &str = "刚体2d";
 
+/// 音频组件的类型名（与 `editor_app::audio_components` 一致）。
+///
+/// 放在这里而不是新建模块：界面层（`editor_ui`）需要按组件名判断
+/// “这一行有没有音频”，而它**不能依赖 `editor_app`**（依赖方向单向）。
+/// 组件名字符串是场景文件格式的一部分，集中一处才不会改漏。
+pub const 音频组件名: &str = "音频";
+
 /// 碰撞形状（与场景文件里的变体名对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum 碰撞形状 {

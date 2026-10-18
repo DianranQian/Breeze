@@ -527,6 +527,59 @@ fn 执行单个动作(
             请求对话框(对话框, 编辑器, 文件对话框请求::场景另存为);
         }
 
+        UiAction::试听资源(路径) => {
+            if !crate::audio_preview::可试听(&路径) {
+                编辑器.结构化警告(
+                    "log_not_audio",
+                    vec![日志参数::用户数据(路径.文本().to_string())],
+                );
+                return;
+            }
+            界面状态.试听请求 = editor_ui::state::试听请求 {
+                要播放: Some(路径),
+                要停止: false,
+            };
+        }
+
+        UiAction::停止试听 => {
+            界面状态.试听请求 = editor_ui::state::试听请求 {
+                要播放: None,
+                要停止: true,
+            };
+        }
+
+        UiAction::试听选中实体音频 => {
+            let Some(实体) = 编辑器
+                .选择
+                .主选中()
+                .and_then(|标识| 编辑器.会话.文档.取(标识))
+            else {
+                编辑器.警告(界面状态.语言.取("log_nothing_selected").to_string());
+                return;
+            };
+            match crate::audio_preview::实体音频(实体) {
+                Some((路径, _音量)) => {
+                    if !crate::audio_preview::可试听(&路径) {
+                        编辑器.结构化警告(
+                            "log_not_audio",
+                            vec![日志参数::用户数据(路径.文本().to_string())],
+                        );
+                        return;
+                    }
+                    // `执行单个动作` 没有动作队列参数（它本身就在队列里）：
+                    // 直接写请求，由音频系统消费，避免再绕一圈同一个队列。
+                    界面状态.试听请求 = editor_ui::state::试听请求 {
+                        要播放: Some(路径),
+                        要停止: false,
+                    };
+                }
+                None => 编辑器.结构化警告(
+                    "log_entity_has_no_audio",
+                    vec![日志参数::用户数据(实体.名称.clone())],
+                ),
+            }
+        }
+
         UiAction::请求打开场景 => {
             请求对话框(对话框, 编辑器, 文件对话框请求::打开场景文件);
         }

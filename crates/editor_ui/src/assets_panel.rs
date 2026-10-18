@@ -297,6 +297,21 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         }
     });
 
+    // 试听状态条：正在播时给出路径与停止入口。
+    // 播放自然结束后由音频系统清空，因此这里不会出现"卡在试听中"的状态。
+    if let Some(路径) = 上下文.界面.试听中.clone() {
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(上下文.语言.填充("audition_now_playing", &[&路径]))
+                    .small()
+                    .color(上下文.配色.成功),
+            );
+            if ui.small_button(上下文.语言.取("audition_stop")).clicked() {
+                上下文.动作.推(UiAction::停止试听);
+            }
+        });
+    }
+
     if 树.is_empty() {
         ui.add_space(8.0);
         ui.label(RichText::new(上下文.语言.取("assets_empty_hint")).color(上下文.配色.次要文字));
@@ -439,6 +454,27 @@ fn 绘制文件行(
         }
 
         响应.context_menu(|ui| {
+            // 音频：试听 / 停止。
+            //
+            // 放在右键菜单里而不是每行一个按钮：资源列表本来就窄，
+            // 每行加两个图标会让文件名被挤到看不见；试听又不是高频操作。
+            if 类别 == 资源类别::音频 {
+                let 正在播 = 上下文.界面.试听中.as_deref() == Some(路径文本);
+                if 正在播 {
+                    if ui.button(上下文.语言.取("audition_stop")).clicked() {
+                        上下文.动作.推(UiAction::停止试听);
+                        ui.close();
+                    }
+                } else if ui
+                    .button(上下文.语言.取("audition_play"))
+                    .on_hover_text(上下文.语言.取("audition_play_hint"))
+                    .clicked()
+                {
+                    上下文.动作.推(UiAction::试听资源(路径.clone()));
+                    ui.close();
+                }
+                ui.separator();
+            }
             if ui
                 .button(上下文.语言.取("add_this_asset_to_the_scene"))
                 .clicked()

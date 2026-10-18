@@ -682,3 +682,21 @@ ui_field_text_color	文字颜色	Text Color
 ui_field_size_tooltip	屏幕像素；0 表示由内容自适应	Screen pixels; 0 means size to content
 ui_field_offset_tooltip	相对视口左上角的像素偏移	Pixel offset from the viewport's top-left corner
 open_source_line_hint	在代码面板里打开这一行	Open this line in the code panel
+audition_play	试听	Audition
+audition_play_hint	在编辑器里播放这个音频（不改场景、不改项目）	Play this clip inside the editor without touching the scene or the project
+audition_stop	停止试听	Stop Audition
+audition_now_playing	正在试听：{}	Auditioning: {}
+audio_field_clip	音频	Clip
+audio_field_clip_tooltip	音频文件；运行时由游戏代码播放	An audio file; the game's code plays it at runtime
+audio_field_volume	音量	Volume
+audio_field_volume_tooltip	1.0 为原始响度，上限 2.0（再高只会削波）	1.0 is the original level, capped at 2.0 (higher only clips)
+audio_field_autoplay	自动播放	Autoplay
+audio_field_autoplay_tooltip	进入游戏时立即播放；编辑器里不会自动播	Play as soon as the game starts; the editor never auto-plays
+audio_field_spatial	空间化	Spatial
+audio_field_spatial_tooltip	按实体位置做距离衰减（3D 音源）	Distance attenuation from the entity's position (3D source)
+log_audition_started	试听：{}	Auditioning {}
+log_audition_stopped	已停止试听	Stopped auditioning
+log_not_audio	不是可试听的音频文件：{}	Not an auditionable audio file: {}
+log_no_project	尚未打开项目	No project is open
+log_nothing_selected	没有选中实体	No entity is selected
+log_entity_has_no_audio	实体 {} 上没有音频组件	Entity {} has no audio component

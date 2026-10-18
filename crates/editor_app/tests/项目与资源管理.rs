@@ -416,3 +416,86 @@ fn 导出子场景后可以再实例化回来() {
     执行动作(&mut 世界);
     assert_eq!(编辑(&世界).会话.文档.实体数量(), 实例化前);
 }
+
+#[test]
+fn 试听请求只会为音频文件排队() {
+    let mut 世界 = 建测试世界();
+    let (_目录, _根) = 建项目(&mut 世界);
+
+    // 音频：排进试听请求。
+    let 音频 = 项目相对路径::解析("assets/audio/beep.wav").unwrap();
+    推动作(&mut 世界, vec![UiAction::试听资源(音频.clone())]);
+    执行动作(&mut 世界);
+    assert_eq!(界面(&世界).试听请求.要播放.as_ref(), Some(&音频));
+    assert!(!界面(&世界).试听请求.要停止);
+
+    // 非音频：请求保持为空，并在日志里说明原因（不静默失败）。
+    let mut 世界 = 建测试世界();
+    let (_目录, _根) = 建项目(&mut 世界);
+    推动作(
+        &mut 世界,
+        vec![UiAction::试听资源(
+            项目相对路径::解析("assets/tex/a.png").unwrap(),
+        )],
+    );
+    执行动作(&mut 世界);
+    assert!(
+        界面(&世界).试听请求 == editor_ui::state::试听请求::default(),
+        "非音频文件不该进入试听队列"
+    );
+    assert!(
+        编辑(&世界)
+            .日志列表()
+            .iter()
+            .any(|条目| 条目.渲染(editor_ui::语言::中文).contains("png")),
+        "必须留下一条说明为什么没试听"
+    );
+}
+
+#[test]
+fn 停止试听会排入停止请求() {
+    let mut 世界 = 建测试世界();
+    let (_目录, _根) = 建项目(&mut 世界);
+    推动作(&mut 世界, vec![UiAction::停止试听]);
+    执行动作(&mut 世界);
+    assert!(界面(&世界).试听请求.要停止);
+    assert!(界面(&世界).试听请求.要播放.is_none());
+}
+
+#[test]
+fn 试听选中实体的音频组件() {
+    let mut 世界 = 建测试世界();
+    let (_目录, _根) = 建项目(&mut 世界);
+    let 音频 = 项目相对路径::解析("assets/audio/beep.wav").unwrap();
+
+    let 实体 = {
+        let mut 持有 = 世界.resource_mut::<EditorStateHolder>();
+        let 文档 = &mut 持有.状态.会话.文档;
+        let 标识 = 文档.生成实体("喇叭", None);
+        if let Some(实体) = 文档.取可变(标识) {
+            实体.加组件(scene_doc::document::组件数据::新建(
+                "音频",
+                [
+                    (
+                        "音频".to_string(),
+                        scene_doc::property::属性值::资源(
+                            scene_doc::property::资源引用值::按路径(音频.clone()),
+                        ),
+                    ),
+                    ("音量".to_string(), scene_doc::property::属性值::浮点(0.7)),
+                ]
+                .into_iter()
+                .collect(),
+            ));
+        }
+        标识
+    };
+    {
+        let mut 持有 = 世界.resource_mut::<EditorStateHolder>();
+        持有.状态.选择.单选(实体);
+    }
+
+    推动作(&mut 世界, vec![UiAction::试听选中实体音频]);
+    执行动作(&mut 世界);
+    assert_eq!(界面(&世界).试听请求.要播放.as_ref(), Some(&音频));
+}

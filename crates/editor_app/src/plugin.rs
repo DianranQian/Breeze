@@ -408,6 +408,8 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<crate::light_preview::灯光同步状态>()
             // 界面预览：把场景里的 UI 组件投影成 Bevy UI 节点。
             .init_resource::<crate::ui_preview::界面同步状态>()
+            // 音频试听：把「试听」请求变成真实播放。
+            .init_resource::<crate::audio_preview::试听状态>()
             .init_resource::<文件对话框通道>()
             // ---- 配置与布局持久化 ----
             //
@@ -446,6 +448,7 @@ impl Plugin for BevyStudio插件 {
                     // 最近项目：把配置里的列表镜像到界面状态，并把本次启动
                     // 打开的项目记进列表（环境变量打开的项目也要能被"最近"找到）。
                     恢复最近项目,
+                    按环境变量试听音频,
                     按环境变量打开项目设置,
                     按环境变量打开帮助,
                     按环境变量设置变换工具,
@@ -506,6 +509,8 @@ impl Plugin for BevyStudio插件 {
                         // 界面元素同样按修订号重建；它锁定预览相机，
                         // 因此必须排在预览相机同步之后。
                         crate::ui_preview::同步界面元素,
+                        // 音频试听是事件驱动的（用户点按钮），不需要按修订号重建。
+                        crate::audio_preview::处理试听请求,
                         preview::同步预览相机,
                         preview::同步渲染尺寸,
                         preview::模型诊断,
@@ -688,7 +693,9 @@ fn 恢复最近项目(
 fn 安装扩展组件(mut 编辑器: ResMut<EditorStateHolder>) {
     let 基础 = crate::scene_bridge::默认组件注册表();
     // 注册顺序无关紧要（名字不冲突），但链式表达清楚"扩展是一层层加的"。
-    let 扩展 = crate::ui_components::扩展注册表(crate::components3d::扩展注册表(基础));
+    let 扩展 = crate::audio_components::扩展注册表(crate::ui_components::扩展注册表(
+        crate::components3d::扩展注册表(基础),
+    ));
     let 数量 = 扩展.数量();
     编辑器.状态.注册表 = 扩展;
     info!("已安装扩展组件，注册表中共 {数量} 个组件");
@@ -718,6 +725,32 @@ fn 按环境变量打开帮助(mut 界面: ResMut<UiStateHolder>) {
     }
     界面.状态.显示帮助 = true;
     info!("已按环境变量打开帮助窗口");
+}
+
+/// 启动时自动试听一个音频文件（项目相对路径）。
+///
+/// # 为什么需要这个入口
+///
+/// 「试听」在资源树的右键菜单里，自动验收没有输入注入时打不开菜单。
+/// 有了这个环境变量，验收才能确认整条链路真的跑通：项目被打开、
+/// `AssetServer` 加载了音频、`AudioPlayer` 实体被创建、界面进入"正在试听"。
+/// 否则只能拍到一张"看不出有没有播"的静态截图。
+pub const 试听环境变量: &str = "BEVY_STUDIO_AUDITION";
+
+/// 按环境变量自动试听一个音频文件。
+fn 按环境变量试听音频(mut 界面: ResMut<UiStateHolder>) {
+    let Ok(文本) = std::env::var(试听环境变量) else {
+        return;
+    };
+    let Ok(路径) = scene_doc::path::项目相对路径::解析(文本.trim()) else {
+        warn!("音频路径不合法：{文本}");
+        return;
+    };
+    界面.状态.试听请求 = editor_ui::state::试听请求 {
+        要播放: Some(路径),
+        要停止: false,
+    };
+    info!("已按环境变量请求试听");
 }
 
 /// 启动时按环境变量打开项目设置对话框。
@@ -1198,6 +1231,9 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::新建动画 => "新建动画".to_string(),
         UiAction::请求打开动画 => "请求打开动画".to_string(),
         UiAction::打开动画(路径) => format!("打开动画({})", 路径.文本()),
+        UiAction::试听资源(路径) => format!("试听资源({})", 路径.文本()),
+        UiAction::停止试听 => "停止试听".to_string(),
+        UiAction::试听选中实体音频 => "试听选中实体音频".to_string(),
         UiAction::请求打开场景 => "请求打开场景".to_string(),
         UiAction::请求实例化场景 => "请求实例化场景".to_string(),
         UiAction::实例化场景(路径) => format!("实例化场景({})", 路径.文本()),

@@ -33,7 +33,12 @@ repository = ""
 # ---------------------------------------------------------------------------
 
 [workspace.dependencies]
-bevy = { version = "0.20.0", default-features = true }
+# `wav` / `vorbis` 必须显式打开：Bevy 0.20 的 `audio` 特性只带播放器，
+# **不带任何解码器**。没有解码器时 `AudioSource` 会在音频线程里 panic
+# （`UnrecognizedFormat`），实测表现为"点一下试听，编辑器直接崩"。
+# 只开这两种格式，编辑器里也就只接受这两种（见 `audio_preview::可试听`）：
+# 宁可明确拒绝一个没编进来的格式，也不要为它崩掉整个进程。
+bevy = { version = "0.20.0", default-features = true, features = ["wav", "vorbis"] }
 bevy_egui = "0.43.1"
 # `serde` 特性用于把颜色主题持久化成 RON（Color32 的序列化实现）。
 # 它与 egui_dock 的 `serde` 特性所启用的是同一个特性，不会引入第二个 egui 版本。

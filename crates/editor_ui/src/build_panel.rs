@@ -158,6 +158,19 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     .small()
                     .color(配色.次要文字),
             );
+            // 产物大小：判断"这次构建是不是真的换了东西"最直观的指标之一
+            // （同一个二进制大小突然变化，通常意味着依赖或特性被改动）。
+            // 文件可能已被外部删除，读不到就什么都不显示，不打断面板。
+            if let Ok(元数据) = std::fs::metadata(产物) {
+                ui.label(
+                    egui::RichText::new(语言.填充(
+                        "build_artifact_size",
+                        &[&editor_core::package::人类可读字节(元数据.len())],
+                    ))
+                    .small()
+                    .color(配色.次要文字),
+                );
+            }
         }
     });
 

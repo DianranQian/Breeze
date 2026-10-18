@@ -103,6 +103,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "bounds", 中文: "包围框", 英文: "Bounds" },
     词条 { 键: "build", 中文: "构建", 英文: "Build" },
     词条 { 键: "build_artifact", 中文: "产物：{}", 英文: "Artifact: {}" },
+    词条 { 键: "build_artifact_size", 中文: "产物大小：{}", 英文: "Artifact size: {}" },
     词条 { 键: "build_counts", 中文: "{} 个错误 · {} 个警告", 英文: "{} errors · {} warnings" },
     词条 { 键: "build_duration", 中文: "用时 {} 秒", 英文: "{} s" },
     词条 { 键: "build_empty_hint", 中文: "还没有构建。选择配置后点「开始构建」，真实的编译错误会列在这里。", 英文: "Nothing built yet. Choose a profile and press Build; real compiler errors will be listed here." },

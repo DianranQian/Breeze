@@ -89,6 +89,19 @@ $场景 = @(
     @{ Name = "2d_redo";        Mode = "2d"; Tool = "move";   Proj = $工程2D; Entity = "甲"
        Case3 = "gizmo-drag:move_x:80,press:ctrlz,press:ctrly"
        Expect = @("--expect-transform", "translate", "--expect-undo-delta", "1") }
+    # 检查器数值框连拖：一次拖拽产生**一条**撤销记录（合并语义）
+    #
+    # 拖动 48px，位置 x 的步进是 0.05/px，因此期望 x 增加 2.4；
+    # 逐帧会发出几十条 `设变换`，若不合并就会变成几十步撤销 ——
+    # 与上一轮操纵器那 24 条记录是同一类缺陷。
+    @{ Name = "2d_inspector_drag_merged"; Mode = "2d"; Tool = "move"; Proj = $工程2D; Entity = "甲"
+       Case3 = "drag:inspector_pos_x:48:0"
+       Expect = @("--expect-transform", "translate", "--expect-transform-unchanged", "scale",
+                  "--expect-undo-delta", "1") }
+    # 同一次拖拽，按**一次** Ctrl+Z 必须整段退回（MERGE_ENDS：回到最早的执行前）
+    @{ Name = "2d_inspector_drag_undo"; Mode = "2d"; Tool = "move"; Proj = $工程2D; Entity = "甲"
+       Case3 = "drag:inspector_pos_x:48:0,press:ctrlz"
+       Expect = @("--expect-transform-unchanged", "translate", "--expect-undo-delta", "0") }
     # 工具栏切换工具：点真实按钮，断言工具真的换了（不靠环境变量）
     @{ Name = "2d_tool_switch"; Mode = "2d"; Tool = "move";   Proj = $工程2D; Entity = "甲"
        Case3 = "click:tool_rotate"
@@ -174,8 +187,20 @@ foreach ($s in $场景) {
     $原错误偏好 = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     $output = & $probe @probeArgs 2>&1
-    $ErrorActionPreference = $原错误偏好
     $code = $LASTEXITCODE
+
+    # 退出码 3 是"注入没送达/没赶上帧"（capture_failed），不是判定失败。
+    # 真实注入偶尔会遇到窗口前台切换或首帧布局未稳，表现为"取不到坐标"。
+    # 这种情况重跑一次即可；**只对退出码 3 重试**，判定失败（2）绝不重试，
+    # 否则就等于拿重试掩盖真实缺陷。
+    if ($code -eq 3) {
+        Write-Host ("[重试] {0,-22} 注入未送达，重跑一次" -f $s.Name)
+        Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
+        $output = & $probe @probeArgs 2>&1
+        $code = $LASTEXITCODE
+    }
+    $ErrorActionPreference = $原错误偏好
 
      if ($code -eq 0) {
         $passed++

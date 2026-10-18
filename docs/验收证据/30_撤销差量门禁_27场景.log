@@ -1,0 +1,29 @@
+﻿[通过] 2d_move_x              退出码 0
+[通过] 2d_move_y              退出码 0
+[通过] 2d_move_plane          退出码 0
+[通过] 2d_rotate              退出码 0
+[通过] 2d_scale_x             退出码 0
+[通过] 2d_scale_y             退出码 0
+[通过] 2d_scale_uniform       退出码 0
+[通过] 2d_cancel_escape       退出码 0
+[通过] 2d_undo                退出码 0
+[通过] 2d_redo                退出码 0
+[通过] 2d_inspector_drag_merged 退出码 0
+[通过] 2d_inspector_drag_undo 退出码 0
+[通过] 2d_tool_switch         退出码 0
+[通过] 2d_multi_move          退出码 0
+[通过] 3d_move_x              退出码 0
+[通过] 3d_move_y              退出码 0
+[通过] 3d_move_z              退出码 0
+[通过] 3d_rotate_x            退出码 0
+[通过] 3d_rotate_y            退出码 0
+[通过] 3d_rotate_z            退出码 0
+[通过] 3d_scale_x             退出码 0
+[通过] 3d_scale_y             退出码 0
+[通过] 3d_scale_z             退出码 0
+[通过] 3d_scale_uniform       退出码 0
+[通过] 3d_plane_move          退出码 0
+[通过] 3d_cancel_escape       退出码 0
+[通过] 2d_persist             保存后 200.0,60.0,0.0 / 重开后 200.0,60.0,0.0
+
+通过 27 个场景，失败 0 个

@@ -23,6 +23,7 @@
 //! 属于 `editor_app` 的 `scene_bridge` 模块职责。
 
 pub mod command;
+pub mod delta;
 pub mod i18n;
 pub mod project;
 pub mod selection;
@@ -36,6 +37,7 @@ pub mod undo;
 pub mod 模板;
 
 pub use command::{命令结果, 编辑器命令};
+pub use delta::文档差量;
 pub use i18n::{词条, 词表, 语言};
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
@@ -43,7 +45,9 @@ pub use project::{
 };
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};
-pub use undo::{撤销条目, 撤销栈, 默认内存预算字节, 默认最大步数};
+pub use undo::{
+    合并键, 撤销条目, 撤销栈, 默认内存预算字节, 默认合并窗口, 默认最大步数
+};
 pub use 模板::{
     从根集合发现, 从环境值发现, 发现模板, 复制模板到, 复制结果, 复制选项, 打开已有项目目录,
     模板来源, 模板目录环境变量, 模板错误, 解析资源路径, 项目摘要,

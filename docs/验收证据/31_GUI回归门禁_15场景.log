@@ -1,0 +1,17 @@
+﻿[通过] general_zh_dark      判定：通过（截图 2400×1425，均亮度 31.4，主导色 #1E1F22）
+[通过] general_en_dark      判定：通过（截图 2400×1425，均亮度 31.2，主导色 #1E1F22）
+[通过] general_zh_light     判定：通过（截图 2400×1425，均亮度 242.6，主导色 #F5F6F7）
+[通过] general_zh_hc        判定：通过（截图 2400×1425，均亮度 15.5，主导色 #0A0A0A）
+[通过] scene_zh_dark        判定：通过（截图 2400×1425，均亮度 31.3，主导色 #1E1F22）
+[通过] assets_zh_dark       判定：通过（截图 2400×1425，均亮度 32.3，主导色 #1E1F22）
+[通过] debug_zh_dark        判定：通过（截图 2400×1425，均亮度 32.2，主导色 #1E1F22）
+[通过] theme_editor_zh      判定：通过（截图 2400×1425，均亮度 34.5，主导色 #1E1F22）
+[通过] narrow_en_light      判定：通过（截图 1536×1050，均亮度 240.6，主导色 #F5F6F7）
+[通过] restart_restore      判定：通过（截图 2400×1425，均亮度 242.9，主导色 #F5F6F7）
+[通过] tree_row_blank_menu    退出码 0（期望 0）
+[通过] tree_row_blank_select  退出码 0（期望 0）
+[通过] tree_scene_blank_menu  退出码 0（期望 0）
+[通过] tree_collapse_click    退出码 0（期望 0）
+[通过] tree_row_menu_negative 退出码 2（期望 2）
+
+通过 15 个场景，失败 0 个

@@ -2800,6 +2800,25 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         return Some((中心, 中心));
     }
 
+    // ---- 通用拖拽：`drag:<区域 id>:<dx>:<dy>` ----
+    //
+    // 起落点都来自应用记录的**真实矩形中心**，只额外给一个像素位移。
+    // 用于"数值输入框连拖"这类没有操纵器几何可用的控件：
+    // 拖 48px 相当于把 `DragValue` 的值拖动 48 × 步进 那么多。
+    if let Some(其余) = 名.strip_prefix("drag:") {
+        let 段: Vec<&str> = 其余.split(':').collect();
+        if 段.len() == 3
+            && let (Some(dx), Some(dy)) = (
+                段[1].trim().parse::<f32>().ok(),
+                段[2].trim().parse::<f32>().ok(),
+            )
+            && let Some((x, y, w, h)) = 取(段[0])
+        {
+            let 中心 = (x + w * 0.5, y + h * 0.5);
+            return Some((中心, (中心.0 + dx, 中心.1 + dy)));
+        }
+    }
+
     // ---- 场景树箭头：`arrow:<序号>` / `arrow_name:<名称>` ----
     //
     // 折叠箭头只有 18px 宽且按深度缩进，猜坐标必然点偏（点偏就落到名称

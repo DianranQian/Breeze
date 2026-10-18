@@ -1,0 +1,338 @@
+{
+  "allow_no_change": false,
+  "changed_regions": [
+    "inspector_pos_x",
+    "inspector_pos_y",
+    "inspector_pos_z",
+    "inspector_rot_x",
+    "inspector_rot_y",
+    "inspector_rot_z",
+    "inspector_scale_x",
+    "inspector_scale_y",
+    "inspector_scale_z"
+  ],
+  "changed_state": [
+    "document_dirty",
+    "selection",
+    "selection_transform",
+    "undo_steps"
+  ],
+  "coords": {
+    "from_logical": [
+      60.66666793823242,
+      217.3333282470703
+    ],
+    "from_screen": [
+      292,
+      561
+    ],
+    "to_logical": [
+      60.66666793823242,
+      217.3333282470703
+    ],
+    "to_screen": [
+      292,
+      561
+    ]
+  },
+  "dirty_after": true,
+  "dirty_before": false,
+  "dirty_error": null,
+  "dirty_ok": true,
+  "expect_dirty": null,
+  "expect_gizmo_hover": null,
+  "expect_menu": null,
+  "expect_no_change": false,
+  "expect_region": null,
+  "expect_restore": false,
+  "expect_scroll": false,
+  "expect_selection": "甲",
+  "expect_state": [],
+  "expect_tool": null,
+  "expect_transform_changed": [
+    "translate"
+  ],
+  "expect_transform_unchanged": [
+    "scale"
+  ],
+  "expect_undo_delta": 1,
+  "gizmo_drag_actual": null,
+  "gizmo_hover_actual": null,
+  "gizmo_hover_error": null,
+  "gizmo_hover_ok": true,
+  "gizmo_parts_actual": [
+    {
+      "bbox": {
+        "h": 30,
+        "w": 30,
+        "x": 1252,
+        "y": 537
+      },
+      "dir": [
+        0.70710677,
+        -0.70710677
+      ],
+      "hit": [
+        1267,
+        552
+      ],
+      "part": "move_xy"
+    },
+    {
+      "bbox": {
+        "h": 30,
+        "w": 126,
+        "x": 1252,
+        "y": 537
+      },
+      "dir": [
+        1.0,
+        0.0
+      ],
+      "hit": [
+        1363,
+        552
+      ],
+      "part": "move_x"
+    },
+    {
+      "bbox": {
+        "h": 126,
+        "w": 30,
+        "x": 1252,
+        "y": 441
+      },
+      "dir": [
+        0.0,
+        -1.0
+      ],
+      "hit": [
+        1267,
+        456
+      ],
+      "part": "move_y"
+    }
+  ],
+  "input": {
+    "complete": true,
+    "moves": 0,
+    "summary": "move=true down=true up=true steps=0"
+  },
+  "menu_actual": null,
+  "menu_error": null,
+  "menu_ok": true,
+  "name": "2d_inspector_drag_merged",
+  "pixels_per_point": 1.5,
+  "pointer_reached_app": true,
+  "right_click_case": null,
+  "run_after": {
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "pid": null,
+    "running": false,
+    "status": "空闲",
+    "summary": "空闲",
+    "target_kind": "preview-process"
+  },
+  "run_before": {
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "pid": null,
+    "running": false,
+    "status": "空闲",
+    "summary": "空闲",
+    "target_kind": "preview-process"
+  },
+  "schema": 2,
+  "scroll": {
+    "effective": false,
+    "moved_rows": 0,
+    "notches": 0
+  },
+  "selection_actual": {
+    "count": 1,
+    "ids": [
+      "实体标识(bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1)"
+    ],
+    "primary": "实体标识(bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1)"
+  },
+  "selection_error": null,
+  "selection_ok": true,
+  "slot2_clicks": [
+    {
+      "case": "drag:inspector_pos_x:48:0",
+      "geometry_from": "after",
+      "kind": "drag",
+      "logical": [
+        1268.0,
+        256.3333435058594
+      ],
+      "logical_to": [
+        1316.0,
+        256.3333435058594
+      ],
+      "screen": [
+        2103,
+        620
+      ],
+      "screen_to": [
+        2175,
+        620
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "action": "click",
+      "case": "name:甲",
+      "geometry_from": "before",
+      "input_complete": true,
+      "logical": [
+        60.66666793823242,
+        217.3333282470703
+      ],
+      "note": "终点 逻辑 (60.666668, 217.33333) 屏幕 (292, 561)",
+      "screen": [
+        292,
+        561
+      ],
+      "stage": "slot1"
+    },
+    {
+      "action": "click",
+      "case": "click:btn_reset_view_2d",
+      "geometry_from": "before",
+      "input_complete": null,
+      "logical": [
+        300.0,
+        93.0
+      ],
+      "note": null,
+      "screen": [
+        651,
+        375
+      ],
+      "stage": "case2"
+    },
+    {
+      "action": "drag",
+      "case": "drag:inspector_pos_x:48:0",
+      "geometry_from": "after",
+      "input_complete": null,
+      "logical": [
+        1268.0,
+        256.3333435058594
+      ],
+      "note": "终点 逻辑 (1316.0, 256.33334) 屏幕 (2175, 620)",
+      "screen": [
+        2103,
+        620
+      ],
+      "stage": "slot2"
+    }
+  ],
+  "state_after": {
+    "collapsed_count": "0",
+    "console_log_count": "3",
+    "console_log_tail": "微风已启动。请新建或打开一个项目。|已打开项目 `2D 变换工具验收`：1 个场景，0 个资源|已打开场景 scenes/transform_2d.scene.ron",
+    "context_menu": "none",
+    "document_dirty": "true",
+    "gizmo_drag": "null",
+    "gizmo_hover": "null",
+    "mode": "2d",
+    "run_log_lines": "0",
+    "run_pid": "null",
+    "run_running": "false",
+    "run_status": "空闲",
+    "scene_rows": "0:甲:false|0:乙:false|0:丙:false",
+    "selection": "实体标识(bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1)",
+    "selection_transform": "平移[122.10000,60.00000,0.00000] 旋转[0.00000,0.00000,0.00000,1.00000] 缩放[1.00000,1.00000,1.00000]",
+    "transform_tool": "move",
+    "undo_steps": "1",
+    "workspace": "general"
+  },
+  "state_before": {
+    "collapsed_count": "0",
+    "console_log_count": "3",
+    "console_log_tail": "微风已启动。请新建或打开一个项目。|已打开项目 `2D 变换工具验收`：1 个场景，0 个资源|已打开场景 scenes/transform_2d.scene.ron",
+    "context_menu": "none",
+    "document_dirty": "false",
+    "gizmo_drag": "null",
+    "gizmo_hover": "null",
+    "mode": "2d",
+    "run_log_lines": "0",
+    "run_pid": "null",
+    "run_running": "false",
+    "run_status": "空闲",
+    "scene_rows": "0:甲:false|0:乙:false|0:丙:false",
+    "selection": "",
+    "selection_transform": "none",
+    "transform_tool": "move",
+    "undo_steps": "0",
+    "workspace": "general"
+  },
+  "tool_actual": "move",
+  "tool_error": null,
+  "tool_ok": true,
+  "transform_after": {
+    "entity": "实体标识(bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1)",
+    "rotation": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "rotation_deg_z": 0.0,
+    "scale": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "translate": [
+      122.1,
+      60.0,
+      0.0
+    ]
+  },
+  "transform_before": {
+    "entity": "实体标识(bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1)",
+    "rotation": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "rotation_deg_z": 0.0,
+    "scale": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "translate": [
+      120.0,
+      60.0,
+      0.0
+    ]
+  },
+  "transform_error": null,
+  "transform_ok": true,
+  "undo_error": null,
+  "undo_ok": true,
+  "undo_steps_after": 1,
+  "undo_steps_before": 0,
+  "window": {
+    "client": [
+      2400,
+      1425
+    ],
+    "dpi": 144,
+    "handle": "0x7f0f4c",
+    "origin": [
+      201,
+      235
+    ],
+    "title": "微风 (Breeze)"
+  }
+}

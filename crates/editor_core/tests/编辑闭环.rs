@@ -871,15 +871,20 @@ fn 选择集清理失效项() {
 fn 撤销栈独立测试_内存预算能防止无限增长() {
     // 直接测撤销栈本身，确认预算机制在不依赖完整编辑器的情况下也成立。
     let mut 栈 = 撤销栈::带预算(4096, 1000);
-    let 文档 = std::sync::Arc::new(scene_doc::document::场景文档::新建("大场景"));
-    for _ in 0..500 {
+    let 空 = scene_doc::document::场景文档::新建("大场景");
+    for i in 0..500 {
+        // 造一份"新建了一个实体"的差量：这正是撤销栈里最常见的一条记录。
+        let mut 后 = 空.clone();
+        let 实体 = scene_doc::document::场景实体::新建(format!("填充{i}"));
+        后.实体表.insert(实体.标识, 实体.clone());
+        后.顶层顺序.push(实体.标识);
         栈.提交(
             编辑器命令::新建实体 {
                 名称: "填充".to_string(),
                 父实体: None,
                 指定标识: None,
             },
-            文档.clone(),
+            editor_core::delta::文档差量::比较(&空, &后),
             None,
         );
     }

@@ -226,9 +226,9 @@ fn 绘制变换区(
 
         ui.horizontal(|ui| {
             ui.label(上下文.语言.取("position"));
-            let 改变 = 三元拖动(ui, "位置", &mut 新变换.平移, 0.05);
+            let 改变 = 三元拖动(ui, 上下文, "位置", &mut 新变换.平移, 0.05);
             if 改变 {
-                提交变换(上下文, 标识, 新变换);
+                提交变换(上下文, 标识, 新变换, true);
             }
         });
 
@@ -237,9 +237,9 @@ fn 绘制变换区(
         let mut 新欧拉 = 欧拉;
         ui.horizontal(|ui| {
             ui.label(上下文.语言.取("rotate"));
-            if 三元拖动(ui, "旋转", &mut 新欧拉, 0.5) {
+            if 三元拖动(ui, 上下文, "旋转", &mut 新欧拉, 0.5) {
                 新变换.旋转 = 欧拉角转四元数(新欧拉);
-                提交变换(上下文, 标识, 新变换);
+                提交变换(上下文, 标识, 新变换, true);
             }
         });
         ui.label(
@@ -250,8 +250,8 @@ fn 绘制变换区(
 
         ui.horizontal(|ui| {
             ui.label(上下文.语言.取("transform_field_scale"));
-            if 三元拖动(ui, "缩放", &mut 新变换.缩放, 0.01) {
-                提交变换(上下文, 标识, 新变换);
+            if 三元拖动(ui, 上下文, "缩放", &mut 新变换.缩放, 0.01) {
+                提交变换(上下文, 标识, 新变换, true);
             }
         });
 
@@ -268,14 +268,33 @@ fn 绘制变换区(
             .button(上下文.语言.取("reset_to_identity_transform"))
             .clicked()
         {
-            提交变换(上下文, 标识, 变换数据::单位());
+            提交变换(上下文, 标识, 变换数据::单位(), false);
         }
     });
 }
 
 /// 三个浮点分量并排拖动。返回是否有改动。
-fn 三元拖动(ui: &mut Ui, 标识前缀: &str, 值: &mut (f32, f32, f32), 步进: f32) -> bool {
+///
+/// 顺带把每个数值框的**真实矩形**记进布局快照：自动验收靠它来拖动数值框，
+/// 而不是猜坐标。"连拖数值框产生一条撤销记录"这类协议必须用真实拖拽验证。
+fn 三元拖动(
+    ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    标识前缀: &str,
+    值: &mut (f32, f32, f32),
+    步进: f32,
+) -> bool {
     let mut 改变 = false;
+    let 区域表: Option<[&'static str; 3]> = match 标识前缀 {
+        "位置" => Some(["inspector_pos_x", "inspector_pos_y", "inspector_pos_z"]),
+        "旋转" => Some(["inspector_rot_x", "inspector_rot_y", "inspector_rot_z"]),
+        "缩放" => Some([
+            "inspector_scale_x",
+            "inspector_scale_y",
+            "inspector_scale_z",
+        ]),
+        _ => None,
+    };
     ui.push_id(标识前缀, |ui| {
         for (下标, 标签) in ["x", "y", "z"].iter().enumerate() {
             let 分量 = match 下标 {
@@ -283,14 +302,19 @@ fn 三元拖动(ui: &mut Ui, 标识前缀: &str, 值: &mut (f32, f32, f32), 步�
                 1 => &mut 值.1,
                 _ => &mut 值.2,
             };
-            改变 |= ui
-                .add(
-                    egui::DragValue::new(分量)
-                        .speed(步进)
-                        .prefix(*标签)
-                        .max_decimals(3),
-                )
-                .changed();
+            let 响应 = ui.add(
+                egui::DragValue::new(分量)
+                    .speed(步进)
+                    .prefix(*标签)
+                    .max_decimals(3),
+            );
+            if let Some(表) = 区域表 {
+                上下文.界面.布局快照.push(crate::state::区域快照 {
+                    标识: 表[下标],
+                    矩形: 响应.rect,
+                });
+            }
+            改变 |= 响应.changed();
         }
     });
     改变
@@ -301,15 +325,20 @@ fn 三元拖动(ui: &mut Ui, 标识前缀: &str, 值: &mut (f32, f32, f32), 步�
 /// 必须在这里归一化旋转：用户按角度输入、以及四元数乘法累积，
 /// 都会让四元数长度偏离 1，长时间编辑后表现为模型被剪切变形。
 fn 提交变换(
-    上下文: &mut 绘制上下文<'_>, 标识: 实体标识, mut 变换: 变换数据
+    上下文: &mut 绘制上下文<'_>, 标识: 实体标识, mut 变换: 变换数据, 连续: bool
 ) {
     变换.归一化旋转();
-    上下文.动作.推(UiAction::执行命令(
-        editor_core::command::编辑器命令::设变换 {
-            标识,
-            变换: Some(变换),
-        },
-    ));
+    let 命令 = editor_core::command::编辑器命令::设变换 {
+        标识,
+        变换: Some(变换),
+    };
+    // 数值框拖拽是"连续编辑"：同一段拖拽内的逐帧改动会在撤销栈里合并成一步。
+    // 而"重置为单位变换"这种一次性点击走普通入口，撤销时单独一步。
+    if 连续 {
+        上下文.动作.推(UiAction::执行命令连续(命令));
+    } else {
+        上下文.动作.推(UiAction::执行命令(命令));
+    }
 }
 
 /// 绘制组件列表。

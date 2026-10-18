@@ -850,6 +850,9 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::执行命令(命令) => {
             format!("执行命令({})", 命令.显示名(editor_ui::i18n::语言::中文))
         }
+        UiAction::执行命令连续(命令) => {
+            format!("连续编辑({})", 命令.显示名(editor_ui::i18n::语言::中文))
+        }
         UiAction::撤销 => "撤销".to_string(),
         UiAction::重做 => "重做".to_string(),
         UiAction::修改属性(编辑) => {

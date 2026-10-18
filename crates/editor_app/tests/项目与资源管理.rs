@@ -793,6 +793,16 @@ fn 换项目会清空上一个项目的构建报告() {
         });
     }
 
+    // 脚本会话与试听状态同样属于旧项目，一并设成"有内容"以便验证清理。
+    {
+        let mut 界面持有 = 世界.resource_mut::<editor_app::plugin::UiStateHolder>();
+        界面持有.状态.脚本.文档 = Some(editor_ui::script::脚本文档::新建(
+            Some(scene_doc::path::项目相对路径::解析("src/main.rs").unwrap()),
+            "fn main() {}".to_string(),
+        ));
+        界面持有.状态.试听中 = Some("assets/audio/beep.wav".to_string());
+    }
+
     // 打开另一个项目：报告必须回到空闲，否则面板会显示上一个项目的产物。
     let 另一个 = 根.parent().unwrap().join("另一个项目");
     std::fs::create_dir_all(&另一个).unwrap();

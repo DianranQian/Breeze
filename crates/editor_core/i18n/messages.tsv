@@ -88,6 +88,9 @@ log_package_failed	打包失败：{} 个文件写入失败	Packaging failed: {} 
 log_package_blocked	打包被阻止：{} 处依赖缺失	Packaging blocked: {} missing dependencies
 log_package_needs_build	还没有成功构建过，无法打包（包里必须有可执行文件）	No successful build yet, so there is nothing to package
 log_package_dir_missing	打包输出目录不存在：{}	The package output directory does not exist: {}
+instantiate_scene	实例化场景…	Instantiate Scene…
+log_instance_done	已实例化 {}：插入 {} 个实体	Instantiated {} with {} entities
+log_instance_empty	实例化失败：{} 里没有实体	Nothing to instantiate: {} contains no entities
 choose_directory_and_create	选择目录并创建	Choose Directory and Create
 clear	清空	Clear
 clear_2	清除	Clear

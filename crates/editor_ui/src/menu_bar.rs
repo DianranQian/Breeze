@@ -139,7 +139,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                 标题: "",
                 项: vec![
                     菜单项::常可用("new_scene", None),
-                    菜单项::常可用("open_scene", None).需要(可用性::需要场景文件),
+                    菜单项::常可用("open_scene", Some("Ctrl+O")).需要(可用性::需要项目),
                     菜单项::常可用("save_scene", Some("Ctrl+S")).需要(可用性::需要项目),
                     菜单项::常可用("save_scene_as", None).需要(可用性::需要项目),
                 ],
@@ -179,7 +179,10 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                 },
                 菜单分组 {
                     标题: "",
-                    项: vec![菜单项::常可用("focus_selection", Some("F")).需要(可用性::需要选中)],
+                    项: vec![
+                        菜单项::常可用("instantiate_scene", None).需要(可用性::需要项目),
+                        菜单项::常可用("focus_selection", Some("F")).需要(可用性::需要选中),
+                    ],
                 },
             ],
         ),
@@ -371,7 +374,7 @@ pub fn 菜单项动作(
         "new_scene" => Some(UiAction::新建场景),
         "save_scene" => Some(UiAction::保存场景),
         "save_scene_as" => Some(UiAction::请求场景另存为),
-        "open_scene" => None, // 由「打开场景…」弹窗实现，见 UiAction::打开场景
+        "open_scene" => Some(UiAction::请求打开场景),
 
         // ---- 编辑 ----
         "undo_2" => Some(UiAction::撤销),
@@ -403,6 +406,9 @@ pub fn 菜单项动作(
                 新次序: u32::MAX,
             })
         }),
+        // 实例化：把另一个场景的内容并入当前场景。
+        // 选中容器时挂到它下面，否则作为顶层实体。
+        "instantiate_scene" => Some(UiAction::请求实例化场景),
         "focus_selection" => Some(UiAction::聚焦面板(Tab::视口)),
 
         // ---- 实体 ----

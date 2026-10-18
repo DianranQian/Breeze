@@ -27,6 +27,7 @@ pub mod build;
 pub mod command;
 pub mod delta;
 pub mod i18n;
+pub mod instance;
 pub mod package;
 pub mod project;
 pub mod selection;
@@ -49,6 +50,7 @@ pub use build::{
 pub use command::{命令结果, 编辑器命令};
 pub use delta::文档差量;
 pub use i18n::{词条, 词表, 语言};
+pub use instance::{实例化为, 实例化结果, 实例来源, 实例标记组件, 来源属性};
 pub use package::{
     人类可读字节, 打包报告, 打包条目, 打包计划, 打包配置, 执行打包, 生成打包计划, 默认输出目录,
 };

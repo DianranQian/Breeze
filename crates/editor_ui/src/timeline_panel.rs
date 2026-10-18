@@ -379,6 +379,20 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                             ui.close();
                         }
                     }
+                    // 删除整条轨道：`UiAction::删除动画轨道` 早就实现了，却一直没有
+                    // 界面入口（与"试听实体音频""移除最近项目"属于同一类问题）。
+                    // 用分隔线隔开，避免和"切换插值"混成一片。
+                    ui.separator();
+                    if ui
+                        .button(egui::RichText::new(语言.取("anim_delete_track")).color(配色.错误))
+                        .clicked()
+                    {
+                        上下文.动作.推(UiAction::删除动画轨道 {
+                            实体: 轨道.实体,
+                            属性: 轨道.属性,
+                        });
+                        ui.close();
+                    }
                 });
 
                 // 关键帧

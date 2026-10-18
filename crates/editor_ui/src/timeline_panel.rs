@@ -354,14 +354,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 行绘制.text(
                     egui::pos2(行左 + 4.0, 行矩形.center().y),
                     egui::Align2::LEFT_CENTER,
-                    // 步进轨道在名字后面加标记：一眼能区分"卡顿"是数据还是掉帧。
-                    match 轨道.插值 {
-                        editor_core::animation::插值模式::线性 => {
-                            format!("{实体名} · {属性名}")
-                        }
-                        editor_core::animation::插值模式::步进 => {
-                            format!("{实体名} · {属性名}（步进）")
-                        }
+                    // 非默认插值在名字后面加标记（用词条名，不要写死中文）：
+                    // 一眼能区分"卡顿"是数据（步进）还是掉帧。
+                    if 轨道.插值 == editor_core::animation::插值模式::线性 {
+                        format!("{实体名} · {属性名}")
+                    } else {
+                        format!("{实体名} · {属性名}（{}）", 语言.取(轨道.插值.词条键()))
                     },
                     egui::FontId::proportional(11.0),
                     配色.文字,

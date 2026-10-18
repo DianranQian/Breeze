@@ -292,6 +292,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "instantiate_scene", 中文: "实例化场景…", 英文: "Instantiate Scene…" },
     词条 { 键: "interp_linear", 中文: "线性", 英文: "Linear" },
     词条 { 键: "interp_mode", 中文: "插值方式", 英文: "Interpolation" },
+    词条 { 键: "interp_smooth", 中文: "平滑", 英文: "Smooth" },
     词条 { 键: "interp_step", 中文: "步进", 英文: "Step" },
     词条 { 键: "items", 中文: "{} 项", 英文: "{} items" },
     词条 { 键: "keyboard_shortcuts", 中文: "快捷键", 英文: "Keyboard Shortcuts" },

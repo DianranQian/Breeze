@@ -62,6 +62,17 @@ pub const 采集图2环境变量: &str = "BEVY_STUDIO_CAPTURE_PNG2";
 pub const 采集报告2环境变量: &str = "BEVY_STUDIO_CAPTURE_JSON2";
 /// 第二张截图在哪一帧（默认第一帧 + 120）。
 pub const 采集帧2环境变量: &str = "BEVY_STUDIO_CAPTURE_FRAME2";
+/// 第三张截图的输出路径（可选）。
+///
+/// 三帧协议存在的理由：有些验收流程是"操作 → 观察 → 再操作 → 再观察"。
+/// 典型例子是**滚动后点击**：必须先滚轮、再看到滚动后的新几何、
+/// 才能按新矩形点击 —— 两帧协议拿不到"滚动后、点击前"的那一刻。
+pub const 采集图3环境变量: &str = "BEVY_STUDIO_CAPTURE_PNG3";
+/// 第三份证据 JSON 的路径。留空时与第三张截图同名。
+pub const 采集报告3环境变量: &str = "BEVY_STUDIO_CAPTURE_JSON3";
+/// 第三张截图在哪一帧（默认第二帧 + 120）。
+pub const 采集帧3环境变量: &str = "BEVY_STUDIO_CAPTURE_FRAME3";
+
 /// 采集完成后是否自动退出（默认 1）。
 pub const 采集中退出环境变量: &str = "BEVY_STUDIO_CAPTURE_EXIT";
 /// 启动窗口尺寸 `宽x高`（逻辑像素）。用于验证不同窗口尺寸下的布局。
@@ -105,6 +116,16 @@ pub struct 采集配置 {
     pub 已发起2: bool,
     /// 第二份证据是否已写。
     pub 报告2已写: bool,
+    /// 第三张截图路径（`None` 表示只采两帧）。
+    pub 图片3: Option<PathBuf>,
+    /// 第三份证据路径。
+    pub 报告3: Option<PathBuf>,
+    /// 第三张截图的帧号（0 表示不采第三帧）。
+    pub 目标帧3: u32,
+    /// 是否已发起第三帧截图。
+    pub 已发起3: bool,
+    /// 第三份证据是否已写。
+    pub 报告3已写: bool,
 }
 
 impl 采集配置 {
@@ -138,6 +159,26 @@ impl 采集配置 {
             0
         };
 
+        // 三帧协议：调用方设置 PNG3 才会启用第三帧。
+        let 图片3 = 取环境变量路径(采集图3环境变量);
+        let 报告3 = 图片3.as_ref().map(|路径| {
+            取环境变量路径(采集报告3环境变量).unwrap_or_else(|| 路径.with_extension("json"))
+        });
+        let 第二帧帧号 = if 目标帧2 > 0 {
+            目标帧2
+        } else {
+            目标帧
+        };
+        let 目标帧3 = if 图片3.is_some() {
+            std::env::var(采集帧3环境变量)
+                .ok()
+                .and_then(|值| 值.trim().parse::<u32>().ok())
+                .filter(|值| *值 > 第二帧帧号)
+                .unwrap_or(第二帧帧号 + 120)
+        } else {
+            0
+        };
+
         Self {
             图片: Some(图片),
             报告: Some(报告),
@@ -146,6 +187,9 @@ impl 采集配置 {
             图片2,
             报告2,
             目标帧2,
+            图片3,
+            报告3,
+            目标帧3,
             ..Default::default()
         }
     }
@@ -257,6 +301,14 @@ struct 场景行记录 {
     row: 矩形记录,
     /// 折叠箭头矩形；没有子实体时为 `null`。
     arrow: Option<矩形记录>,
+    /// 节点类型代号（`camera` / `terrain` / `mesh3d` / `sprite` / `container` / `entity`）。
+    ///
+    /// 它让"不同类型的节点显示了不同图标"成为可断言的事实，而不只是截图观感。
+    node_kind: String,
+    /// 该行实际使用的图标资源名（与 `node_kind` 一一对应，可交叉核对）。
+    icon: String,
+    /// 类型图标矩形（不参与折叠，永远存在）。
+    type_icon: Option<矩形记录>,
 }
 
 /// 项目运行状态证据。
@@ -320,6 +372,8 @@ struct 采集证据 {
     scene_rows: Vec<场景行记录>,
     /// 项目运行状态（独立进程）。
     project_run: 运行记录,
+    /// 场景树滚动视口的矩形（物理像素）。目标落在这里面才可能被点中。
+    scene_view: Option<矩形记录>,
     /// 场景树折叠集合里的实体数（判断"折叠了但没有可见效果"用）。
     collapsed_count: usize,
     /// 控制台（可见日志区域）里的最后若干行文本。
@@ -407,6 +461,31 @@ pub fn 采集一帧(
             采集.报告2已写 = 报告.as_deref().map(|路径| 路径.is_file()).unwrap_or(true);
         }
     }
+
+    // 第三帧：第二次操作之后（只有调用方显式设置了 PNG3 才采）
+    if 采集.已发起2 && !采集.已发起3 && 采集.目标帧3 > 0 && 采集.已过帧 >= 采集.目标帧3
+    {
+        采集.已发起3 = true;
+        let 图片 = 采集.图片3.clone();
+        let 报告 = 采集.报告3.clone();
+        let 帧号 = 采集.已过帧;
+        if 发起一次采集(
+            &mut commands,
+            egui上下文,
+            &界面,
+            &编辑器,
+            &诊断,
+            &运行时,
+            &项目运行,
+            图片.as_deref(),
+            报告.as_deref(),
+            帧号,
+        )
+        .is_ok()
+        {
+            采集.报告3已写 = 报告.as_deref().map(|路径| 路径.is_file()).unwrap_or(true);
+        }
+    }
 }
 
 /// 采集当前帧：写证据 + 请求截图。
@@ -483,6 +562,9 @@ fn 发起一次采集(
             expanded: 行.展开,
             row: 转矩形(行.行矩形),
             arrow: 行.箭头矩形.map(转矩形),
+            node_kind: 行.节点类型.to_string(),
+            icon: 行.图标.to_string(),
+            type_icon: 行.类型图标矩形.map(转矩形),
         })
         .collect();
 
@@ -538,6 +620,7 @@ fn 发起一次采集(
         panel_keys: 面板键,
         viewport_scale_percent: 界面.状态.相机.缩放 * 100.0,
         icon_count: 0,
+        scene_view: 界面.状态.场景视口矩形.map(转矩形),
         scene_rows: 场景行,
         project_run: 运行记录,
         collapsed_count: 界面.状态.折叠集合().len(),
@@ -617,8 +700,8 @@ pub fn 采集收尾(mut 采集: ResMut<采集配置>, mut 退出: MessageWriter<
     if !采集.已启用() || !采集.已发起 || 采集.已完成 {
         return;
     }
-    // 双帧协议下必须等第二帧也发起，否则会在两帧之间提前退出。
-    let 期望完成 = 采集.目标帧2 == 0 || 采集.已发起2;
+    // 多帧协议下必须等**最后一帧**也发起，否则会在两帧之间提前退出。
+    let 期望完成 = (采集.目标帧2 == 0 || 采集.已发起2) && (采集.目标帧3 == 0 || 采集.已发起3);
     if !期望完成 {
         return;
     }
@@ -632,8 +715,9 @@ pub fn 采集收尾(mut 采集: ResMut<采集配置>, mut 退出: MessageWriter<
     };
     let 第一帧完成 = 文件就绪(&采集.图片) && 文件就绪(&采集.报告);
     let 第二帧完成 = 采集.目标帧2 == 0 || (文件就绪(&采集.图片2) && 文件就绪(&采集.报告2));
+    let 第三帧完成 = 采集.目标帧3 == 0 || (文件就绪(&采集.图片3) && 文件就绪(&采集.报告3));
 
-    if 第一帧完成 && 第二帧完成 {
+    if 第一帧完成 && 第二帧完成 && 第三帧完成 {
         采集.已完成 = true;
         info!(
             "截图已落盘（等待 {} 帧）：{}",

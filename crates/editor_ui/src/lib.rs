@@ -22,6 +22,7 @@ pub mod history_panel;
 pub mod icons;
 pub mod inspector_panel;
 pub mod menu_bar;
+pub mod node_icons;
 pub mod script;
 pub mod state;
 pub mod theme;
@@ -42,6 +43,7 @@ pub use fonts::{
     内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
 };
 pub use icons::{图标, 图标库};
+pub use node_icons::{折叠指示, 节点类型};
 pub use state::{
     UiAction, 动作队列, 区域快照, 场景行几何, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态,
     绘制上下文, 视口拖拽, 视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,

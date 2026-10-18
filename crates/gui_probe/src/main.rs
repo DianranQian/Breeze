@@ -692,6 +692,15 @@ fn 拖拽(参数: &[String]) -> i32 {
     let mut 用例2: Option<String> = None;
     let mut 用例2延迟毫秒: u64 = 1500;
     let mut 期望还原 = false;
+    // 只验滚轮是否真的改变了滚动位置（不要求区域/状态发生变化）。
+    let mut 期望滚动 = false;
+    // 插槽 1 里的滚轮：在场景树等可滚动区域上真实发滚轮事件。
+    let mut 滚轮格数: i32 = 0;
+    let mut 滚轮区域: Option<String> = None;
+    // 插槽 2 里的点击（可多个，逗号分隔）：坐标取自**第二帧证据**，
+    // 因此适用于"滚动之后"的几何。
+    let mut 用例3: Vec<String> = Vec::new();
+    let mut 第三帧帧号: Option<u32> = None;
 
     let mut 下标 = 1;
     while 下标 < 参数.len() {
@@ -732,6 +741,8 @@ fn 拖拽(参数: &[String]) -> i32 {
             "--expect-no-change" => 期望不变 = true,
             // 两次点击后状态应当**回到起点**（折叠再展开、运行再停止）。
             "--expect-restore" => 期望还原 = true,
+            // 只要求"滚轮真的改变了滚动位置"，用于单独的滚动验证会话。
+            "--expect-scroll" => 期望滚动 = true,
             "--dry-run" => 空跑 = true,
             "--case" => 用例 = 取值(&mut 下标),
             // 第二次点击：发生在**第一帧证据之后、第二帧证据之前**。
@@ -746,6 +757,23 @@ fn 拖拽(参数: &[String]) -> i32 {
                     用例2延迟毫秒 = 值;
                 }
             }
+            "--scroll" => {
+                if let Some(值) = 取值(&mut 下标).and_then(|值| 值.trim().parse().ok()) {
+                    滚轮格数 = 值;
+                }
+            }
+            "--scroll-at" => 滚轮区域 = 取值(&mut 下标),
+            "--case3" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    for 段 in 值.split(',') {
+                        let 段 = 段.trim();
+                        if !段.is_empty() {
+                            用例3.push(段.to_string());
+                        }
+                    }
+                }
+            }
+            "--frame3" => 第三帧帧号 = 取值(&mut 下标).and_then(|值| 值.parse().ok()),
             "--window" => 窗口尺寸 = 取值(&mut 下标),
             "--expect-state" => {
                 if let Some(值) = 取值(&mut 下标) {
@@ -771,8 +799,19 @@ fn 拖拽(参数: &[String]) -> i32 {
         eprintln!("可执行文件不存在：{}", exe.display());
         return 4;
     }
-    if 从.is_none() && 分割线.is_none() && 用例.is_none() {
-        eprintln!("drag 需要 --from/--to、--splitter v|h 或 --case <name>");
+    if 从.is_none() && 分割线.is_none() && 用例.is_none() && 用例3.is_empty() && 滚轮格数 == 0
+    {
+        eprintln!(
+            "drag 需要 --from/--to、--splitter v|h、--case <name>、--case3 <name[,name]> 或 --scroll <n>"
+        );
+        return 4;
+    }
+    if !用例3.is_empty() && 第三帧帧号.is_none() {
+        eprintln!("--case3 需要同时给 --frame3 <帧号>（点击发生在第二帧之后、第三帧之前）");
+        return 4;
+    }
+    if 滚轮格数 != 0 && 滚轮区域.is_none() {
+        eprintln!("--scroll 需要同时给 --scroll-at <区域 id>（在该区域中心发滚轮）");
         return 4;
     }
     if let Err(错误) = std::fs::create_dir_all(&输出目录) {
@@ -780,12 +819,15 @@ fn 拖拽(参数: &[String]) -> i32 {
         return 4;
     }
     let 第二帧 = 第二帧.unwrap_or(第一帧 + 120);
+    let 第三帧 = 第三帧帧号.unwrap_or(第二帧 + 120);
     let 前图 = 输出目录.join(format!("{名称}_before.png"));
     let 前证 = 输出目录.join(format!("{名称}_before.json"));
     let 后图 = 输出目录.join(format!("{名称}_after.png"));
     let 后证 = 输出目录.join(format!("{名称}_after.json"));
+    let 末图 = 输出目录.join(format!("{名称}_final.png"));
+    let 末证 = 输出目录.join(format!("{名称}_final.json"));
     let 日志 = 输出目录.join(format!("{名称}.drag.log"));
-    for 路径 in [&前图, &前证, &后图, &后证] {
+    for 路径 in [&前图, &前证, &后图, &后证, &末图, &末证] {
         let _ = std::fs::remove_file(路径);
     }
 
@@ -799,6 +841,13 @@ fn 拖拽(参数: &[String]) -> i32 {
         .env("BEVY_STUDIO_CAPTURE_FRAME2", 第二帧.to_string())
         .env("BEVY_STUDIO_CAPTURE_EXIT", "1")
         .env("BEVY_STUDIO_INPUT_DIAG", "1");
+    // 第三帧只在需要时启用：不需要的话应用只等两帧就退出，不会多跑一倍时间。
+    if 第三帧帧号.is_some() {
+        命令
+            .env("BEVY_STUDIO_CAPTURE_PNG3", &末图)
+            .env("BEVY_STUDIO_CAPTURE_JSON3", &末证)
+            .env("BEVY_STUDIO_CAPTURE_FRAME3", 第三帧.to_string());
+    }
     if let Some(尺寸) = 窗口尺寸.as_deref() {
         命令.env("BEVY_STUDIO_WINDOW_SIZE", 尺寸);
     }
@@ -853,15 +902,15 @@ fn 拖拽(参数: &[String]) -> i32 {
 
     let Ok(前证据) = 读取证据(&前证) else {
         eprintln!("采集失败：第一帧证据不存在或不可读");
-        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+        等待退出(&mut 子进程, Duration::from_secs(5));
         return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第一帧证据不可读", 3);
     };
     if !第一帧就绪 {
-        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+        等待退出(&mut 子进程, Duration::from_secs(5));
         return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第一帧采集超时", 3);
     }
     let Some(窗口) = 窗口 else {
-        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+        等待退出(&mut 子进程, Duration::from_secs(5));
         return 拖拽失败报告(&输出目录, &名称, "capture_failed", "无法识别目标窗口", 3);
     };
 
@@ -883,7 +932,7 @@ fn 拖拽(参数: &[String]) -> i32 {
         (_, _, Some(方向), _) => match 分割线坐标(&前证据, 方向) {
             Some(坐标) => 坐标,
             None => {
-                let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+                等待退出(&mut 子进程, Duration::from_secs(5));
                 return 拖拽失败报告(
                     &输出目录,
                     &名称,
@@ -896,7 +945,7 @@ fn 拖拽(参数: &[String]) -> i32 {
         (_, _, _, Some(名)) => match 用例坐标(名, &前证据) {
             Some(坐标) => 坐标,
             None => {
-                let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+                等待退出(&mut 子进程, Duration::from_secs(5));
                 return 拖拽失败报告(
                     &输出目录,
                     &名称,
@@ -908,6 +957,11 @@ fn 拖拽(参数: &[String]) -> i32 {
         },
         _ => ((0.0, 0.0), (0.0, 0.0)),
     };
+    // 第一插槽是否需要点击：只有显式给了目标才注入。
+    //
+    // 否则 `--scroll` / `--case3` 这类会话会在窗口左上角（菜单栏）多出一次
+    // 真实单击 —— 它既是多余输入，也可能误触菜单把后续步骤搞乱。
+    let 需要第一插槽点击 = 从.is_some() || 分割线.is_some() || 用例.is_some();
 
     // 聚焦目标窗口：不聚焦时 SendInput 的点击会落到别的窗口上。
     //
@@ -919,77 +973,125 @@ fn 拖拽(参数: &[String]) -> i32 {
     let 起点屏幕 = 转屏幕(从逻辑);
     let 终点屏幕 = 转屏幕(到逻辑);
 
-    // 落点必须在**逻辑客户区**内。
-    //
-    // 场景树会滚动：滚出视口的行，其矩形仍然被应用记录下来
-    // （`ScrollArea` 会把所有行都布局一遍再裁掉），但坐标可能已经落在窗口外。
-    // 那时候注入的点击会打到桌面或其他窗口上，表现为"输入未生效" ——
-    // 而这个结论是**错的**。这里直接拦下并说清楚，
-    // 避免把"工具点了越界坐标"当成界面缺陷。
-    let 客户宽 = 前证据
-        .get("window")
-        .and_then(|值| 值.get("width"))
-        .and_then(|值| 值.as_f64())
-        .unwrap_or(0.0) as f32
-        / ppp;
-    let 客户高 = 前证据
-        .get("window")
-        .and_then(|值| 值.get("height"))
-        .and_then(|值| 值.as_f64())
-        .unwrap_or(0.0) as f32
-        / ppp;
-    if 客户宽 > 1.0
-        && 客户高 > 1.0
-        && (从逻辑.0 < 0.0 || 从逻辑.1 < 0.0 || 从逻辑.0 > 客户宽 || 从逻辑.1 > 客户高)
-    {
-        let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
-        return 拖拽失败报告(
-            &输出目录,
-            &名称,
-            "target_out_of_view",
-            &format!(
-                "落点 {从逻辑:?} 不在逻辑客户区 {客户宽:.0}×{客户高:.0} 内：\
-                 目标被滚动到视口之外（需要先滚动，或换一个可见目标）"
-            ),
-            3,
-        );
-    }
-
-    // 起点与终点重合 = 这是一次**单击**，不是拖拽。
-    //
-    // 二者必须走不同的注入路径：拖拽流程按下约 1.0 秒，
-    // 超过 egui 的 `max_click_duration`（默认 0.8s），
-    // 于是 `Response::clicked()` 永远是 false —— 坐标对、指针也到了，
-    // 但按钮"没反应"。这正是上一轮 Run 按钮被误判为缺陷的原因。
-    let 是单击 = (起点屏幕.0 - 终点屏幕.0).abs() <= 1 && (起点屏幕.1 - 终点屏幕.1).abs() <= 1;
-    eprintln!(
-        "注入{}：逻辑 {:?}→{:?}，屏幕 {:?}→{:?}（ppp={ppp:.2}，客户区原点={原点:?}）",
-        if 是单击 { "单击" } else { "拖拽" },
-        从逻辑,
-        到逻辑,
-        起点屏幕,
-        终点屏幕
-    );
-    let 注入 = if 空跑 {
-        // 负向对照：完全不动鼠标，用来证明工具会把"没有变化"判为输入未生效，
-        // 而不是把界面判成坏的。
-        input::注入结果 {
-            移动成功: true,
-            按下成功: true,
-            抬起成功: true,
-            移动步数: 0,
-        }
-    } else if 是单击 {
-        input::执行单击(起点屏幕)
-    } else {
-        input::执行拖拽(input::拖拽 {
-            从: 起点屏幕,
-            到: 终点屏幕,
-            步数: 24,
-            步间隔: Duration::from_millis(28),
-            预热: !空跑,
-        })
+    let mut 注入 = input::注入结果 {
+        移动成功: true,
+        按下成功: true,
+        抬起成功: true,
+        移动步数: 0,
     };
+    if !需要第一插槽点击 {
+        // 本次会话只做滚轮 / 插槽 2：跳过第一插槽的越界检查与点击注入。
+        eprintln!("第一插槽：未指定点击目标，跳过点击注入");
+    } else {
+        // 落点必须在**逻辑客户区**内。
+        //
+        // 场景树会滚动：滚出视口的行，其矩形仍然被应用记录下来
+        // （`ScrollArea` 会把所有行都布局一遍再裁掉），但坐标可能已经落在窗口外。
+        // 那时候注入的点击会打到桌面或其他窗口上，表现为"输入未生效" ——
+        // 而这个结论是**错的**。这里直接拦下并说清楚，
+        // 避免把"工具点了越界坐标"当成界面缺陷。
+        let 客户宽 = 前证据
+            .get("window")
+            .and_then(|值| 值.get("width"))
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(0.0) as f32
+            / ppp;
+        let 客户高 = 前证据
+            .get("window")
+            .and_then(|值| 值.get("height"))
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(0.0) as f32
+            / ppp;
+        if 客户宽 > 1.0
+            && 客户高 > 1.0
+            && (从逻辑.0 < 0.0 || 从逻辑.1 < 0.0 || 从逻辑.0 > 客户宽 || 从逻辑.1 > 客户高)
+        {
+            等待退出(&mut 子进程, Duration::from_secs(5));
+            return 拖拽失败报告(
+                &输出目录,
+                &名称,
+                "target_out_of_view",
+                &format!(
+                    "落点 {从逻辑:?} 不在逻辑客户区 {客户宽:.0}×{客户高:.0} 内：\
+                 目标被滚动到视口之外（需要先滚动，或换一个可见目标）"
+                ),
+                3,
+            );
+        }
+
+        // 起点与终点重合 = 这是一次**单击**，不是拖拽。
+        //
+        // 二者必须走不同的注入路径：拖拽流程按下约 1.0 秒，
+        // 超过 egui 的 `max_click_duration`（默认 0.8s），
+        // 于是 `Response::clicked()` 永远是 false —— 坐标对、指针也到了，
+        // 但按钮"没反应"。这正是上一轮 Run 按钮被误判为缺陷的原因。
+        let 是单击 = (起点屏幕.0 - 终点屏幕.0).abs() <= 1 && (起点屏幕.1 - 终点屏幕.1).abs() <= 1;
+        eprintln!(
+            "注入{}：逻辑 {:?}→{:?}，屏幕 {:?}→{:?}（ppp={ppp:.2}，客户区原点={原点:?}）",
+            if 是单击 { "单击" } else { "拖拽" },
+            从逻辑,
+            到逻辑,
+            起点屏幕,
+            终点屏幕
+        );
+        注入 = if 空跑 {
+            // 负向对照：完全不动鼠标，用来证明工具会把"没有变化"判为输入未生效，
+            // 而不是把界面判成坏的。
+            input::注入结果 {
+                移动成功: true,
+                按下成功: true,
+                抬起成功: true,
+                移动步数: 0,
+            }
+        } else if 是单击 {
+            input::执行单击(起点屏幕)
+        } else {
+            input::执行拖拽(input::拖拽 {
+                从: 起点屏幕,
+                到: 终点屏幕,
+                步数: 24,
+                步间隔: Duration::from_millis(28),
+                预热: !空跑,
+            })
+        };
+    } // if !需要第一插槽点击
+
+    // ---- 滚轮（可选）：同样发生在第一帧证据之后、第二帧证据之前 ----
+    //
+    // 它的意义是让**第二帧证据**拍到"滚动之后"的真实几何。
+    // 后续 `--case3` 就用这份几何去点击，因此不需要任何预设坐标。
+    if 滚轮格数 != 0 {
+        let 区域 = 滚轮区域.clone().unwrap_or_else(|| "scene_tree".to_string());
+        let ppp = 前证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0) as f32;
+        let 表 = 区域表(&前证据);
+        let Some((x, y, w, h)) = 表.get(&区域).copied() else {
+            等待退出(&mut 子进程, Duration::from_secs(5));
+            return 拖拽失败报告(
+                &输出目录,
+                &名称,
+                "capture_failed",
+                &format!("滚轮区域 `{区域}` 不在第一帧证据里"),
+                3,
+            );
+        };
+        // 滚轮要落在区域**内部**：区域矩形是逻辑像素，这里取中心偏上一点，
+        // 避开区域自身的标题/搜索栏等不可滚动部分。
+        let 逻辑点 = (x + w * 0.5, y + h * 0.45);
+        let 屏幕点 = (
+            原点.0 + (逻辑点.0 * ppp).round() as i32,
+            原点.1 + (逻辑点.1 * ppp).round() as i32,
+        );
+        eprintln!("滚轮：区域 `{区域}` 逻辑 {逻辑点:?} → 屏幕 {屏幕点:?}，格数 {滚轮格数}");
+        确保前台(&窗口);
+        std::thread::sleep(Duration::from_millis(150));
+        let 滚动成功 = input::滚动(屏幕点, 滚轮格数);
+        eprintln!("滚轮注入结果：{滚动成功}");
+        // 给 egui 的平滑滚动留出收敛时间，避免第二帧拍到中间态。
+        std::thread::sleep(Duration::from_millis(700));
+    }
 
     // ---- 第二次点击（可选）：发生在第一帧证据之后、第二帧证据之前 ----
     //
@@ -1007,7 +1109,7 @@ fn 拖拽(参数: &[String]) -> i32 {
                 let _ = input::执行单击(屏2);
             }
             None => {
-                let _ = 等待退出(&mut 子进程, Duration::from_secs(5));
+                等待退出(&mut 子进程, Duration::from_secs(5));
                 return 拖拽失败报告(
                     &输出目录,
                     &名称,
@@ -1038,16 +1140,16 @@ fn 拖拽(参数: &[String]) -> i32 {
         }
         std::thread::sleep(Duration::from_millis(80));
     }
-    等待退出(&mut 子进程, Duration::from_secs(10));
-    let 日志尾部 = 读取日志尾部(&日志, 80);
-
     if !第二帧就绪 {
+        等待退出(&mut 子进程, Duration::from_secs(5));
         return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第二帧采集失败", 3);
     }
     let Ok(后证据) = 读取证据(&后证) else {
+        等待退出(&mut 子进程, Duration::from_secs(5));
         return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第二帧证据不可读", 3);
     };
     if !注入.完整() {
+        等待退出(&mut 子进程, Duration::from_secs(5));
         return 拖拽失败报告(
             &输出目录,
             &名称,
@@ -1057,8 +1159,161 @@ fn 拖拽(参数: &[String]) -> i32 {
         );
     }
 
-    let 变化 = 比较区域(&前证据, &后证据);
-    let 状态变化 = 比较状态(&前证据, &后证据);
+    // ---- 插槽 2（可选）：第二帧证据之后、第三帧证据之前 ----
+    //
+    // 关键点：坐标一律取自**第二帧证据**。滚动之后的真实矩形只存在于
+    // 这一份证据里，用它点击才谈得上"没有猜坐标"。
+    let mut 末证据 = 后证据.clone();
+    let mut 第三帧就绪 = false;
+    // 插槽 2 每次点击的实际落点：报告里要能证明"用的是滚动后重新测量的矩形"。
+    let mut 插槽2点击: Vec<serde_json::Value> = Vec::new();
+    if !用例3.is_empty() {
+        let ppp3 = 后证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0) as f32;
+        let 转屏幕3 = |逻辑: (f32, f32)| -> (i32, i32) {
+            (
+                原点.0 + (逻辑.0 * ppp3).round() as i32,
+                原点.1 + (逻辑.1 * ppp3).round() as i32,
+            )
+        };
+        确保前台(&窗口);
+        std::thread::sleep(Duration::from_millis(150));
+        for 名 in &用例3 {
+            let Some((从3, _到3)) = 用例坐标(名, &后证据) else {
+                等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "capture_failed",
+                    &format!("插槽 2 的用例 `{名}` 在第二帧证据里取不到坐标"),
+                    3,
+                );
+            };
+            // 落点必须仍在这个窗口的客户区内；滚出视口的行会给出明确报告，
+            // 而不是让点击打到桌面上再被误判成"界面没反应"。
+            let 客户宽3 = 后证据
+                .get("window")
+                .and_then(|值| 值.get("width"))
+                .and_then(|值| 值.as_f64())
+                .unwrap_or(0.0) as f32
+                / ppp3;
+            let 客户高3 = 后证据
+                .get("window")
+                .and_then(|值| 值.get("height"))
+                .and_then(|值| 值.as_f64())
+                .unwrap_or(0.0) as f32
+                / ppp3;
+            if 客户宽3 > 1.0
+                && 客户高3 > 1.0
+                && (从3.0 < 0.0 || 从3.1 < 0.0 || 从3.0 > 客户宽3 || 从3.1 > 客户高3)
+            {
+                等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "target_out_of_view",
+                    &format!(
+                        "插槽 2 的用例 `{名}` 落点 {从3:?} 不在客户区 \
+                         {客户宽3:.0}×{客户高3:.0} 内（滚动后仍不可见）"
+                    ),
+                    3,
+                );
+            }
+            // 场景树用例还要校验"是否真的在滚动视口内"。
+            // 滚出视口的行会被裁掉，点它只会落到别的面板上 —— 那既不是
+            // 折叠失败，也不是成功，必须按"目标不可见"如实报告。
+            if 是场景树用例(名)
+                && let Some(在内) = 点落在场景视口内(&后证据, 从3)
+                && !在内
+                && let Some((vx, vy, vw, vh)) = 场景视口(&后证据)
+            {
+                等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "target_out_of_view",
+                    &format!(
+                        "插槽 2 的用例 `{名}` 落点 {从3:?} 在场景树滚动视口 \
+                         ({vx:.0},{vy:.0},{vw:.0}×{vh:.0}) 之外（滚动后仍不可见）"
+                    ),
+                    3,
+                );
+            }
+            let 屏3 = 转屏幕3(从3);
+            eprintln!("插槽 2 单击 `{名}`：逻辑 {从3:?}，屏幕 {屏3:?}");
+            插槽2点击.push(serde_json::json!({
+                "case": 名,
+                // 逻辑坐标 = 第二帧证据里该控件矩形的中心
+                "logical": [从3.0, 从3.1],
+                "screen": [屏3.0, 屏3.1],
+                // 这份几何来自第二帧（滚动后、点击前）
+                "geometry_from": "after",
+            }));
+            let _ = input::执行单击(屏3);
+            std::thread::sleep(Duration::from_millis(450));
+        }
+
+        // 等第三帧
+        let 三开始 = Instant::now();
+        loop {
+            if 末图.is_file() && 末证.is_file() {
+                第三帧就绪 = true;
+                break;
+            }
+            if let Ok(Some(_)) = 子进程.try_wait() {
+                if 末图.is_file() && 末证.is_file() {
+                    第三帧就绪 = true;
+                }
+                break;
+            }
+            if 三开始.elapsed() > 超时 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(80));
+        }
+        if !第三帧就绪 {
+            等待退出(&mut 子进程, Duration::from_secs(5));
+            return 拖拽失败报告(&输出目录, &名称, "capture_failed", "第三帧采集失败", 3);
+        }
+        match 读取证据(&末证) {
+            Ok(值) => 末证据 = 值,
+            Err(_) => {
+                等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "capture_failed",
+                    "第三帧证据不可读",
+                    3,
+                );
+            }
+        }
+    }
+
+    等待退出(&mut 子进程, Duration::from_secs(10));
+    let 日志尾部 = 读取日志尾部(&日志, 80);
+
+    // 滚动证据：同一行在滚动前后的 y 坐标必须不同，否则"滚轮没生效"，
+    // 后面拿到的新矩形也就没有意义。
+    let 滚动结果 = 比较滚动(&前证据, &后证据);
+    if 滚轮格数 != 0 && !滚动结果.0 {
+        eprintln!(
+            "滚轮没有改变任何场景树行的位置（移位数 {}）：滚动未生效，按采集失败处理",
+            滚动结果.1
+        );
+        return 拖拽失败报告(
+            &输出目录,
+            &名称,
+            "scroll_not_effective",
+            "滚轮事件已发送，但场景树的滚动位置没有变化",
+            3,
+        );
+    }
+
+    let 变化 = 比较区域(&前证据, &末证据);
+    let 状态变化 = 比较状态(&前证据, &末证据);
     let 收到指针 = 日志尾部.contains("[输入诊断]");
 
     写拖拽报告(
@@ -1075,11 +1330,15 @@ fn 拖拽(参数: &[String]) -> i32 {
         &变化,
         &状态变化,
         &前证据,
-        &后证据,
+        &末证据,
         &期望区域,
         &期望状态变化,
         期望不变,
         期望还原,
+        期望滚动,
+        滚轮格数,
+        滚动结果,
+        &插槽2点击,
     );
 
     // 判定：布局区域变化**或**结构化状态变化都算"点击产生了效果"。
@@ -1089,13 +1348,17 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 运行状态与 PID 的变化 —— 它们才是这两个功能的验收依据。
     let 满足 = if 期望不变 {
         变化.is_empty() && 状态变化.is_empty()
+    } else if 期望滚动 {
+        // 滚轮会话：只要行位置真的变了就算通过。
+        // 滚动不改变"哪些行存在"，所以不可能靠区域/状态指纹来判定。
+        滚动结果.0 && 滚轮格数 != 0
     } else if 期望还原 {
         // 「两次点击后应当回到起点」：状态指纹必须完全一致。
         //
         // 注意这条判据单独使用没有意义（点击完全无效也会返回 true），
         // 因此要求**必须**配置了第二次点击，并且由同一轮的
         // "只点一次"会话证明第一次点击确实生效。
-        状态变化.is_empty() && 用例2.is_some()
+        状态变化.is_empty() && (用例2.is_some() || 用例3.len() >= 2)
     } else {
         !变化.is_empty() || !状态变化.is_empty()
     };
@@ -1126,6 +1389,86 @@ fn 拖拽(参数: &[String]) -> i32 {
         return 2;
     }
     0
+}
+
+/// 取场景树**滚动视口**的逻辑矩形（`scene_view`）。
+///
+/// 老证据文件里没有这个字段时返回 `None`（此时退回"只查窗口"的旧行为）。
+fn 场景视口(证据: &serde_json::Value) -> Option<(f32, f32, f32, f32)> {
+    let ppp = 证据
+        .get("pixels_per_point")
+        .and_then(|值| 值.as_f64())
+        .unwrap_or(1.0) as f32;
+    let 视口 = 证据.get("scene_view")?;
+    if 视口.is_null() {
+        return None;
+    }
+    let 取 = |键: &str| 视口.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) as f32 / ppp;
+    Some((取("x"), 取("y"), 取("w"), 取("h")))
+}
+
+/// 这个用例是不是"点场景树里的东西"。
+///
+/// 只有这类用例才需要做滚动视口校验：点工具栏按钮、面板标签时
+/// `scene_view` 与落点无关。
+fn 是场景树用例(名: &str) -> bool {
+    名.starts_with("arrow:") || 名.starts_with("arrow_name:") || 名.starts_with("row_name:")
+}
+
+/// 落点是否在场景树滚动视口内（含 1px 容差）。
+///
+/// # 为什么必须有这条检查
+///
+/// 滚出视口的行仍然会被布局并记录矩形，只是被 `ScrollArea` 裁掉。
+/// 用它的中心去点击，点击会落到**别的面板**上，界面自然"没有反应"。
+/// 若不拦下来，验收会把"工具点了视口外"当成"折叠功能坏了"，
+/// 或者更糟：两次落空的点击会让 `--expect-restore` 误判通过。
+fn 点落在场景视口内(证据: &serde_json::Value, 点: (f32, f32)) -> Option<bool> {
+    let (x, y, w, h) = 场景视口(证据)?;
+    Some(点.0 >= x - 1.0 && 点.0 <= x + w + 1.0 && 点.1 >= y - 1.0 && 点.1 <= y + h + 1.0)
+}
+
+/// 比较前后两帧里**同一行**的 y 坐标，判断滚动是否真的发生。
+///
+/// 返回 `(是否有行位移, 位移行数)`。
+///
+/// # 为什么必须比 y 而不是比"行列表"
+///
+/// 滚动不改变"哪些行存在"，只改变它们画在什么位置。因此
+/// `scene_rows` 的 `深度:名称:展开` 指纹在滚动前后完全相同 ——
+/// 只看它会把"确实滚了"误判成"什么都没发生"。行的 `row.y` 才是滚动的证据。
+fn 比较滚动(前: &serde_json::Value, 后: &serde_json::Value) -> (bool, usize) {
+    let 取表 = |证据: &serde_json::Value| -> std::collections::BTreeMap<String, f64> {
+        let mut 表 = std::collections::BTreeMap::new();
+        if let Some(行列表) = 证据.get("scene_rows").and_then(|值| 值.as_array()) {
+            for 行 in 行列表 {
+                let Some(名) = 行.get("name").and_then(|值| 值.as_str()) else {
+                    continue;
+                };
+                let Some(y) = 行
+                    .get("row")
+                    .and_then(|值| 值.get("y"))
+                    .and_then(|值| 值.as_f64())
+                else {
+                    continue;
+                };
+                表.insert(名.to_string(), y);
+            }
+        }
+        表
+    };
+    let 前表 = 取表(前);
+    let 后表 = 取表(后);
+    let mut 位移行数 = 0;
+    for (名, 前y) in &前表 {
+        if let Some(后y) = 后表.get(名)
+            && (后y - 前y).abs() > 1.0
+        {
+            位移行数 += 1;
+        }
+    }
+    let 有新增 = 后表.keys().any(|名| !前表.contains_key(名));
+    (位移行数 > 0 || 有新增, 位移行数)
 }
 
 fn 解析点(值: &str) -> Option<(f32, f32)> {
@@ -1162,7 +1505,8 @@ fn 分割线坐标(证据: &serde_json::Value, 方向: &str) -> Option<((f32, f3
                     let x = 项.get("x")?.as_f64()? as f32 / ppp;
                     let w = 项.get("w")?.as_f64()? as f32 / ppp;
                     let y = 项.get("y")?.as_f64()? as f32 / ppp;
-                    let h = 项.get("h")?.as_f64()? as f32 / ppp;
+                    // 只比"左上角在同一水平带、右边缘在视口左侧"就够定位分割线，
+                    // 高度不参与判定，因此不去读 `h`（读了也只是死变量）。
                     (id != "viewport" && x + w <= vx + 1.0 && (y - vy).abs() < 4.0).then_some(x + w)
                 })
                 .fold(f32::MIN, f32::max);
@@ -1368,6 +1712,10 @@ fn 写拖拽报告(
     期望状态: &[String],
     期望不变: bool,
     期望还原: bool,
+    期望滚动: bool,
+    滚轮格数: i32,
+    滚动结果: (bool, usize),
+    插槽2点击: &[serde_json::Value],
 ) {
     let 状态表 = |证据: &serde_json::Value| -> serde_json::Value {
         let mut 对象 = serde_json::Map::new();
@@ -1399,16 +1747,26 @@ fn 写拖拽报告(
             "moves": 注入.移动步数,
         },
         "pointer_reached_app": 收到指针,
+        // 插槽 2：坐标取自第二帧证据（滚动后、点击前）
+        "slot2_clicks": 插槽2点击,
         "changed_regions": 变化,
         "changed_state": 状态变化,
         "state_before": 状态表(前证据),
         "state_after": 状态表(后证据),
         "run_before": 前证据.get("project_run").cloned(),
         "run_after": 后证据.get("project_run").cloned(),
+        "scroll": {
+            // `notches == 0` 表示这次会话没有用滚轮。
+            "notches": 滚轮格数,
+            // 是否真的改变了场景树行的位置（不是"事件发出去了"）。
+            "effective": 滚动结果.0,
+            "moved_rows": 滚动结果.1,
+        },
         "expect_region": 期望区域,
         "expect_state": 期望状态,
         "expect_no_change": 期望不变,
         "expect_restore": 期望还原,
+        "expect_scroll": 期望滚动,
     });
     let _ = std::fs::write(
         输出目录.join(format!("{名称}.drag.json")),
@@ -1426,7 +1784,9 @@ fn 写拖拽报告(
          - 注入：{}\n\
          - 应用收到指针事件：{}\n\
          - 变化区域（{}）：\n{}\n\
-         - 变化状态字段（{}）：\n{}\n",
+         - 变化状态字段（{}）：\n{}\n\
+         - 滚轮：{} 格，是否真的改变了滚动位置：{}（位移行数 {}）\n\
+         - 插槽 2 点击（坐标取自第二帧 = 滚动后）：{}\n",
         窗口.标题,
         窗口.句柄,
         窗口.dpi,
@@ -1450,7 +1810,11 @@ fn 写拖拽报告(
             "- （无）".to_string()
         } else {
             状态行.join("\n")
-        }
+        },
+        滚轮格数,
+        if 滚动结果.0 { "是" } else { "否" },
+        滚动结果.1,
+        serde_json::to_string(插槽2点击).unwrap_or_default()
     );
     let _ = std::fs::write(输出目录.join(format!("{名称}.drag.md")), 文本);
 }
@@ -1557,6 +1921,32 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         })?;
         return Some((点, 点));
     }
+    // 场景树：点**名称文字**。
+    //
+    // 名称起点由该行类型图标的真实右边缘 + 固定间距推出，
+    // 因此不依赖"整行宽度"或猜测文字宽度。
+    if let Some(名称) = 名.strip_prefix("name:") {
+        let ppp = 证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0);
+        let 行列表 = 证据.get("scene_rows")?.as_array()?;
+        let 行 = 行列表
+            .iter()
+            .find(|行| 行.get("name").and_then(|值| 值.as_str()) == Some(名称))?;
+        let 图标 = 行.get("type_icon")?;
+        if 图标.is_null() {
+            return None;
+        }
+        let 取数 = |键: &str| 图标.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) / ppp;
+        // 名称紧跟在类型图标之后：右边缘 + 4px 间距，再往里 12px 落在文字上。
+        let 点 = (
+            (取数("x") + 取数("w") + 16.0) as f32,
+            (取数("y") + 取数("h") * 0.5) as f32,
+        );
+        return Some((点, 点));
+    }
+
     // 场景树某一行的整行矩形中心（用于验证"点行 = 选择"）。
     if let Some(名称) = 名.strip_prefix("row_name:") {
         let ppp = 证据

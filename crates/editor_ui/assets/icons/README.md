@@ -27,8 +27,8 @@ PNG 由 `include_bytes!` 编进二进制（见 `crates/editor_ui/src/icons.rs`�
 assets/icons/
 ├── LICENSE          上游 MIT 许可证原文
 ├── README.md        本文件
-├── svg/             上游原始 SVG（48 个，未修改）
-└── png/             烘焙产物（48 个，32×32，白色描边）
+├── svg/             上游原始 SVG（57 个：48 个原有 + 9 个场景树节点图标）
+└── png/             烘焙产物（57 个，32×32，白色描边）
 ```
 
 ## 烘焙流程
@@ -58,5 +58,29 @@ cargo run -p icon_bake -- --check
 
 ## 体积
 
-48 个 32×32 PNG 合计约 **41 KB**，全部编进二进制；
-解码后约 48 × 32 × 32 × 4 ≈ 200 KB 常驻内存（纹理缓存，只在首次使用时上传）。
+57 个 32×32 PNG 合计约 **48 KB**，全部编进二进制；
+解码后约 57 × 32 × 32 × 4 ≈ 234 KB 常驻内存（纹理缓存，只在首次使用时上传）。
+
+## 场景树专用图标（第二批次，9 个）
+
+这 9 个图标是为场景树节点类型系统加的（见 crates/editor_ui/src/node_icons.rs）。
+它们此前用字符 ▸ / ▾ / 👁 / 🔒 表示，而内置中文字体子集里
+**没有这些字形**，于是界面上被渲染成空心方框（tofu）—— 用户看到的
+所有节点都是空心正方形就是这么来的。
+
+| 文件名 | 用途 |
+| --- | --- |
+| chevron-right.svg | 折叠指示器：有子节点且已折叠 |
+| chevron-down.svg | 折叠指示器：有子节点且已展开 |
+| camera.svg | 节点类型：Camera2d |
+| map.svg | 节点类型：TileTerrain |
+| cube.svg | 节点类型：Primitive3d，以及带 模型 资源的 Sprite |
+| photo.svg（复用） | 节点类型：二维 Sprite |
+| point.svg | 节点类型：普通实体（无可识别组件、无子实体） |
+| hierarchy.svg | 节点类型：容器/分组（无可识别组件、有子实体） |
+| eye-off.svg | 实体在编辑器中隐藏 |
+| lock-open.svg | 实体未锁定 |
+
+新增这 9 个文件时，SVG 头部保留了来源 URL 与许可证行，便于日后核对版本；
+svg/ 里另有一个上游历史的 circle-x.svg 目前没有任何枚举使用
+（icons.rs 的自检测试会把它列为未使用源文件，不算错误）。

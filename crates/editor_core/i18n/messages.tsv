@@ -513,3 +513,11 @@ run_target_preview_process	独立预览进程（默认：再次启动微风并�
 run_target_game	项目声明的真实可执行程序	A real executable declared by the project
 run_target_missing_program	项目的运行目标不存在：{}	The project's run target does not exist: {}
 run_target_not_declared	项目未声明运行目标，已退回「独立预览进程」（这不是游戏运行时）	The project declares no run target; falling back to a separate preview process (this is not a game runtime)
+node_kind_camera	摄像机（Camera2d）	Camera (Camera2d)
+node_kind_terrain	瓦片地形（TileTerrain）	Tile terrain (TileTerrain)
+node_kind_mesh3d	三维网格（Primitive3d）	3D mesh (Primitive3d)
+node_kind_sprite	二维精灵（Sprite）	Sprite (Sprite)
+node_kind_container	容器 / 分组节点	Container / group node
+node_kind_entity	普通实体	Plain entity
+expand_node	展开子节点	Expand children
+collapse_node	折叠子节点	Collapse children

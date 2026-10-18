@@ -21,7 +21,7 @@ use std::time::Duration;
 #[cfg(windows)]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT, SendInput,
+    MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput,
 };
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -73,9 +73,11 @@ impl 注入结果 {
 
 /// 执行一次按下—移动—抬起。
 pub fn 执行拖拽(参数: 拖拽) -> 注入结果 {
-    let mut 结果 = 注入结果::default();
+    let mut 结果 = 注入结果 {
+        移动成功: 移动到(参数.从),
+        ..Default::default()
+    };
 
-    结果.移动成功 = 移动到(参数.从);
     sleep(Duration::from_millis(120));
     结果.按下成功 = 按下();
     sleep(Duration::from_millis(120));
@@ -161,6 +163,89 @@ pub fn 执行单击(坐标: (i32, i32)) -> 注入结果 {
     结果.抬起成功 = 抬起();
     sleep(Duration::from_millis(80));
     结果
+}
+
+/// 在指定屏幕坐标发送滚轮。
+///
+/// # 为什么必须真的发滚轮，而不是改"滚动位置"
+///
+/// 场景树的滚动位置是 egui `ScrollArea` 的内部状态，外部既读不到也写不了。
+/// 唯一能证明"滚动发生了"的办法是把 `WM_MOUSEWHEEL` 的等价输入交给系统输入栈，
+/// 再对比滚动前后应用自己记录的行矩形 —— 行的 y 变了，就是真的滚了。
+///
+/// `格数` 为正表示向上滚（内容下移），为负表示向下滚。Windows 的一个
+/// "刻度"是 `WHEEL_DELTA = 120`。
+///
+/// # 为什么分多次发
+///
+/// egui 对单个滚轮事件有**平滑滚动**处理：一次发 600 会被当成一次大步进，
+/// 中间帧的滚动位置不连续，且不同版本的手感不同。分 5 次发 120 更接近
+/// 真实滚轮，也让"滚动确实发生了"的中间态可见。
+pub fn 滚动(坐标: (i32, i32), 格数: i32) -> bool {
+    if !移动到(坐标) {
+        return false;
+    }
+    sleep(Duration::from_millis(120));
+    let 方向 = if 格数 >= 0 { 1 } else { -1 };
+    let 次数 = 格数.abs().max(1);
+    let mut 全部成功 = true;
+    for _ in 0..次数 {
+        if !发送滚轮(坐标, 方向 * WHEEL_DELTA) {
+            全部成功 = false;
+        }
+        sleep(Duration::from_millis(60));
+    }
+    sleep(Duration::from_millis(160));
+    全部成功
+}
+
+/// 滚轮的一"格"。
+const WHEEL_DELTA: i32 = 120;
+
+#[cfg(windows)]
+fn 发送滚轮(坐标: (i32, i32), 增量: i32) -> bool {
+    // 与 发送鼠标 相同的归一化：`MOUSEEVENTF_VIRTUALDESK` 让多显示器也成立。
+    let (左, 上, 宽, 高) = 屏幕度量();
+    let 归一 = |值: i32, 原点: i32, 尺寸: i32| -> i32 {
+        let 相对 = (值 - 原点).clamp(0, 尺寸.saturating_sub(1));
+        ((相对 as i64 * 65535) / 尺寸.saturating_sub(1).max(1) as i64) as i32
+    };
+    let 输入 = INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: INPUT_0 {
+            mi: MOUSEINPUT {
+                dx: 归一(坐标.0, 左, 宽),
+                dy: 归一(坐标.1, 上, 高),
+                // `mouseData` 是**无符号**字段，负数要按 16 位补码传。
+                mouseData: 增量 as u32,
+                dwFlags: MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK | MOUSEEVENTF_WHEEL,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    // SAFETY: 输入数组只在本调用内使用；SendInput 会复制数据。
+    let 已送 = unsafe { SendInput(1, &输入, std::mem::size_of::<INPUT>() as i32) };
+    已送 == 1
+}
+
+#[cfg(not(windows))]
+fn 发送滚轮(_坐标: (i32, i32), _增量: i32) -> bool {
+    false
+}
+
+/// 取虚拟桌面度量（左、上、宽、高）。
+#[cfg(windows)]
+fn 屏幕度量() -> (i32, i32, i32, i32) {
+    // SAFETY: 只读取系统度量；失败时退回 1920×1080 的主屏假设。
+    unsafe {
+        (
+            GetSystemMetrics(SM_XVIRTUALSCREEN),
+            GetSystemMetrics(SM_YVIRTUALSCREEN),
+            GetSystemMetrics(SM_CXVIRTUALSCREEN).max(1),
+            GetSystemMetrics(SM_CYVIRTUALSCREEN).max(1),
+        )
+    }
 }
 
 /// 读取当前指针位置（屏幕物理像素）。

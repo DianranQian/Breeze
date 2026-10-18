@@ -132,6 +132,33 @@ pub enum 图标 {
     锁定,
     /// 可见。
     眼睛,
+
+    // ---------------------------------------------------------------------
+    // 场景树专用（节点类型图标 + 折叠指示器 + 状态开关）
+    //
+    // 这批图标取代了原先用字符表示的折叠箭头与 emoji 状态开关。
+    // 原因见 `crate::node_icons` 的模块文档：内置中文字体子集里没有
+    // `▸` / `▾` / `👁` / `🔒` 这些字形，于是它们在界面上被渲染成
+    // **空心方框（tofu）** —— 用户看到的"所有节点都是空心正方形"就是这么来的。
+    // ---------------------------------------------------------------------
+    /// 右向箭头 → 场景树折叠指示器（节点有子实体且已折叠）。
+    折叠收起,
+    /// 下向箭头 → 场景树折叠指示器（节点有子实体且已展开）。
+    折叠展开,
+    /// 摄像机 → `Camera2d` 组件节点。
+    摄像机,
+    /// 地图 → `TileTerrain` 组件节点。
+    地形,
+    /// 立方体 → `Primitive3d` 组件节点（三维网格/模型）。
+    立方体,
+    /// 单点 → 没有任何可识别渲染组件的普通实体。
+    实体点,
+    /// 层级 → 有子实体但自身没有可识别组件的容器/分组节点。
+    层级容器,
+    /// 隐藏（眼睛加斜杠）→ 实体当前在编辑器中隐藏。
+    隐藏,
+    /// 未上锁 → 实体未锁定。
+    未锁定,
 }
 
 impl 图标 {
@@ -186,6 +213,15 @@ impl 图标 {
             图标::文本输入,
             图标::锁定,
             图标::眼睛,
+            图标::折叠收起,
+            图标::折叠展开,
+            图标::摄像机,
+            图标::地形,
+            图标::立方体,
+            图标::实体点,
+            图标::层级容器,
+            图标::隐藏,
+            图标::未锁定,
         ]
     }
 
@@ -240,6 +276,15 @@ impl 图标 {
             Self::文本输入 => "cursor-text",
             Self::锁定 => "lock",
             Self::眼睛 => "eye",
+            Self::折叠收起 => "chevron-right",
+            Self::折叠展开 => "chevron-down",
+            Self::摄像机 => "camera",
+            Self::地形 => "map",
+            Self::立方体 => "cube",
+            Self::实体点 => "point",
+            Self::层级容器 => "hierarchy",
+            Self::隐藏 => "eye-off",
+            Self::未锁定 => "lock-open",
         }
     }
 
@@ -294,6 +339,15 @@ impl 图标 {
             Self::文本输入 => include_bytes!("../assets/icons/png/cursor-text.png"),
             Self::锁定 => include_bytes!("../assets/icons/png/lock.png"),
             Self::眼睛 => include_bytes!("../assets/icons/png/eye.png"),
+            Self::折叠收起 => include_bytes!("../assets/icons/png/chevron-right.png"),
+            Self::折叠展开 => include_bytes!("../assets/icons/png/chevron-down.png"),
+            Self::摄像机 => include_bytes!("../assets/icons/png/camera.png"),
+            Self::地形 => include_bytes!("../assets/icons/png/map.png"),
+            Self::立方体 => include_bytes!("../assets/icons/png/cube.png"),
+            Self::实体点 => include_bytes!("../assets/icons/png/point.png"),
+            Self::层级容器 => include_bytes!("../assets/icons/png/hierarchy.png"),
+            Self::隐藏 => include_bytes!("../assets/icons/png/eye-off.png"),
+            Self::未锁定 => include_bytes!("../assets/icons/png/lock-open.png"),
         }
     }
 
@@ -486,8 +540,63 @@ mod 测试 {
         名称.sort_unstable();
         名称.dedup();
         assert_eq!(名称.len(), 原数量, "图标资源名必须唯一");
-        // 全部图标数量与 SVG 源文件数一致（49）。
-        assert_eq!(图标::全部().len(), 48, "图标清单应当与烘焙的源文件数一致");
+
+        // 每个图标的 `名称()` 都必须对应一个真实存在的 SVG 源文件。
+        //
+        // # 为什么不再断言"数量 == 某个硬编码常量"
+        //
+        // 上一版写的是 `assert_eq!(图标::全部().len(), 48)`，注释却说源文件有 49 个
+        // —— 那条断言既挡住了"新增图标忘记加进清单"，也把真实基线记错了，
+        // 于是它只能靠人手同步，且在真正需要扩展时先失败。
+        //
+        // 现在改成检查**真实的文件名对应关系**：新增图标忘记放进 `全部()`
+        // 由 `icon_bake --check` 与下面的"未使用源文件"提示暴露；
+        // 而写错文件名（`名称()` 指向不存在的 SVG）会立刻在这里失败。
+        let svg目录 = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("icons")
+            .join("svg");
+        let mut 源文件: Vec<String> = std::fs::read_dir(&svg目录)
+            .unwrap_or_else(|错误| panic!("读不到图标源目录 {}：{错误}", svg目录.display()))
+            .filter_map(|项| 项.ok())
+            .filter_map(|项| {
+                let 路径 = 项.path();
+                if 路径.extension().is_some_and(|扩展| 扩展 == "svg") {
+                    路径.file_stem().map(|名| 名.to_string_lossy().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        源文件.sort();
+        assert!(
+            !源文件.is_empty(),
+            "图标源目录是空的：{}",
+            svg目录.display()
+        );
+
+        for 图标 in 图标::全部() {
+            let 名 = 图标.名称();
+            assert!(
+                源文件.iter().any(|源| 源 == 名),
+                "图标 `{名}` 缺少 SVG 源文件（{}）；可用的有：{源文件:?}",
+                svg目录.join(format!("{名}.svg")).display()
+            );
+        }
+
+        // 没有被任何图标使用的源文件：不算错误（可能是为将来准备的）。
+        // 与 `tools/gen_messages.py` 对"僵尸词条"的处理保持一致。
+        let 未使用: Vec<&str> = 源文件
+            .iter()
+            .map(String::as_str)
+            .filter(|源| !名称.contains(源))
+            .collect();
+        if !未使用.is_empty() {
+            println!(
+                "提示：{} 个 SVG 源文件未被任何图标使用：{未使用:?}",
+                未使用.len()
+            );
+        }
     }
 
     #[test]

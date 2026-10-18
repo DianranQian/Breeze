@@ -700,3 +700,21 @@ log_not_audio	不是可试听的音频文件：{}	Not an auditionable audio file
 log_no_project	尚未打开项目	No project is open
 log_nothing_selected	没有选中实体	No entity is selected
 log_entity_has_no_audio	实体 {} 上没有音频组件	Entity {} has no audio component
+collision_shapes	碰撞	Collisions
+collision_shapes_hint	显示碰撞体轮廓（当前只做可视化，不跑物理模拟）	Show collision outlines (visualization only; no simulation yet)
+collision_field_shape	形状	Shape
+collision_field_width	宽度	Width
+collision_field_height	高度	Height
+collision_field_radius	半径	Radius
+collision_field_size_tooltip	世界单位；碰撞体尺寸独立于实体缩放	World units; the shape size is independent of the entity's scale
+collision_field_trigger	触发器	Trigger
+collision_field_trigger_tooltip	只上报重叠、不阻挡移动	Reports overlaps without blocking movement
+rigid_body_field_type	类型	Type
+rigid_body_field_mass	质量	Mass
+rigid_body_field_gravity_scale	重力缩放	Gravity Scale
+rigid_body_field_gravity_scale_tooltip	0 表示失重；-1 表示反重力	0 means weightless; -1 flips gravity
+shape_rectangle	矩形	Rectangle
+shape_circle	圆形	Circle
+rigid_body_static	静态	Static
+rigid_body_dynamic	动态	Dynamic
+rigid_body_kinematic	运动学	Kinematic

@@ -13,6 +13,7 @@
 
 pub mod assets_panel;
 pub mod build_panel;
+pub mod collision_overlay;
 pub mod console_panel;
 pub mod dev_mode_bar;
 pub mod dev_modes;

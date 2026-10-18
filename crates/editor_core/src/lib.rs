@@ -24,6 +24,7 @@
 
 pub mod animation;
 pub mod build;
+pub mod collision;
 pub mod command;
 pub mod delta;
 pub mod i18n;

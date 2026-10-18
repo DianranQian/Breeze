@@ -449,6 +449,7 @@ impl Plugin for BevyStudio插件 {
                     // 打开的项目记进列表（环境变量打开的项目也要能被"最近"找到）。
                     恢复最近项目,
                     按环境变量试听音频,
+                    按环境变量显示碰撞,
                     按环境变量打开项目设置,
                     按环境变量打开帮助,
                     按环境变量设置变换工具,
@@ -693,8 +694,8 @@ fn 恢复最近项目(
 fn 安装扩展组件(mut 编辑器: ResMut<EditorStateHolder>) {
     let 基础 = crate::scene_bridge::默认组件注册表();
     // 注册顺序无关紧要（名字不冲突），但链式表达清楚"扩展是一层层加的"。
-    let 扩展 = crate::audio_components::扩展注册表(crate::ui_components::扩展注册表(
-        crate::components3d::扩展注册表(基础),
+    let 扩展 = crate::physics_components::扩展注册表(crate::audio_components::扩展注册表(
+        crate::ui_components::扩展注册表(crate::components3d::扩展注册表(基础)),
     ));
     let 数量 = 扩展.数量();
     编辑器.状态.注册表 = 扩展;
@@ -725,6 +726,21 @@ fn 按环境变量打开帮助(mut 界面: ResMut<UiStateHolder>) {
     }
     界面.状态.显示帮助 = true;
     info!("已按环境变量打开帮助窗口");
+}
+
+/// 启动时显示碰撞体轮廓（自动验收用）。
+///
+/// 与其它环境变量同理：视口工具栏的开关点不到，验收就只能拍一张
+/// "看不出碰撞体在哪"的图。
+pub const 显示碰撞环境变量: &str = "BEVY_STUDIO_SHOW_COLLISIONS";
+
+/// 按环境变量打开碰撞轮廓显示。
+fn 按环境变量显示碰撞(mut 界面: ResMut<UiStateHolder>) {
+    if std::env::var(显示碰撞环境变量).is_err() {
+        return;
+    }
+    界面.状态.相机.显示碰撞 = true;
+    info!("已按环境变量显示碰撞轮廓");
 }
 
 /// 启动时自动试听一个音频文件（项目相对路径）。

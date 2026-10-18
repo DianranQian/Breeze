@@ -425,6 +425,14 @@ impl 编辑器状态 {
         let 场景数 = 项目.场景列表().len();
         let 资源数 = 项目.资源列表().len();
         self.项目 = Some(项目);
+        // 换项目必须丢掉上一个项目的动画会话。
+        //
+        // 动画会话里存着**项目相对路径**（`anims/xxx.anim.ron`）。留着它，
+        // 用户在项目 B 里点「保存动画」就会把内容写进 B 的 `anims/xxx.anim.ron`
+        // —— A 的动画覆盖到 B 里，且时间轴显示的也是 A 的轨道。
+        // 播放状态一并复位，否则换项目后播放头会停在旧时长上。
+        self.动画 = None;
+        self.动画播放 = 动画播放状态::新建();
         self.结构化信息(
             "log_project_opened",
             vec![
@@ -1148,6 +1156,28 @@ fn 当前时间秒() -> u64 {
 #[cfg(test)]
 mod 测试 {
     use super::*;
+
+    #[test]
+    fn 打开项目会丢掉上一个项目的动画会话() {
+        let 临时 = std::env::temp_dir().join(format!("breeze_state_anim_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&临时);
+        let 项目甲 = 临时.join("甲");
+        let 项目乙 = 临时.join("乙");
+        crate::project::项目描述::创建(&项目甲, "甲").expect("创建甲");
+        crate::project::项目描述::创建(&项目乙, "乙").expect("创建乙");
+
+        let mut 编辑器 = 编辑器状态::新建();
+        编辑器.打开项目(&项目甲).expect("打开甲");
+        编辑器.动画 = Some(crate::animation::动画会话::新建("甲动画"));
+
+        编辑器.打开项目(&项目乙).expect("打开乙");
+        assert!(
+            编辑器.动画.is_none(),
+            "换项目后必须丢掉上一个项目的动画会话（否则保存会写进新项目）"
+        );
+        assert_eq!(编辑器.动画播放.时间, 0.0, "播放状态也必须复位");
+        let _ = std::fs::remove_dir_all(&临时);
+    }
 
     /// 修订号必须在**所有**改变文档的路径上递增。
     ///

@@ -314,7 +314,10 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
             "help",
             vec![菜单分组 {
                 标题: "",
-                项: vec![菜单项::常可用("about_bevy_studio", None)],
+                项: vec![
+                    菜单项::常可用("keyboard_shortcuts", Some("F1")),
+                    菜单项::常可用("about_bevy_studio", None),
+                ],
             }],
         ),
     ]
@@ -466,6 +469,7 @@ pub fn 菜单项动作(
         }
 
         // ---- 帮助 ----
+        "keyboard_shortcuts" => Some(UiAction::显示帮助(true)),
         "about_bevy_studio" => Some(UiAction::显示关于),
 
         // 其余一律视为未实现。

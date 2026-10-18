@@ -407,6 +407,7 @@ impl Plugin for BevyStudio插件 {
                     // 打开的项目记进列表（环境变量打开的项目也要能被"最近"找到）。
                     恢复最近项目,
                     按环境变量打开项目设置,
+                    按环境变量打开帮助,
                     按环境变量设置变换工具,
                     按环境变量打开主题编辑器,
                     打印启动信息,
@@ -641,6 +642,20 @@ pub const 启动聚焦面板环境变量: &str = "BEVY_STUDIO_FOCUS_PANEL";
 /// 没有这个入口，"项目设置对话框长什么样、有没有真的列出清单字段"
 /// 就只能靠人看，和之前 `BEVY_STUDIO_OPEN_THEME_EDITOR` 是同一个理由。
 pub const 打开项目设置环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT_SETTINGS";
+
+/// 启动时直接打开帮助窗口（自动验收用）。
+pub const 打开帮助环境变量: &str = "BEVY_STUDIO_OPEN_SHORTCUTS";
+
+/// 启动时按环境变量打开帮助窗口。
+///
+/// 与项目设置同理：帮助窗口只能从菜单/F1 打开，截图脚本按不了键。
+fn 按环境变量打开帮助(mut 界面: ResMut<UiStateHolder>) {
+    if std::env::var(打开帮助环境变量).is_err() {
+        return;
+    }
+    界面.状态.显示帮助 = true;
+    info!("已按环境变量打开帮助窗口");
+}
 
 /// 启动时按环境变量打开项目设置对话框。
 fn 按环境变量打开项目设置(
@@ -948,6 +963,8 @@ pub struct 绘制环境<'平台> {
     pub 构建: &'平台 editor_core::build::构建快照,
     /// 资源导入状态表（项目相对路径文本 → 状态）。
     pub 导入状态: &'平台 std::collections::BTreeMap<String, editor_core::project::导入状态>,
+    /// 编辑器配置目录（帮助窗口显示路径、提供"打开配置目录"）。
+    pub 配置目录: &'平台 std::path::Path,
 }
 
 /// 便捷函数：构造一次绘制所需的上下文并调用界面绘制。
@@ -986,6 +1003,7 @@ pub fn 绘制一帧(
         运行时信息: 环境.诊断,
         构建: 环境.构建,
         导入状态: 环境.导入状态,
+        配置目录: 环境.配置目录,
     };
     editor_ui::绘制(上下文, &mut 绘制);
 }
@@ -1147,6 +1165,10 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         // ---- 资源导入 ----
         UiAction::重新导入资源 => "重新导入资源".to_string(),
         UiAction::检查资源依赖 => "检查资源依赖".to_string(),
+
+        // ---- 帮助与设置 ----
+        UiAction::显示帮助(显示) => format!("显示帮助({显示})"),
+        UiAction::打开配置目录 => "打开配置目录".to_string(),
     }
 }
 

@@ -21,6 +21,7 @@ pub mod fonts;
 pub mod gizmo;
 pub mod gizmo2d;
 pub mod gizmo3d;
+pub mod help;
 pub mod hierarchy_panel;
 pub mod history_panel;
 pub mod icons;
@@ -416,7 +417,7 @@ pub const 浮层区域前缀: &str = "float_";
 ///
 /// 矩形先与视口求交：浮窗可以被拖到窗口外面，而"区域越出截图"是另一条
 /// 独立断言，不该因为一个被拖到边上的窗口而误报。
-fn 记录浮层区域(
+pub(crate) fn 记录浮层区域(
     界面: &mut 界面状态,
     视口: egui::Rect,
     标识: &'static str,
@@ -855,6 +856,7 @@ impl 面板查看器<'_, '_> {
             运行时信息: self.上下文.运行时信息,
             构建: self.上下文.构建,
             导入状态: self.上下文.导入状态,
+            配置目录: self.上下文.配置目录,
         }
     }
 
@@ -911,6 +913,17 @@ impl 面板查看器<'_, '_> {
             self.上下文.编辑器.项目.as_ref().map(|项目| 项目.根目录()),
             配色,
             语言,
+        ) {
+            self.上下文.动作.推(动作);
+        }
+        // 帮助窗口：快捷键、路径与诊断入口。
+        if let Some(动作) = help::绘制帮助窗口(
+            egui上下文,
+            self.上下文.界面,
+            配色,
+            语言,
+            &self.上下文.配置目录,
+            self.上下文.编辑器.项目.as_ref().map(|项目| 项目.根目录()),
         ) {
             self.上下文.动作.推(动作);
         }

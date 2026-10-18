@@ -64,6 +64,15 @@ log_import_finished	导入完成：{}（本次处理 {} 个）	Import finished: 
 log_dependency_ok	依赖检查通过：所有资源引用都能找到	Dependency check passed: every asset reference resolves
 log_dependency_missing	{} 引用了不存在的资源 {}	{} references a missing asset {}
 log_dependency_summary	依赖检查：发现 {} 处缺失的资源引用	Dependency check: {} missing asset references
+keyboard_shortcuts	快捷键	Keyboard Shortcuts
+shortcuts_intro	这些是当前已实现的快捷键。带 Ctrl 的项在 macOS 上对应 Command 键。	These shortcuts are currently implemented. Ctrl means Command on macOS.
+shortcut_cancel_selection	取消选择（变换工具且未拖拽时保持不动）	Clear selection (kept while a transform drag is in progress)
+help_paths	路径与诊断	Paths and Diagnostics
+help_config_dir	配置目录	Config Directory
+help_project_dir	项目目录	Project Directory
+open_config_dir	打开配置目录	Open Config Directory
+show_console	打开控制台	Open Console
+log_config_dir_opened	已打开配置目录：{}	Opened the config directory: {}
 choose_directory_and_create	选择目录并创建	Choose Directory and Create
 clear	清空	Clear
 clear_2	清除	Clear

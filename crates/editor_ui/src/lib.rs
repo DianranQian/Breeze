@@ -662,6 +662,34 @@ fn 绘制_项目设置对话框(
                         if 改变 {
                             草稿.设计分辨率 = (宽, 高);
                         }
+
+                        // 常用预设：手打四个数字容易写错（例如把 1080 打成 1800），
+                        // 常见尺寸直接选更快。当前值不在预设里时显示"自定义"。
+                        const 预设: [(u32, u32); 4] =
+                            [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)];
+                        let 当前文本 = match 预设
+                            .iter()
+                            .find(|(宽, 高)| *宽 == 草稿.设计分辨率.0 && *高 == 草稿.设计分辨率.1)
+                        {
+                            Some((宽, 高)) => format!("{宽}×{高}"),
+                            None => 语言.取("resolution_preset_custom").to_string(),
+                        };
+                        egui::ComboBox::from_id_salt("project_settings_resolution_preset")
+                            .selected_text(当前文本)
+                            .width(120.0)
+                            .show_ui(ui, |ui| {
+                                for (宽, 高) in 预设 {
+                                    if ui
+                                        .selectable_label(
+                                            草稿.设计分辨率 == (宽, 高),
+                                            format!("{宽}×{高}"),
+                                        )
+                                        .clicked()
+                                    {
+                                        草稿.设计分辨率 = (宽, 高);
+                                    }
+                                }
+                            });
                     });
                     ui.end_row();
                 });

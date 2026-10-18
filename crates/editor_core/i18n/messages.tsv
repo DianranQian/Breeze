@@ -739,3 +739,4 @@ paste_entities	从剪贴板粘贴	Paste Entities from Clipboard
 package_output_dir	输出目录	Output Directory
 package_output_dir_hint	项目内相对路径；打包会先清空它再写入	Project-relative path; packaging clears it before writing
 interp_smooth	平滑	Smooth
+resolution_preset_custom	自定义	Custom

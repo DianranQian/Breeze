@@ -509,6 +509,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "reset_to_identity_transform", 中文: "重置为单位变换", 英文: "Reset to Identity Transform" },
     词条 { 键: "reset_view", 中文: "重置视图", 英文: "Reset View" },
     词条 { 键: "reset_view_hint", 中文: "把视口视图重置为原点与 100%", 英文: "Reset the viewport to origin and 100%" },
+    词条 { 键: "resolution_preset_custom", 中文: "自定义", 英文: "Custom" },
     词条 { 键: "restore_default_layout", 中文: "恢复默认布局", 英文: "Restore Default Layout" },
     词条 { 键: "resume", 中文: "▶ 继续", 英文: "▶ Resume" },
     词条 { 键: "rigid_body_dynamic", 中文: "动态", 英文: "Dynamic" },

@@ -158,6 +158,8 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                 菜单分组 {
                     标题: "",
                     项: vec![
+                        菜单项::常可用("copy_entities", Some("Ctrl+C")).需要(可用性::需要选中),
+                        菜单项::常可用("paste_entities", Some("Ctrl+V")).需要(可用性::需要项目),
                         菜单项::常可用("duplicate_entity", Some("Ctrl+D")).需要(可用性::需要选中),
                         菜单项::常可用("delete_entity", Some("Delete")).需要(可用性::需要选中),
                         菜单项::常可用("select_all", Some("Ctrl+A")).需要(可用性::需要项目),
@@ -380,6 +382,8 @@ pub fn 菜单项动作(
         // ---- 编辑 ----
         "undo_2" => Some(UiAction::撤销),
         "redo_2" => Some(UiAction::重做),
+        "copy_entities" => 主选中.map(|_| UiAction::复制选中子树),
+        "paste_entities" => Some(UiAction::粘贴剪贴板),
         "duplicate_entity" => 主选中.map(UiAction::复制实体),
         "delete_entity" => 主选中.map(UiAction::删除实体),
         "select_all" => Some(UiAction::选择(crate::state::选择意图::设为(

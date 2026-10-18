@@ -67,6 +67,8 @@ pub fn 处理快捷键(
         快捷键状态 {
             保存: 命令键 && 输入.key_pressed(egui::Key::S),
             打开场景: 命令键 && 输入.key_pressed(egui::Key::O),
+            复制: 命令键 && 输入.key_pressed(egui::Key::C),
+            粘贴: 命令键 && 输入.key_pressed(egui::Key::V),
             运行: 输入.key_pressed(egui::Key::F5),
             暂停: 输入.key_pressed(egui::Key::F6),
             停止: 输入.key_pressed(egui::Key::F7),
@@ -84,6 +86,12 @@ pub fn 处理快捷键(
     }
     if 按键.打开场景 {
         界面.动作.推(UiAction::请求打开场景);
+    }
+    if 按键.复制 {
+        界面.动作.推(UiAction::复制选中子树);
+    }
+    if 按键.粘贴 {
+        界面.动作.推(UiAction::粘贴剪贴板);
     }
     if 按键.运行 && !当前运行.状态.在运行() {
         界面.动作.推(UiAction::运行场景);
@@ -128,6 +136,8 @@ pub fn 处理快捷键(
 struct 快捷键状态 {
     保存: bool,
     打开场景: bool,
+    复制: bool,
+    粘贴: bool,
     运行: bool,
     暂停: bool,
     停止: bool,
@@ -592,6 +602,62 @@ fn 执行单个动作(
             请求对话框(对话框, 编辑器, 文件对话框请求::实例化场景文件);
         }
 
+        UiAction::复制选中子树 => {
+            // 复制 = 把子树导出成一份内存文档（不落盘）。
+            // 与"另存为子场景"共用 导出子树：同一套层级/身份/资源表规则。
+            let Some(根) = 编辑器.选择.主选中() else {
+                编辑器.警告(界面状态.语言.取("subscene_need_selection").to_string());
+                return;
+            };
+            let Some(文档) = editor_core::instance::导出子树(&编辑器.会话.文档, 根, "剪贴板")
+            else {
+                编辑器.结构化警告(
+                    "log_subscene_missing_root",
+                    vec![日志参数::用户数据(根.to_string())],
+                );
+                return;
+            };
+            let 数量 = 文档.实体数量();
+            编辑器.剪贴板 = Some(文档);
+            编辑器.结构化信息(
+                "log_copied_entities",
+                vec![日志参数::用户数据(数量.to_string())],
+            );
+        }
+
+        UiAction::粘贴剪贴板 => {
+            let Some(剪贴板) = 编辑器.剪贴板.clone() else {
+                编辑器.结构化警告("log_clipboard_empty", Vec::new());
+                return;
+            };
+            let mut 新文档 = 编辑器.会话.文档.clone();
+            // 剪贴板没有来源场景：None 表示不留来源标记、也不登记场景引用。
+            let 结果 = editor_core::instance::实例化为(
+                &mut 新文档,
+                &剪贴板,
+                None,
+                编辑器.选择.主选中(),
+            );
+            if !结果.有效() {
+                编辑器.结构化警告("log_clipboard_empty", Vec::new());
+                return;
+            }
+            match 编辑器.执行(editor_core::command::编辑器命令::设为快照 {
+                文档: Box::new(新文档),
+            }) {
+                Ok(_) => {
+                    if let Some(根) = 结果.根实体 {
+                        编辑器.选择.单选(根);
+                    }
+                    编辑器.结构化信息(
+                        "log_pasted_entities",
+                        vec![日志参数::用户数据(结果.复制实体数.to_string())],
+                    );
+                }
+                Err(错误) => 编辑器.错误(format!("粘贴失败：{错误}")),
+            }
+        }
+
         UiAction::请求导出子场景 => {
             if 编辑器.项目.is_none() {
                 编辑器.警告(界面状态.语言.取("log_build_no_project").to_string());
@@ -654,7 +720,7 @@ fn 执行单个动作(
             let 结果 = editor_core::instance::实例化为(
                 &mut 新文档,
                 &源,
-                &源路径,
+                Some(&源路径),
                 // 挂到当前主选中实体下：用户在场景树里选了一个容器再实例化，
                 // 得到的就是"放进这个容器"。没选中则作为顶层。
                 编辑器.选择.主选中(),

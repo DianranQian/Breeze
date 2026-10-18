@@ -1253,6 +1253,8 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::请求打开场景 => "请求打开场景".to_string(),
         UiAction::请求实例化场景 => "请求实例化场景".to_string(),
         UiAction::实例化场景(路径) => format!("实例化场景({})", 路径.文本()),
+        UiAction::复制选中子树 => "复制选中子树".to_string(),
+        UiAction::粘贴剪贴板 => "粘贴剪贴板".to_string(),
         UiAction::请求导出子场景 => "请求导出子场景".to_string(),
         UiAction::导出子场景 { 路径, .. } => format!("导出子场景({})", 路径.文本()),
         UiAction::设置轨道插值 { 插值, .. } => format!("设置轨道插值({})", 插值.变体名()),

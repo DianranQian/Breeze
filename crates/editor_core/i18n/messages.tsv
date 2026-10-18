@@ -731,3 +731,8 @@ design_resolution_hint	游戏界面的排版画布；预览与导出都按这个
 interp_mode	插值方式	Interpolation
 interp_linear	线性	Linear
 interp_step	步进	Step
+log_copied_entities	已复制 {} 个实体（可跨场景粘贴）	Copied {} entities (can be pasted in another scene)
+log_pasted_entities	已粘贴 {} 个实体	Pasted {} entities
+log_clipboard_empty	剪贴板是空的	The clipboard is empty
+copy_entities	复制实体	Copy Entities
+paste_entities	粘贴实体	Paste Entities

@@ -72,7 +72,7 @@ impl 实例化结果 {
 pub fn 实例化为(
     目标: &mut 场景文档,
     源: &场景文档,
-    源路径: &项目相对路径,
+    来源: Option<&项目相对路径>,
     父实体: Option<实体标识>,
 ) -> 实例化结果 {
     if 源.实体数量() == 0 {
@@ -122,9 +122,10 @@ pub fn 实例化为(
 
     // 实例根上留来源标记：Inspector 可见，也方便将来做"定位到源场景"。
     if let Some(根) = 根实体
+        && let Some(路径) = 来源
         && let Some(实体) = 目标.取可变(根)
     {
-        实体.加组件(标记组件(源路径));
+        实体.加组件(标记组件(路径));
     }
 
     // 资源引用整体并入：实例带来的贴图/音频也要进入目标的资源表，
@@ -137,10 +138,12 @@ pub fn 实例化为(
         目标.资源表.insert(路径.clone(), 引用.clone());
     }
     // 来源场景本身也登记为一条引用：删掉源场景时依赖检查会报出来。
-    if !目标.资源表.contains_key(源路径)
-        && let Some(引用) = 新引用(源路径)
+    // 剪贴板粘贴没有来源场景（None），因此不登记任何伪路径。
+    if let Some(路径) = 来源
+        && !目标.资源表.contains_key(路径)
+        && let Some(引用) = 新引用(路径)
     {
-        目标.资源表.insert(源路径.clone(), 引用);
+        目标.资源表.insert(路径.clone(), 引用);
         新增引用 += 1;
     }
 
@@ -280,7 +283,7 @@ mod 测试 {
         let 结果 = 实例化为(
             &mut 目标,
             &源,
-            &项目相对路径::解析("scenes/宝箱.scene.ron").unwrap(),
+            Some(&项目相对路径::解析("scenes/宝箱.scene.ron").unwrap()),
             None,
         );
 
@@ -311,7 +314,7 @@ mod 测试 {
         let 源 = 造源场景();
         let mut 目标 = 造目标文档();
         let 来源路径 = 项目相对路径::解析("scenes/宝箱.scene.ron").unwrap();
-        let 结果 = 实例化为(&mut 目标, &源, &来源路径, None);
+        let 结果 = 实例化为(&mut 目标, &源, Some(&来源路径), None);
         let 根 = 结果.根实体.unwrap();
         let 实体 = 目标.取(根).unwrap();
         assert_eq!(
@@ -339,7 +342,7 @@ mod 测试 {
         实例化为(
             &mut 目标,
             &源,
-            &项目相对路径::解析("a.scene.ron").unwrap(),
+            Some(&项目相对路径::解析("a.scene.ron").unwrap()),
             Some(容器),
         );
         let 子 = 目标.子实体列表(Some(容器));
@@ -353,8 +356,8 @@ mod 测试 {
         let 源 = 造源场景();
         let mut 目标 = 造目标文档();
         let 路径 = 项目相对路径::解析("a.scene.ron").unwrap();
-        let 第一次 = 实例化为(&mut 目标, &源, &路径, None);
-        实例化为(&mut 目标, &源, &路径, None);
+        let 第一次 = 实例化为(&mut 目标, &源, Some(&路径), None);
+        实例化为(&mut 目标, &源, Some(&路径), None);
 
         let 名1 = 目标.取(第一次.根实体.unwrap()).unwrap().名称.clone();
         let 全部名称: Vec<String> = 目标
@@ -380,7 +383,7 @@ mod 测试 {
         let 结果 = 实例化为(
             &mut 目标,
             &源,
-            &项目相对路径::解析("a.scene.ron").unwrap(),
+            Some(&项目相对路径::解析("a.scene.ron").unwrap()),
             None,
         );
         assert!(!结果.有效());
@@ -395,7 +398,7 @@ mod 测试 {
         let 结果 = 实例化为(
             &mut 目标,
             &源,
-            &项目相对路径::解析("a.scene.ron").unwrap(),
+            Some(&项目相对路径::解析("a.scene.ron").unwrap()),
             Some(幽灵),
         );
         let 根 = 结果.根实体.unwrap();
@@ -458,7 +461,7 @@ mod 测试 {
         let 结果 = 实例化为(
             &mut 目标,
             &导出,
-            &项目相对路径::解析("scenes/宝箱.scene.ron").unwrap(),
+            Some(&项目相对路径::解析("scenes/宝箱.scene.ron").unwrap()),
             None,
         );
         assert_eq!(结果.复制实体数, 导出.实体数量());
@@ -478,7 +481,7 @@ mod 测试 {
         实例化为(
             &mut 文档,
             &源,
-            &项目相对路径::解析("a.scene.ron").unwrap(),
+            Some(&项目相对路径::解析("a.scene.ron").unwrap()),
             None,
         );
         编辑器

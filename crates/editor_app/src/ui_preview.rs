@@ -30,7 +30,9 @@ use scene_doc::property::{属性值, 颜色值};
 
 use crate::plugin::EditorStateHolder;
 use crate::preview::预览相机;
-use crate::ui_components::{界面按钮组件名, 界面文本组件名, 界面面板组件名};
+use crate::ui_components::{
+    文本对齐, 界面按钮组件名, 界面文本组件名, 界面面板组件名
+};
 
 /// 界面预览实体标记。
 #[derive(Component)]
@@ -62,11 +64,14 @@ pub struct 面板项 {
     pub 背景色: 颜色值,
     /// 文案（按钮/文本时存在）。
     pub 文案: Option<文案项>,
+    /// 文本在盒内的水平对齐（仅文本/按钮有）。
+    pub 对齐: 文本对齐,
 }
 
 /// 文案参数。
 #[derive(Debug, Clone, PartialEq)]
 pub struct 文案项 {
+    // 对齐在面板项上（一个盒子只有一种对齐）。
     /// 文本。
     pub 文本: String,
     /// 字号。
@@ -149,6 +154,13 @@ pub fn 收集界面项(文档: &场景文档) -> Vec<面板项> {
             ),
         };
 
+        // 对齐来自 UiText 的字段；按钮自身内容由容器居中，不吃这个字段。
+        let 对齐 = 文本
+            .map(|组件| match 组件.属性.get("对齐") {
+                Some(属性值::枚举(枚举)) => 文本对齐::由值(&枚举.变体名, 枚举.序号),
+                _ => 文本对齐::左,
+            })
+            .unwrap_or(文本对齐::左);
         // 文案优先级：按钮 > 文本。一个实体同时挂两个时按按钮显示，
         // 因为按钮本身就要文字，再叠一段文本只会重影。
         let 文案 = if let Some(组件) = 按钮 {
@@ -172,6 +184,7 @@ pub fn 收集界面项(文档: &场景文档) -> Vec<面板项> {
             锚点,
             背景色,
             文案,
+            对齐,
         });
     }
     结果
@@ -320,6 +333,16 @@ pub fn 同步界面元素(
                         ..default()
                     },
                     TextColor(颜色转_bevy(文案.颜色)),
+                    // 对齐与换行交给 Bevy 的文本布局：只有节点有明确宽度时
+                    // 才看得出对齐效果（与 Godot 的 Label 一致）。
+                    bevy::text::TextLayout {
+                        justify: match 面板.对齐 {
+                            文本对齐::左 => bevy::text::Justify::Left,
+                            文本对齐::居中 => bevy::text::Justify::Center,
+                            文本对齐::右 => bevy::text::Justify::Right,
+                        },
+                        linebreak: bevy::text::LineBreak::WordBoundary,
+                    },
                     Node {
                         margin: UiRect::all(Val::Px(8.0 * 适配.缩放)),
                         ..default()
@@ -384,6 +407,52 @@ mod 测试 {
         assert_eq!(文案.字号, 30.0);
     }
 
+    #[test]
+    fn 文本对齐会传给文本布局() {
+        use bevy::ecs::system::RunSystemOnce;
+        use bevy::text::TextLayout;
+
+        let mut 文档 = 场景文档::新建("界面");
+        let 说明 = 文档.生成实体("说明", None);
+        if let Some(实体) = 文档.取可变(说明) {
+            实体.加组件(组件数据::新建(
+                界面文本组件名,
+                [
+                    ("文本".to_string(), 属性值::文本("居中的说明".into())),
+                    (
+                        "对齐".to_string(),
+                        属性值::枚举(scene_doc::property::枚举值::新建("Center", 1)),
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            ));
+        }
+        let mut 状态 = editor_core::state::编辑器状态::新建();
+        状态.会话.文档 = 文档;
+
+        let mut 世界 = World::new();
+        世界.insert_resource(EditorStateHolder { 状态 });
+        世界.init_resource::<界面同步状态>();
+        世界.insert_resource(Assets::<Font>::default());
+        世界.spawn((Camera2d, 预览相机));
+
+        世界
+            .run_system_once(同步界面元素)
+            .expect("同步界面元素应当能运行");
+        世界.flush();
+
+        let 子节点 = 世界
+            .query_filtered::<Entity, (With<Text>, With<TextLayout>)>()
+            .iter(&世界)
+            .next()
+            .expect("文本节点应当带 TextLayout");
+        assert_eq!(
+            世界.get::<TextLayout>(子节点).unwrap().justify,
+            bevy::text::Justify::Center,
+            "对齐字段必须传到文本布局上"
+        );
+    }
     #[test]
     fn 非界面实体不计入() {
         let mut 文档 = 场景文档::新建("界面");

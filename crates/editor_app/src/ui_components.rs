@@ -73,6 +73,69 @@ pub struct 界面文本属性 {
     pub 字号: f32,
     /// 文字颜色。
     pub 颜色: 颜色值,
+    /// 文本在自身盒内的水平对齐。
+    ///
+    /// Godot 的 Label.horizontal_alignment。只有节点有明确宽度时才看得出来，
+    /// 这与 Godot 一致（Label 自动伸展时对齐没有意义）。
+    pub 对齐: 文本对齐,
+}
+
+/// 文本水平对齐（Godot Label 的 horizontal_alignment）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum 文本对齐 {
+    /// 左对齐。
+    #[default]
+    左,
+    /// 居中。
+    居中,
+    /// 右对齐。
+    右,
+}
+
+impl 文本对齐 {
+    /// 全部可选值。
+    pub const 全部: [文本对齐; 3] = [文本对齐::左, 文本对齐::居中, 文本对齐::右];
+
+    /// 场景文件里的变体名（英文，向运行时看齐）。
+    pub fn 变体名(&self) -> &'static str {
+        match self {
+            文本对齐::左 => "Left",
+            文本对齐::居中 => "Center",
+            文本对齐::右 => "Right",
+        }
+    }
+
+    /// 下拉序号。
+    pub fn 序号(&self) -> u32 {
+        match self {
+            文本对齐::左 => 0,
+            文本对齐::居中 => 1,
+            文本对齐::右 => 2,
+        }
+    }
+
+    /// 由变体名与序号还原；未知值退回左对齐。
+    pub fn 由值(变体名: &str, 序号: u32) -> Self {
+        match 变体名 {
+            "Center" | "居中" => 文本对齐::居中,
+            "Right" | "右" => 文本对齐::右,
+            "Left" | "左" => 文本对齐::左,
+            _ => match 序号 {
+                1 => 文本对齐::居中,
+                2 => 文本对齐::右,
+                _ => 文本对齐::左,
+            },
+        }
+    }
+
+    /// 显示名词条键。
+    pub fn 词条键(&self) -> &'static str {
+        match self {
+            文本对齐::左 => "text_align_left",
+            文本对齐::居中 => "text_align_center",
+            文本对齐::右 => "text_align_right",
+        }
+    }
 }
 
 impl Default for 界面文本属性 {
@@ -81,6 +144,7 @@ impl Default for 界面文本属性 {
             文本: "文字".to_string(),
             字号: 24.0,
             颜色: 颜色值::白(),
+            对齐: 文本对齐::左,
         }
     }
 }
@@ -195,6 +259,13 @@ impl 组件类型 for 界面文本组件类型 {
         结果.insert("文本".to_string(), 属性值::文本(属性.文本.clone()));
         结果.insert("字号".to_string(), 属性值::浮点(属性.字号));
         结果.insert("颜色".to_string(), 属性值::颜色(属性.颜色));
+        结果.insert(
+            "对齐".to_string(),
+            属性值::枚举(scene_doc::property::枚举值::新建(
+                属性.对齐.变体名(),
+                属性.对齐.序号(),
+            )),
+        );
         Some(结果)
     }
 
@@ -204,6 +275,9 @@ impl 组件类型 for 界面文本组件类型 {
         let Some(属性) = 实例.downcast_mut::<界面文本属性>() else {
             return false;
         };
+        if let Some(属性值::枚举(枚举)) = 数据.get("对齐") {
+            属性.对齐 = 文本对齐::由值(&枚举.变体名, 枚举.序号);
+        }
         if let Some(属性值::文本(文本)) = 数据.get("文本") {
             属性.文本 = 文本.clone();
         }
@@ -350,6 +424,24 @@ fn 文本字段() -> &'static [属性描述] {
                 属性种类::颜色,
                 属性值::颜色(颜色值::白()),
             ),
+            属性描述::新建(
+                "对齐",
+                "ui_field_text_align",
+                属性种类::枚举 {
+                    选项: 文本对齐::全部
+                        .iter()
+                        .map(|对齐| {
+                            (
+                                对齐.词条键().to_string(),
+                                对齐.变体名().to_string(),
+                                对齐.序号(),
+                            )
+                        })
+                        .collect(),
+                },
+                属性值::枚举(scene_doc::property::枚举值::新建("Left", 0)),
+            )
+            .带提示("ui_field_text_align_tooltip"),
         ]
     })
 }

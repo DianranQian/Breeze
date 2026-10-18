@@ -740,3 +740,8 @@ package_output_dir	输出目录	Output Directory
 package_output_dir_hint	项目内相对路径；打包会先清空它再写入	Project-relative path; packaging clears it before writing
 interp_smooth	平滑	Smooth
 resolution_preset_custom	自定义	Custom
+ui_field_text_align	对齐	Alignment
+ui_field_text_align_tooltip	只有节点有明确宽度时才看得出对齐效果	Visible only when the node has an explicit width
+text_align_left	左	Left
+text_align_center	居中	Center
+text_align_right	右	Right

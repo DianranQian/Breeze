@@ -451,6 +451,8 @@ pub static 词表: &[词条] = &[
     词条 { 键: "package_missing_deps", 中文: "{} 处依赖缺失，打包已阻止", 英文: "{} missing dependencies; packaging was blocked" },
     词条 { 键: "package_needs_build", 中文: "先构建成功一次才能打包（包里必须有可执行文件）", 英文: "Build successfully first: a package must contain an executable" },
     词条 { 键: "package_open_dir", 中文: "打开产物目录", 英文: "Open Output Directory" },
+    词条 { 键: "package_output_dir", 中文: "输出目录", 英文: "Output Directory" },
+    词条 { 键: "package_output_dir_hint", 中文: "项目内相对路径；打包会先清空它再写入", 英文: "Project-relative path; packaging clears it before writing" },
     词条 { 键: "package_section", 中文: "打包", 英文: "Package" },
     词条 { 键: "panel_cannot_float", 中文: "面板「{}」无法浮动（可能已在浮窗里）", 英文: "Panel \"{}\" cannot float (it may already be a window)" },
     词条 { 键: "paste_entities", 中文: "粘贴实体", 英文: "Paste Entities" },

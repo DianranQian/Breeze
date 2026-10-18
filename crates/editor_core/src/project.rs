@@ -779,6 +779,7 @@ impl 项目描述 {
             运行工作目录: 运行.工作目录.clone(),
             构建: self.清单.构建.clone().unwrap_or_default(),
             设计分辨率: self.清单.设计分辨率,
+            打包: self.清单.打包.clone().unwrap_or_default(),
         }
     }
 
@@ -861,6 +862,9 @@ impl 项目描述 {
             ));
         }
         self.清单.设计分辨率 = 设置.设计分辨率;
+        // 打包输出目录会被清空后重写：必须先确认它落在项目内。
+        设置.打包.输出目录合法().map_err(项目错误::设置非法)?;
+        self.清单.打包 = Some(设置.打包.clone());
         self.清单.构建 = Some(设置.构建.clone());
         Ok(())
     }
@@ -888,6 +892,8 @@ pub struct 项目设置 {
     pub 构建: crate::build::构建配置,
     /// 设计分辨率（UI 布局空间）。
     pub 设计分辨率: (u32, u32),
+    /// 打包配置。
+    pub 打包: crate::package::打包配置,
 }
 
 impl Default for 项目设置 {
@@ -901,6 +907,7 @@ impl Default for 项目设置 {
             运行工作目录: None,
             构建: crate::build::构建配置::default(),
             设计分辨率: 默认设计分辨率(),
+            打包: crate::package::打包配置::default(),
         }
     }
 }

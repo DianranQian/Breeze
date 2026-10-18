@@ -756,6 +756,41 @@ fn 绘制_项目设置对话框(
                     ui.end_row();
                 });
 
+            ui.add_space(4.0);
+            // 打包配置放在项目设置里：它是"这个项目怎么交付"的一部分，
+            // 与构建配置同级；构建面板里那份是执行入口，这里是契约。
+            ui.label(
+                egui::RichText::new(语言.取("package_section"))
+                    .strong()
+                    .color(配色.文字),
+            );
+            egui::Grid::new("project_settings_package_grid")
+                .num_columns(2)
+                .spacing([8.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label(语言.取("package_output_dir"))
+                        .on_hover_text(语言.取("package_output_dir_hint"));
+                    let mut 目录 = 草稿.打包.输出目录.clone();
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 目录)
+                                .hint_text(editor_core::package::默认输出目录)
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.打包.输出目录 = 目录;
+                    }
+                    ui.end_row();
+
+                    ui.label(语言.取("package_all_scenes"));
+                    ui.checkbox(
+                        &mut 草稿.打包.包含全部场景,
+                        语言.取("package_all_scenes_hint"),
+                    );
+                    ui.end_row();
+                });
+
             if let Some(错误) = 错误.as_deref() {
                 ui.separator();
                 ui.label(egui::RichText::new(错误).small().color(配色.错误));

@@ -110,6 +110,73 @@ if (-not $Filter -or "restart" -like "*$Filter*") {
     }
 }
 
+# ---------------------------------------------------------------------------
+# 场景树交互：真实指针注入场景
+#
+# 与上面的场景不同，这批场景会**真的移动鼠标并点击**，因此它们验证的是交互
+# 本身，而不是"某一帧画得对不对"。
+#
+# 用仓库内的固定示例工程 `tools/fixtures/tree_menu_project`（5 个实体，
+# 行列表占不满视口），因此可复现、不依赖仓库外的临时工程。每个场景都会
+# 复制一份到输出目录里跑，不会改动仓库内的固定工程。
+#
+# 每个场景的期望退出码（0 = 通过；2 = 界面缺陷）单独给出 —— 其中
+# `tree_row_menu_negative` **故意期望 2**：它右键名称标签却断言"应该弹出
+# 空白菜单"，只有工具真的判失败，才能证明断言在区分两种菜单、而不是空转。
+# ---------------------------------------------------------------------------
+if (-not $Filter -or "tree" -like "*$Filter*") {
+    $fixture = Join-Path $root "tools\fixtures\tree_menu_project"
+    if (-not (Test-Path (Join-Path $fixture "project.ron"))) {
+        throw "缺少场景树验收用的固定示例工程：$fixture"
+    }
+    $treeProj = Join-Path $outRoot "fixture_tree_menu"
+    Remove-Item -Recurse -Force $treeProj -ErrorAction SilentlyContinue
+    Copy-Item -Recurse -Force $fixture $treeProj
+
+    $treeScenarios = @(
+        @{ Name = "tree_row_blank_menu";    Args = @("--right-click", "row_blank:容器", "--expect-menu", "row");       Expect = 0 },
+        @{ Name = "tree_row_blank_select";  Args = @("--case", "row_blank:容器", "--expect-selection", "容器");        Expect = 0 },
+        @{ Name = "tree_scene_blank_menu";  Args = @("--right-click", "scene_blank", "--expect-menu", "blank");        Expect = 0 },
+        @{ Name = "tree_collapse_click";    Args = @("--case", "arrow_name:容器", "--expect-state", "scene_rows");     Expect = 0 },
+        @{ Name = "tree_row_menu_negative"; Args = @("--right-click", "name:容器", "--expect-menu", "blank");          Expect = 2 }
+    )
+
+    foreach ($s in $treeScenarios) {
+        if ($Filter -and ($s.Name -notlike "*$Filter*") -and ("tree" -notlike "*$Filter*")) { continue }
+        $out = Join-Path $outRoot $s.Name
+        $cfg = Join-Path $outRoot ("cfg_" + $s.Name)
+        Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
+        # 直接以参数数组调用：项目路径与用例名都可能含中文，走 `cmd /c`
+        # 会被 OEM 代码页破坏。
+        #
+        # 探针会把诊断写到 stderr，而本脚本开着 `ErrorActionPreference = Stop`：
+        # 那样一条 stderr 就会被当成终止性错误，整个门禁直接中断。
+        # 因此这里临时放宽，把它的输出（含 stderr）收进来用于显示。
+        $probeArgs = @(
+            "drag", "--exe", $Exe, "--out", $out, "--name", $s.Name,
+            "--timeout", "150",
+            "--env", "APPDATA=$cfg",
+            "--env", "BEVY_STUDIO_OPEN_PROJECT=$treeProj",
+            "--frame", "90", "--frame2", "210"
+        ) + $s.Args
+        $原错误偏好 = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $output = & $probe @probeArgs 2>&1
+        $ErrorActionPreference = $原错误偏好
+        $code = $LASTEXITCODE
+        $detail = ($output | Select-String -Pattern "菜单断言未通过|选中断言未通过|输入未产生任何变化|失败" | Select-Object -First 1).Line
+        if ($code -eq $s.Expect) {
+            $passed++
+            Write-Host ("[通过] {0,-22} 退出码 {1}（期望 {1}）" -f $s.Name, $code)
+        } else {
+            $failed += $s.Name
+            Write-Host ("[失败] {0,-22} 退出码 {1}（期望 {2}）" -f $s.Name, $code, $s.Expect)
+            if ($detail) { Write-Host ("        " + $detail.Trim()) }
+        }
+    }
+}
+
 Write-Host ""
 Write-Host ("通过 {0} 个场景，失败 {1} 个" -f $passed, $failed.Count)
 if ($failed.Count -gt 0) {

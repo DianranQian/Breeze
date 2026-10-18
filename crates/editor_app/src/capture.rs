@@ -309,6 +309,11 @@ struct 场景行记录 {
     icon: String,
     /// 类型图标矩形（不参与折叠，永远存在）。
     type_icon: Option<矩形记录>,
+    /// 行内空白区矩形（名称右边缘 → 右侧状态开关左边缘）。
+    ///
+    /// 验收把它当右键落点：这一块没有别的控件，右键一定弹**行菜单**。
+    /// 名称过长时没有空白区，此时为 `null`。
+    blank: Option<矩形记录>,
 }
 
 /// 项目运行状态证据。
@@ -333,6 +338,39 @@ struct 运行记录 {
     log_tail: Vec<String>,
     /// 运行目标类型：`preview-process`（独立预览进程）或 `game`（项目声明的真实程序）。
     target_kind: String,
+}
+
+/// 选中集证据。
+///
+/// # 为什么选中集必须进证据
+///
+/// "点这一行的名称/图标/空白处会选中它"是场景树最基本的交互，但在加入
+/// 这个字段之前它**无法被自动断言**：选中不改变任何面板矩形，也不在
+/// 状态指纹里，于是"点击生效了"与"点击压根没送达"在证据上完全一样。
+/// 之前几轮因此只能靠"截图看起来高亮了"来判断 —— 那不是证据。
+#[derive(Debug, Clone, Serialize)]
+struct 选择记录 {
+    /// 主选中实体的调试文本；空选择集时为 `null`。
+    primary: Option<String>,
+    /// 选中数量。
+    count: usize,
+    /// 全部选中实体（按标识排序，因此顺序稳定，可直接逐项比对）。
+    ids: Vec<String>,
+}
+
+/// 右键菜单证据。
+///
+/// 菜单是浮层：不改变矩形、不改变文档。没有这份记录，验收只能靠人眼
+/// 看截图，而人眼分不清"行菜单"与"空白菜单"，也分不清"这次弹的"与
+/// "上一帧残留"。`kind` 让"右键空白区弹的是空白菜单"成为可断言的事实。
+#[derive(Debug, Clone, Serialize)]
+struct 菜单记录 {
+    /// 菜单种类代号：`scene_row` / `scene_blank`。
+    kind: String,
+    /// 行菜单的目标实体显示名；空白菜单为 `null`。
+    target: Option<String>,
+    /// 菜单项的语言键（与界面语言无关，因此中英文下可直接比对）。
+    items: Vec<String>,
 }
 
 /// 采集证据。
@@ -376,6 +414,15 @@ struct 采集证据 {
     scene_view: Option<矩形记录>,
     /// 场景树折叠集合里的实体数（判断"折叠了但没有可见效果"用）。
     collapsed_count: usize,
+    /// 当前选中集（判断"点这一行确实选中了它"用）。
+    selection: 选择记录,
+    /// 本帧弹出的场景树右键菜单；没弹出为 `null`。
+    context_menu: Option<菜单记录>,
+    /// 场景树空白区域矩形（物理像素）。
+    ///
+    /// 空白区菜单只能靠它定位：猜坐标会落到最后一行上，弹出的是行菜单，
+    /// 于是"空白菜单坏了"与"点到了行上"无法区分。
+    scene_blank: Option<矩形记录>,
     /// 控制台（可见日志区域）里的最后若干行文本。
     ///
     /// 与 `project_run.log_tail` 的区别：那个是**运行管理器自己的缓冲**，
@@ -565,6 +612,7 @@ fn 发起一次采集(
             node_kind: 行.节点类型.to_string(),
             icon: 行.图标.to_string(),
             type_icon: 行.类型图标矩形.map(转矩形),
+            blank: 行.行空白矩形.map(转矩形),
         })
         .collect();
 
@@ -624,6 +672,23 @@ fn 发起一次采集(
         scene_rows: 场景行,
         project_run: 运行记录,
         collapsed_count: 界面.状态.折叠集合().len(),
+        selection: 选择记录 {
+            primary: 编辑器.状态.选择.主选中().map(|标识| format!("{标识:?}")),
+            count: 编辑器.状态.选择.数量(),
+            ids: 编辑器
+                .状态
+                .选择
+                .全部()
+                .into_iter()
+                .map(|标识| format!("{标识:?}"))
+                .collect(),
+        },
+        context_menu: 界面.状态.场景右键菜单.as_ref().map(|菜单| 菜单记录 {
+            kind: 菜单.种类.代号().to_string(),
+            target: 菜单.目标.clone(),
+            items: 菜单.项.iter().map(|键| (*键).to_string()).collect(),
+        }),
+        scene_blank: 界面.状态.场景空白矩形.map(转矩形),
         console_log_tail: 编辑器
             .状态
             .日志列表()

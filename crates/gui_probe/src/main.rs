@@ -671,6 +671,194 @@ fn 写失败报告(
 // drag：真实鼠标拖拽 + 双帧证据
 // ===========================================================================
 
+/// 一次会话里**单个注入阶段**的中间态记录。
+///
+/// # 为什么需要"逐阶段"而不是只有前后两帧
+///
+/// 一次会话最多有五个注入阶段：插槽 1（点击/拖拽）、右键、滚轮、
+/// 第二次点击、插槽 2。改造前报告里只有"前后两帧 + 一个总判定"：
+/// 一旦失败，无法说明是**哪个阶段**没生效 —— 是右键没送达？是滚轮没滚动？
+/// 还是滚动生效了但点击用了过期的坐标？只能重跑并逐个删步骤去试。
+///
+/// 下面的记录让每个阶段的落点、几何来源（取自哪一帧证据）、注入结果都留痕，
+/// 于是"滚轮生效、但插槽 2 的落点在视口外"这类中间态可以直接从报告里读出来，
+/// 而不必再靠推断。
+#[derive(Debug, Clone)]
+struct 阶段记录 {
+    /// 阶段名：`slot1` / `right_click` / `scroll` / `slot2` / `case2`。
+    阶段: &'static str,
+    /// 动作种类：`click` / `drag` / `right_click` / `wheel` / `skip`。
+    动作: &'static str,
+    /// 触发它的用例名（`arrow_name:乔木` 之类）；纯坐标会话为 `None`。
+    用例: Option<String>,
+    /// 逻辑客户区坐标。
+    逻辑: Option<(f32, f32)>,
+    /// 屏幕物理坐标。
+    屏幕: Option<(i32, i32)>,
+    /// 坐标取自哪一份证据：`before` / `after`。
+    ///
+    /// "用滚动前的几何去点滚动后的界面"是这类验收最容易犯的错，
+    /// 单独记下来才能一眼看出坐标是否过期。
+    几何来源: Option<&'static str>,
+    /// 注入是否完整（按下/移动/抬起都成功）。没有点击的阶段为 `None`。
+    注入完整: Option<bool>,
+    /// 该阶段的补充说明（跳过原因、边界检查结论等）。
+    备注: Option<String>,
+}
+
+impl 阶段记录 {
+    fn 新(阶段: &'static str, 动作: &'static str) -> Self {
+        Self {
+            阶段,
+            动作,
+            用例: None,
+            逻辑: None,
+            屏幕: None,
+            几何来源: None,
+            注入完整: None,
+            备注: None,
+        }
+    }
+
+    fn 用例(mut self, 用例: &str) -> Self {
+        self.用例 = Some(用例.to_string());
+        self
+    }
+
+    fn 落点(mut self, 逻辑: (f32, f32), 屏幕: (i32, i32)) -> Self {
+        self.逻辑 = Some(逻辑);
+        self.屏幕 = Some(屏幕);
+        self
+    }
+
+    fn 来自(mut self, 来源: &'static str) -> Self {
+        self.几何来源 = Some(来源);
+        self
+    }
+
+    fn 注入(mut self, 完整: bool) -> Self {
+        self.注入完整 = Some(完整);
+        self
+    }
+
+    fn 备注(mut self, 备注: impl Into<String>) -> Self {
+        self.备注 = Some(备注.into());
+        self
+    }
+
+    fn 到json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "stage": self.阶段,
+            "action": self.动作,
+            "case": self.用例,
+            "logical": self.逻辑.map(|(x, y)| [x, y]),
+            "screen": self.屏幕.map(|(x, y)| [x, y]),
+            "geometry_from": self.几何来源,
+            "input_complete": self.注入完整,
+            "note": self.备注,
+        })
+    }
+}
+
+/// 场景树右键菜单在证据里的 `kind` 代号 ↔ 命令行可写名字。
+fn 菜单期望代号(名: &str) -> Option<&'static str> {
+    match 名 {
+        "row" | "scene_row" => Some("scene_row"),
+        "blank" | "scene_blank" => Some("scene_blank"),
+        "none" => Some("none"),
+        _ => None,
+    }
+}
+
+/// 读取证据里"本帧弹出的场景树右键菜单"。
+///
+/// 返回 `(kind, target)`；证据里没有这个字段（老版本证据）或没有菜单时为 `None`。
+fn 证据菜单(证据: &serde_json::Value) -> Option<(String, Option<String>)> {
+    let 菜单 = 证据.get("context_menu")?;
+    if 菜单.is_null() {
+        return None;
+    }
+    let kind = 菜单.get("kind")?.as_str()?.to_string();
+    let target = 菜单
+        .get("target")
+        .and_then(|值| 值.as_str())
+        .map(|值| 值.to_string());
+    Some((kind, target))
+}
+
+/// 断言"右键之后菜单处于期望状态"。
+///
+/// 返回 `Err` 时**必须**是界面缺陷（退出码 2）：菜单是这次注入的直接结果，
+/// 注入本身是否送达由 `注入.完整()` 与指针诊断单独保证。
+fn 判定菜单(证据: &serde_json::Value, 期望: Option<&str>) -> Result<(), String> {
+    let Some(期望原文) = 期望 else {
+        return Ok(());
+    };
+    let Some(期望代号) = 菜单期望代号(期望原文) else {
+        return Err(format!(
+            "无法识别的 --expect-menu 取值 `{期望原文}`（可用 row / blank / none）"
+        ));
+    };
+    let 实际 = 证据菜单(证据);
+    if 期望代号 == "none" {
+        return match 实际 {
+            None => Ok(()),
+            Some((kind, target)) => Err(format!(
+                "期望没有右键菜单，但证据里菜单是打开的：kind={kind}，target={target:?}"
+            )),
+        };
+    }
+    match 实际 {
+        None => Err(format!(
+            "期望右键之后弹出 `{期望代号}` 菜单，但证据里 context_menu 为 null\
+             （菜单没有打开，或这一帧恰好已经关闭）"
+        )),
+        Some((实际代号, 目标)) => {
+            if 实际代号 != 期望代号 {
+                return Err(format!(
+                    "期望右键之后弹出 `{期望代号}` 菜单，实际弹出的是 `{实际代号}`\
+                     （target={目标:?}）"
+                ));
+            }
+            Ok(())
+        }
+    }
+}
+
+/// 断言"某个场景树行处于选中状态"。
+///
+/// 选中集是"点这一行"的直接结果，改造前完全不在证据里，因此这条断言
+/// 之前根本无法表达 —— 只能靠人眼看截图里的高亮。
+fn 判定选中(证据: &serde_json::Value, 期望名称: Option<&str>) -> Result<(), String> {
+    let Some(名称) = 期望名称 else {
+        return Ok(());
+    };
+    let 选中 = 证据
+        .get("selection")
+        .ok_or_else(|| "证据里没有 selection 字段（应用版本过旧？）".to_string())?;
+    let ids: Vec<&str> = 选中
+        .get("ids")
+        .and_then(|值| 值.as_array())
+        .map(|值| 值.iter().filter_map(|项| 项.as_str()).collect())
+        .unwrap_or_default();
+    let 行id = 证据
+        .get("scene_rows")
+        .and_then(|值| 值.as_array())
+        .and_then(|行列表| {
+            行列表
+                .iter()
+                .find(|行| 行.get("name").and_then(|值| 值.as_str()) == Some(名称))
+                .and_then(|行| 行.get("id").and_then(|值| 值.as_str()))
+        })
+        .ok_or_else(|| format!("证据里找不到名为 `{名称}` 的场景树行，无法核对选中状态"))?;
+    if ids.contains(&行id) {
+        return Ok(());
+    }
+    Err(format!(
+        "期望 `{名称}`（id={行id}）被选中，实际选中集是 {ids:?}"
+    ))
+}
+
 /// 拖拽验收的判定结果（退出码与既有约定一致）。
 fn 拖拽(参数: &[String]) -> i32 {
     let mut exe: Option<PathBuf> = None;
@@ -705,6 +893,15 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 因此适用于"滚动之后"的几何。
     let mut 用例3: Vec<String> = Vec::new();
     let mut 第三帧帧号: Option<u32> = None;
+    // 右键之后的菜单状态断言：`row` / `blank` / `none`。
+    //
+    // 菜单是浮层，不改变任何矩形，因此在加入这条路之前，"右键菜单弹没弹"
+    // 只能靠人眼看截图。现在它是一条真正会让进程非零退出的断言。
+    let mut 期望菜单: Option<String> = None;
+    // 点击之后的选中状态断言：给出场景树里的**行名称**。
+    let mut 期望选中: Option<String> = None;
+    // 逐阶段中间态记录：每个注入阶段追加一条，最后写进报告。
+    let mut 阶段记录表: Vec<阶段记录> = Vec::new();
 
     let mut 下标 = 1;
     while 下标 < 参数.len() {
@@ -780,6 +977,8 @@ fn 拖拽(参数: &[String]) -> i32 {
                 }
             }
             "--frame3" => 第三帧帧号 = 取值(&mut 下标).and_then(|值| 值.parse().ok()),
+            "--expect-menu" => 期望菜单 = 取值(&mut 下标),
+            "--expect-selection" => 期望选中 = 取值(&mut 下标),
             "--window" => 窗口尺寸 = 取值(&mut 下标),
             "--expect-state" => {
                 if let Some(值) = 取值(&mut 下标) {
@@ -993,6 +1192,10 @@ fn 拖拽(参数: &[String]) -> i32 {
     if !需要第一插槽点击 {
         // 本次会话只做滚轮 / 插槽 2：跳过第一插槽的越界检查与点击注入。
         eprintln!("第一插槽：未指定点击目标，跳过点击注入");
+        阶段记录表.push(
+            阶段记录::新("slot1", "skip")
+                .备注("未指定点击目标（--case / --from / --splitter 都没给）"),
+        );
     } else {
         // 落点必须在**逻辑客户区**内。
         //
@@ -1065,6 +1268,18 @@ fn 拖拽(参数: &[String]) -> i32 {
                 预热: !空跑,
             })
         };
+        let mut 记录 = 阶段记录::新("slot1", if 是单击 { "click" } else { "drag" })
+            .落点(从逻辑, 起点屏幕)
+            .来自("before")
+            .注入(注入.完整())
+            .备注(format!("终点 逻辑 {到逻辑:?} 屏幕 {终点屏幕:?}"));
+        if let Some(名) = 用例.as_deref() {
+            记录 = 记录.用例(名);
+        }
+        if 空跑 {
+            记录 = 记录.备注("空跑：刻意不移动鼠标（负向对照）");
+        }
+        阶段记录表.push(记录);
     } // if !需要第一插槽点击
 
     // ---- 右键（可选）：第一帧证据之后、第二帧证据之前 ----
@@ -1078,6 +1293,12 @@ fn 拖拽(参数: &[String]) -> i32 {
                 确保前台(&窗口);
                 std::thread::sleep(Duration::from_millis(150));
                 let _ = input::执行右键单击(屏右);
+                阶段记录表.push(
+                    阶段记录::新("right_click", "right_click")
+                        .用例(&名)
+                        .落点(从右, 屏右)
+                        .来自("before"),
+                );
                 std::thread::sleep(Duration::from_millis(400));
             }
             None => {
@@ -1126,6 +1347,14 @@ fn 拖拽(参数: &[String]) -> i32 {
         std::thread::sleep(Duration::from_millis(150));
         let 滚动成功 = input::滚动(屏幕点, 滚轮格数);
         eprintln!("滚轮注入结果：{滚动成功}");
+        阶段记录表.push(
+            阶段记录::新("scroll", "wheel")
+                .用例(&区域)
+                .落点(逻辑点, 屏幕点)
+                .来自("before")
+                .注入(滚动成功)
+                .备注(format!("{滚轮格数} 格")),
+        );
         // 给 egui 的平滑滚动留出收敛时间，避免第二帧拍到中间态。
         std::thread::sleep(Duration::from_millis(700));
     }
@@ -1144,6 +1373,12 @@ fn 拖拽(参数: &[String]) -> i32 {
                 确保前台(&窗口);
                 std::thread::sleep(Duration::from_millis(120));
                 let _ = input::执行单击(屏2);
+                阶段记录表.push(
+                    阶段记录::新("case2", "click")
+                        .用例(&名)
+                        .落点(从2, 屏2)
+                        .来自("before"),
+                );
             }
             None => {
                 等待退出(&mut 子进程, Duration::from_secs(5));
@@ -1289,6 +1524,12 @@ fn 拖拽(参数: &[String]) -> i32 {
                 "geometry_from": "after",
             }));
             let _ = input::执行单击(屏3);
+            阶段记录表.push(
+                阶段记录::新("slot2", "click")
+                    .用例(名)
+                    .落点(从3, 屏3)
+                    .来自("after"),
+            );
             std::thread::sleep(Duration::from_millis(450));
         }
 
@@ -1353,6 +1594,19 @@ fn 拖拽(参数: &[String]) -> i32 {
     let 状态变化 = 比较状态(&前证据, &末证据);
     let 收到指针 = 日志尾部.contains("[输入诊断]");
 
+    // 右键菜单与选中集是"本帧事实"：只对最后一帧（注入完成之后那一帧）判定。
+    let 菜单判定 = 判定菜单(&末证据, 期望菜单.as_deref());
+    let 选中判定 = 判定选中(&末证据, 期望选中.as_deref());
+    let mut 断言通过 = true;
+    if let Err(错误) = &菜单判定 {
+        eprintln!("菜单断言未通过：{错误}");
+        断言通过 = false;
+    }
+    if let Err(错误) = &选中判定 {
+        eprintln!("选中断言未通过：{错误}");
+        断言通过 = false;
+    }
+
     写拖拽报告(
         &输出目录,
         &名称,
@@ -1378,6 +1632,11 @@ fn 拖拽(参数: &[String]) -> i32 {
         滚轮格数,
         滚动结果,
         &插槽2点击,
+        &阶段记录表,
+        &期望菜单,
+        &期望选中,
+        &菜单判定,
+        &选中判定,
     );
 
     // 判定：布局区域变化**或**结构化状态变化都算"点击产生了效果"。
@@ -1430,6 +1689,14 @@ fn 拖拽(参数: &[String]) -> i32 {
         eprintln!("发生了变化，但期望的状态字段 {期望状态变化:?} 未变化（实际变化：{状态变化:?}）");
         return 2;
     }
+    // 菜单 / 选中断言不看"有没有变化"，只看**末帧的真实状态**。
+    //
+    // 因此它们能抓住一类既有的漏判：右键弹出了菜单、但弹的是**另一种**
+    // （行菜单 vs 空白菜单）；或者点到了行边缘、选择却落在另一行上。
+    // 这类错误在"只看有没有变化"的判据下是"通过"的。
+    if !断言通过 {
+        return 2;
+    }
     0
 }
 
@@ -1454,7 +1721,12 @@ fn 场景视口(证据: &serde_json::Value) -> Option<(f32, f32, f32, f32)> {
 /// 只有这类用例才需要做滚动视口校验：点工具栏按钮、面板标签时
 /// `scene_view` 与落点无关。
 fn 是场景树用例(名: &str) -> bool {
-    名.starts_with("arrow:") || 名.starts_with("arrow_name:") || 名.starts_with("row_name:")
+    名.starts_with("arrow:")
+        || 名.starts_with("arrow_name:")
+        || 名.starts_with("row_name:")
+        || 名.starts_with("name:")
+        || 名.starts_with("row_blank:")
+        || 名 == "scene_blank"
 }
 
 /// 落点是否在场景树滚动视口内（含 1px 容差）。
@@ -1626,6 +1898,45 @@ fn 状态指纹(证据: &serde_json::Value) -> std::collections::BTreeMap<String
             .unwrap_or_else(|| "0".to_string()),
     );
     表.insert("collapsed_count".to_string(), 文本(&["collapsed_count"]));
+    // 选中集：让"点这一行确实选中了它"成为可比较的状态，而不是靠看截图。
+    //
+    // 改造前状态指纹里没有选中集，于是"点击生效了但只改了选中"与
+    // "点击压根没送达"在前后的指纹里完全一样 —— 这正是上一轮
+    // `select_row` 会话"变化 0 项"却无法判定对错的原因。
+    表.insert(
+        "selection".to_string(),
+        取(&["selection", "ids"])
+            .and_then(|值| 值.as_array())
+            .map(|值| {
+                值.iter()
+                    .filter_map(|项| 项.as_str())
+                    .collect::<Vec<_>>()
+                    .join("|")
+            })
+            .unwrap_or_default(),
+    );
+    // 右键菜单：`种类:目标名:菜单项`。菜单是浮层，不移动任何矩形，
+    // 只有把它写进指纹，右键类会话才谈得上"有变化可判定"。
+    表.insert(
+        "context_menu".to_string(),
+        match 证据菜单(证据) {
+            None => "none".to_string(),
+            Some((kind, target)) => {
+                let 项 = 证据
+                    .get("context_menu")
+                    .and_then(|值| 值.get("items"))
+                    .and_then(|值| 值.as_array())
+                    .map(|值| {
+                        值.iter()
+                            .filter_map(|项| 项.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    })
+                    .unwrap_or_default();
+                format!("{kind}:{}:{项}", target.unwrap_or_default())
+            }
+        },
+    );
     表.insert(
         "console_log_count".to_string(),
         文本(&["console_log_count"]),
@@ -1760,6 +2071,11 @@ fn 写拖拽报告(
     滚轮格数: i32,
     滚动结果: (bool, usize),
     插槽2点击: &[serde_json::Value],
+    阶段记录表: &[阶段记录],
+    期望菜单: &Option<String>,
+    期望选中: &Option<String>,
+    菜单判定: &Result<(), String>,
+    选中判定: &Result<(), String>,
 ) {
     let 状态表 = |证据: &serde_json::Value| -> serde_json::Value {
         let mut 对象 = serde_json::Map::new();
@@ -1813,6 +2129,23 @@ fn 写拖拽报告(
         "expect_scroll": 期望滚动,
         "allow_no_change": 允许无变化,
         "right_click_case": 右键用例,
+        // ---- 逐阶段中间态证据 ----
+        //
+        // 每个注入阶段按执行顺序一条，带落点、几何来源与注入结果。
+        // 失败时先看这里：能直接指出是"注入没送达"、"坐标取自过期几何"，
+        // 还是"界面没按预期响应"。
+        "stages": 阶段记录表.iter().map(阶段记录::到json).collect::<Vec<_>>(),
+        // ---- 断言（不是"有没有变化"，而是"状态对不对"）----
+        "expect_menu": 期望菜单,
+        "expect_selection": 期望选中,
+        "menu_actual": 证据菜单(后证据).map(|(kind, target)| serde_json::json!({
+            "kind": kind,
+            "target": target,
+        })),
+        "selection_actual": 后证据.get("selection").cloned(),        "menu_ok": 菜单判定.is_ok(),
+        "menu_error": 菜单判定.as_ref().err(),
+        "selection_ok": 选中判定.is_ok(),
+        "selection_error": 选中判定.as_ref().err(),
     });
     let _ = std::fs::write(
         输出目录.join(format!("{名称}.drag.json")),
@@ -1820,6 +2153,55 @@ fn 写拖拽报告(
     );
     let 行: Vec<String> = 变化.iter().map(|项| format!("- `{项}`")).collect();
     let 状态行: Vec<String> = 状态变化.iter().map(|项| format!("- `{项}`")).collect();
+    // 逐阶段表：失败时的第一现场。
+    let mut 阶段行: Vec<String> = Vec::new();
+    for (下标, 记录) in 阶段记录表.iter().enumerate() {
+        阶段行.push(format!(
+            "- {}. `{}` / `{}`{} 逻辑 {:?} 屏幕 {:?}{}{}{}",
+            下标 + 1,
+            记录.阶段,
+            记录.动作,
+            match &记录.用例 {
+                Some(名) => format!(" 用例 `{名}`"),
+                None => String::new(),
+            },
+            记录.逻辑,
+            记录.屏幕,
+            match 记录.几何来源 {
+                Some(来源) => format!(" 几何取自 `{来源}`"),
+                None => String::new(),
+            },
+            match 记录.注入完整 {
+                Some(true) => " 注入完整".to_string(),
+                Some(false) => " **注入不完整**".to_string(),
+                None => String::new(),
+            },
+            match &记录.备注 {
+                Some(备注) => format!(" — {备注}"),
+                None => String::new(),
+            },
+        ));
+    }
+    let 菜单行 = match 证据菜单(后证据) {
+        Some((kind, target)) => format!("打开，种类 `{kind}`，目标 {target:?}"),
+        None => "未打开".to_string(),
+    };
+    let 选中行 = 后证据
+        .get("selection")
+        .and_then(|值| 值.get("ids"))
+        .and_then(|值| 值.as_array())
+        .map(|值| {
+            值.iter()
+                .filter_map(|项| 项.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .filter(|文本| !文本.is_empty())
+        .unwrap_or_else(|| "（空）".to_string());
+    let 期望菜单文本 = 期望菜单.as_deref().unwrap_or("未指定");
+    let 期望选中文本 = 期望选中.as_deref().unwrap_or("未指定");
+    let 菜单断言行 = 断言文本(菜单判定);
+    let 选中断言行 = 断言文本(选中判定);
     let 文本 = format!(
         "# 真实鼠标拖拽/点击：{名称}\n\n\
          - 窗口：{}（{}），DPI {}\n\
@@ -1832,7 +2214,12 @@ fn 写拖拽报告(
          - 变化区域（{}）：\n{}\n\
          - 变化状态字段（{}）：\n{}\n\
          - 滚轮：{} 格，是否真的改变了滚动位置：{}（位移行数 {}）\n\
-         - 插槽 2 点击（坐标取自第二帧 = 滚动后）：{}\n",
+         - 插槽 2 点击（坐标取自第二帧 = 滚动后）：{}\n\
+         - 右键之后菜单：{菜单行}\n\
+         - 末帧选中集：{选中行}\n\
+         - 菜单断言（期望 {期望菜单文本}）：{菜单断言行}\n\
+         - 选中断言（期望 {期望选中文本}）：{选中断言行}\n\
+         \n## 逐阶段中间态\n\n{}\n",
         窗口.标题,
         窗口.句柄,
         窗口.dpi,
@@ -1860,9 +2247,25 @@ fn 写拖拽报告(
         滚轮格数,
         if 滚动结果.0 { "是" } else { "否" },
         滚动结果.1,
-        serde_json::to_string(插槽2点击).unwrap_or_default()
+        serde_json::to_string(插槽2点击).unwrap_or_default(),
+        if 阶段行.is_empty() {
+            "- （本次会话没有注入阶段）".to_string()
+        } else {
+            阶段行.join("\n")
+        }
     );
     let _ = std::fs::write(输出目录.join(format!("{名称}.drag.md")), 文本);
+}
+
+/// 把一条断言结果渲染成报告里的一行文字。
+///
+/// `Ok` 既可能是"断言成立"，也可能是"本次会话没有指定这条断言"；
+/// 两者在报告里由同一行的"期望 X"部分区分，所以这里只写结论词。
+fn 断言文本(结果: &Result<(), String>) -> String {
+    match 结果 {
+        Ok(()) => "通过".to_string(),
+        Err(错误) => format!("**未通过**：{错误}"),
+    }
 }
 
 /// 从证据里取某个场景树行（由调用方挑选）的**折叠箭头矩形中心**（逻辑坐标）。
@@ -1993,6 +2396,36 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         return Some((点, 点));
     }
 
+    // 场景树某一行的**整行空白区**中心（右键用例的落点）。
+    //
+    // 与 `name:` 的区别正是这次要验的东西：
+    // - `name:` 落在名称文字上，那里本来就有可点控件，右键弹菜单是**旧行为**；
+    // - `row_blank:` 落在"名称右边缘 → 状态开关左边缘"之间那条**只有空白**的
+    //   带子上。改造前那里没有任何控件，右键什么都不会发生。
+    // 因此只有后者能证明"整行都能右键"。
+    if let Some(名称) = 名.strip_prefix("row_blank:") {
+        let ppp = 证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0);
+        let 行列表 = 证据.get("scene_rows")?.as_array()?;
+        let 行 = 行列表
+            .iter()
+            .find(|行| 行.get("name").and_then(|值| 值.as_str()) == Some(名称))?;
+        let 空白 = 行.get("blank")?;
+        if 空白.is_null() {
+            // 这一行名称太长，没有空白区。返回 None 让调用方报"取不到坐标"，
+            // 而不是退回去点名称 —— 那会把"空白区不存在"伪装成"通过了"。
+            return None;
+        }
+        let 取数 = |键: &str| 空白.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) / ppp;
+        let 点 = (
+            (取数("x") + 取数("w") * 0.5) as f32,
+            (取数("y") + 取数("h") * 0.5) as f32,
+        );
+        return Some((点, 点));
+    }
+
     // 场景树某一行的整行矩形中心（用于验证"点行 = 选择"）。
     if let Some(名称) = 名.strip_prefix("row_name:") {
         let ppp = 证据
@@ -2014,6 +2447,25 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
     }
 
     match 名 {
+        // 场景树**空白区域**的中心：右键应当弹"空白菜单"（新建顶层实体）。
+        //
+        // 矩形来自应用自己记录的 `scene_blank`。猜坐标（例如"面板底部往上 40px"）
+        // 会在行数变化时落到最后一行上，于是弹出的其实是行菜单 ——
+        // 那样测的就不是空白区了。
+        "scene_blank" => {
+            let ppp = 证据
+                .get("pixels_per_point")
+                .and_then(|值| 值.as_f64())
+                .unwrap_or(1.0) as f32;
+            let 空白 = 证据.get("scene_blank")?;
+            if 空白.is_null() {
+                return None;
+            }
+            let 取数 =
+                |键: &str| 空白.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) as f32 / ppp;
+            let 点 = (取数("x") + 取数("w") * 0.5, 取数("y") + 取数("h") * 0.5);
+            Some((点, 点))
+        }
         // 把场景树标签拖进视口标签 → 合并成同一标签组
         "merge" => {
             let 起 = 标签("scene_tree")?;
@@ -2084,5 +2536,164 @@ fn 确保前台(窗口: &窗口信息) {
     #[cfg(not(windows))]
     {
         let _ = 窗口;
+    }
+}
+
+#[cfg(test)]
+mod 测试 {
+    use super::*;
+
+    /// 造一份最小证据：一行 + 指定选中集 + 指定菜单。
+    fn 证据(选中: &[&str], 菜单: Option<(&str, Option<&str>)>) -> serde_json::Value {
+        let 行 = serde_json::json!({
+            "id": "实体-甲",
+            "name": "甲",
+            "depth": 0,
+            "has_children": false,
+            "expanded": false,
+            "row": {"x": 0, "y": 0, "w": 100, "h": 20},
+            "blank": null,
+        });
+        let context_menu = match 菜单 {
+            None => serde_json::Value::Null,
+            Some((kind, target)) => serde_json::json!({
+                "kind": kind,
+                "target": target,
+                "items": ["rename", "delete"],
+            }),
+        };
+        serde_json::json!({
+            "pixels_per_point": 1.0,
+            "window": {"width": 800, "height": 600},
+            "scene_rows": [行],
+            "scene_view": {"x": 0, "y": 0, "w": 400, "h": 300},
+            "scene_blank": {"x": 0, "y": 20, "w": 400, "h": 280},
+            "selection": {
+                "primary": 选中.first(),
+                "count": 选中.len(),
+                "ids": 选中,
+            },
+            "context_menu": context_menu,
+        })
+    }
+
+    #[test]
+    fn 状态指纹包含选中集与右键菜单() {
+        let 前 = 证据(&[], None);
+        let 后 = 证据(&["实体-甲"], Some(("scene_row", Some("甲"))));
+        let 变化 = 比较状态(&前, &后);
+        assert!(
+            变化.iter().any(|项| 项 == "selection"),
+            "选中集从空变为 {{甲}} 必须被状态指纹发现，实际变化：{变化:?}"
+        );
+        assert!(
+            变化.iter().any(|项| 项 == "context_menu"),
+            "右键菜单从无到有必须被状态指纹发现，实际变化：{变化:?}"
+        );
+    }
+
+    #[test]
+    fn 菜单种类不同则状态指纹不同() {
+        // 行菜单与空白菜单都"有菜单"，但它们是不同的界面状态：
+        // 只比"有没有菜单"会把"右键空白却弹出行菜单"判成通过。
+        let 行菜单 = 证据(&[], Some(("scene_row", Some("甲"))));
+        let 空白菜单 = 证据(&[], Some(("scene_blank", None)));
+        assert_ne!(
+            状态指纹(&行菜单).get("context_menu"),
+            状态指纹(&空白菜单).get("context_menu")
+        );
+    }
+
+    #[test]
+    fn 菜单断言能区分行菜单与空白菜单() {
+        let 行菜单 = 证据(&[], Some(("scene_row", Some("甲"))));
+        let 空白菜单 = 证据(&[], Some(("scene_blank", None)));
+        assert!(判定菜单(&行菜单, Some("row")).is_ok());
+        assert!(判定菜单(&空白菜单, Some("blank")).is_ok());
+        // 关键负向用例：右键空白区却弹出行菜单，必须被判失败。
+        assert!(判定菜单(&行菜单, Some("blank")).is_err());
+        assert!(判定菜单(&空白菜单, Some("row")).is_err());
+    }
+
+    #[test]
+    fn 菜单断言为none时要求确实没有菜单() {
+        let 无菜单 = 证据(&[], None);
+        let 有菜单 = 证据(&[], Some(("scene_row", Some("甲"))));
+        assert!(判定菜单(&无菜单, Some("none")).is_ok());
+        assert!(判定菜单(&有菜单, Some("none")).is_err());
+    }
+
+    #[test]
+    fn 未指定菜单断言时永远通过() {
+        assert!(判定菜单(&证据(&[], Some(("scene_row", None))), None).is_ok());
+        assert!(判定菜单(&证据(&[], None), None).is_ok());
+    }
+
+    #[test]
+    fn 无法识别的菜单期望取值被拒绝() {
+        let 错误 = 判定菜单(&证据(&[], None), Some("别的东西"))
+            .expect_err("未知取值必须报错，而不是静默通过");
+        assert!(
+            错误.contains("row / blank / none"),
+            "错误信息要给出可选值：{错误}"
+        );
+    }
+
+    #[test]
+    fn 选中断言按行名称核对标识() {
+        let 选中 = 证据(&["实体-甲"], None);
+        assert!(判定选中(&选中, Some("甲")).is_ok());
+        // 选中了别的实体 → 失败。
+        let 空 = 证据(&[], None);
+        assert!(判定选中(&空, Some("甲")).is_err());
+        // 行不存在 → 明确说明"找不到行"，而不是笼统判失败。
+        let 错误 = 判定选中(&选中, Some("不存在的行")).expect_err("行不存在应当报错");
+        assert!(
+            错误.contains("找不到名为"),
+            "错误信息要指出找不到哪一行：{错误}"
+        );
+    }
+
+    #[test]
+    fn 阶段记录序列化保留落点与几何来源() {
+        let 记录 = 阶段记录::新("right_click", "right_click")
+            .用例("row_blank:植被")
+            .落点((120.0, 240.0), (300, 500))
+            .来自("before")
+            .注入(true)
+            .备注("测试");
+        let json = 记录.到json();
+        assert_eq!(json["stage"], "right_click");
+        assert_eq!(json["case"], "row_blank:植被");
+        assert_eq!(json["logical"][0], 120.0);
+        assert_eq!(json["screen"][1], 500);
+        assert_eq!(json["geometry_from"], "before");
+        assert_eq!(json["input_complete"], true);
+    }
+
+    #[test]
+    fn 场景空白区用例取矩形中心() {
+        let 证据 = 证据(&[], None);
+        let (逻辑, _) =
+            用例坐标("scene_blank", &证据).expect("证据里有 scene_blank 就应当取到坐标");
+        // scene_blank = (0, 20, 400, 280) → 中心 (200, 160)
+        assert!((逻辑.0 - 200.0).abs() < 1e-3, "实际 {逻辑:?}");
+        assert!((逻辑.1 - 160.0).abs() < 1e-3, "实际 {逻辑:?}");
+    }
+
+    #[test]
+    fn 行空白区缺失时不退化成点名称() {
+        // `blank` 为 null（名称太长）时必须返回 None：退回去点名称会把
+        // "空白区不存在"伪装成"右键空白区通过了"。
+        let 证据 = 证据(&[], None);
+        assert_eq!(用例坐标("row_blank:甲", &证据), None);
+    }
+
+    #[test]
+    fn 场景树用例判定覆盖新增的两种落点() {
+        assert!(是场景树用例("row_blank:植被"));
+        assert!(是场景树用例("scene_blank"));
+        assert!(是场景树用例("arrow_name:乔木"));
+        assert!(!是场景树用例("click:viewport"));
     }
 }

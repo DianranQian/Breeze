@@ -187,7 +187,7 @@ pub fn 绘制(
 
     let 草稿 = 界面.主题草稿.as_mut().expect("上面已保证草稿存在");
 
-    egui::Window::new(语言.取("theme_editor"))
+    let 窗口响应 = egui::Window::new(语言.取("theme_editor"))
         .id(egui::Id::new("bevy_studio_主题编辑器"))
         .open(&mut 打开)
         .resizable(true)
@@ -384,6 +384,13 @@ pub fn 绘制(
     if !打开 {
         待推.push(UiAction::关闭主题编辑器);
     }
+    // 上报浮层区域：验收工具靠它区分"这块按钮被窗口盖住了"与"按钮没画出来"。
+    crate::记录浮层区域(
+        界面,
+        egui上下文.viewport_rect(),
+        "float_theme_editor",
+        窗口响应.map(|响应| 响应.response.rect),
+    );
     for 动作项 in 待推 {
         动作.推(动作项);
     }

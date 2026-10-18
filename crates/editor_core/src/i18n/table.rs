@@ -258,6 +258,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "new_project_2", 中文: "新建项目…", 英文: "New Project…" },
     词条 { 键: "new_project_target_dir_hint", 中文: "项目会创建在接下来选择的目标目录中，且该目录必须是空的。", 英文: "The project will be created in the target directory you pick next, and that directory must be empty." },
     词条 { 键: "new_scene", 中文: "新建场景", 英文: "New Scene" },
+    词条 { 键: "new_top_level_entity", 中文: "新建顶层实体", 英文: "New Top-Level Entity" },
     词条 { 键: "next_redo", 中文: "下一重做：{}", 英文: "Next Redo: {}" },
     词条 { 键: "next_undo", 中文: "下一撤销：{}", 英文: "Next Undo: {}" },
     词条 { 键: "no_log_entries", 中文: "暂无日志", 英文: "No log entries" },

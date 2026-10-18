@@ -131,6 +131,7 @@ new_project	新建项目	New Project
 new_project_2	新建项目…	New Project…
 new_project_target_dir_hint	项目会创建在接下来选择的目标目录中，且该目录必须是空的。	The project will be created in the target directory you pick next, and that directory must be empty.
 new_scene	新建场景	New Scene
+new_top_level_entity	新建顶层实体	New Top-Level Entity
 next_redo	下一重做：{}	Next Redo: {}
 next_undo	下一撤销：{}	Next Undo: {}
 no_log_entries	暂无日志	No log entries

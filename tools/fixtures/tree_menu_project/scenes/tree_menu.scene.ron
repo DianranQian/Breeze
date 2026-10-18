@@ -1,0 +1,67 @@
+(
+    格式版本: 1,
+    元数据: (
+        场景标识: "77777777-7777-4777-8777-777777777777",
+        场景名: "tree_menu",
+        保存时间: None,
+    ),
+    实体表: {
+        "aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1": (
+            标识: "aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            名称: "容器",
+            次序: 0,
+            变换: Some((
+                平移: (0.0, 0.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2": (
+            标识: "aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+            名称: "子节点一",
+            父实体: Some("aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+            次序: 0,
+            变换: Some((
+                平移: (0.0, 0.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3": (
+            标识: "aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
+            名称: "子节点二",
+            父实体: Some("aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+            次序: 1,
+            变换: Some((
+                平移: (0.0, 0.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "aaaaaaa4-aaaa-4aaa-8aaa-aaaaaaaaaaa4": (
+            标识: "aaaaaaa4-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
+            名称: "子节点三",
+            父实体: Some("aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+            次序: 2,
+            变换: Some((
+                平移: (0.0, 0.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "aaaaaaa5-aaaa-4aaa-8aaa-aaaaaaaaaaa5": (
+            标识: "aaaaaaa5-aaaa-4aaa-8aaa-aaaaaaaaaaa5",
+            名称: "独立节点",
+            次序: 1,
+            变换: Some((
+                平移: (0.0, 0.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+    },
+    顶层顺序: [
+        "aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+        "aaaaaaa5-aaaa-4aaa-8aaa-aaaaaaaaaaa5",
+    ],
+)

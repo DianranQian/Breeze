@@ -526,3 +526,76 @@ node_kind_container	容器 / 分组节点	Container / group node
 node_kind_entity	普通实体	Plain entity
 expand_node	展开子节点	Expand children
 collapse_node	折叠子节点	Collapse children
+build	构建	Build
+build_profile	配置	Profile
+build_profile_debug	开发（debug）	Development (debug)
+build_profile_release	发布（release）	Release
+build_target	目标平台	Target
+build_target_hint	留空 = 本机	empty = host
+build_package	包名	Package
+build_package_hint	留空 = 默认包	empty = default
+build_features	特性	Features
+build_features_hint	逗号分隔	comma separated
+build_start	开始构建	Build
+build_stop	停止	Stop
+build_state_idle	尚未构建	Not built yet
+build_state_running	构建中…	Building…
+build_state_succeeded	构建成功	Build succeeded
+build_state_failed	构建失败	Build failed
+build_state_cancelled	已取消	Cancelled
+build_duration	用时 {} 秒	{} s
+build_counts	{} 个错误 · {} 个警告	{} errors · {} warnings
+build_artifact	产物：{}	Artifact: {}
+build_no_project_hint	尚未打开项目。构建需要项目根目录下的 Cargo.toml。	No project is open. Building requires a Cargo.toml in the project root.
+build_output_summary	输出摘要（没有结构化诊断）	Output summary (no structured diagnostics)
+build_empty_hint	还没有构建。选择配置后点「开始构建」，真实的编译错误会列在这里。	Nothing built yet. Choose a profile and press Build; real compiler errors will be listed here.
+build_level_error	错误	error
+build_level_warning	警告	warning
+build_level_note	提示	note
+build_level_help	帮助	help
+build_jump_hint	在代码面板中打开这一行	Open this line in the code panel
+timeline	时间轴	Timeline
+anim_untitled	未命名动画	Untitled Animation
+anim_property_translation	位置	Position
+anim_property_rotation	旋转	Rotation
+anim_property_scale	缩放	Scale
+anim_new	新建动画	New Animation
+anim_open	打开动画	Open Animation
+anim_save	保存动画	Save Animation
+anim_save_hint	把动画写回项目的 animations/ 目录	Write the animation back to the project's animations/ directory
+anim_save_as	动画另存为	Save Animation As
+anim_close	关闭动画	Close Animation
+anim_play	▶ 播放	▶ Play
+anim_play_hint	从播放头开始播放预览（不修改场景文件）	Play the preview from the playhead (does not modify the scene file)
+anim_pause	⏸ 暂停	⏸ Pause
+anim_pause_hint	停在当前时间	Hold at the current time
+anim_stop	⏹ 停止	⏹ Stop
+anim_stop_hint	停止并回到 0 秒，预览恢复文档姿态	Stop, rewind to 0 s and let the preview return to the document pose
+anim_loop	循环	Loop
+anim_loop_hint	播放到末尾后回到起点继续播放	Wrap back to the start when the end is reached
+anim_speed	速度	Speed
+anim_no_animation	还没有动画。点「新建动画」开始，动画会按场景名存进 animations/ 目录。	No animation yet. Press New Animation; it will be saved under animations/ named after the scene.
+anim_no_tracks	还没有轨道。选中实体后点「录制位置」或「录制全部变换」。	No tracks yet. Select an entity, then press Record Position or Record All Transforms.
+anim_no_selection	先在场景树里选中实体，再录制关键帧。	Select an entity in the scene tree before recording a keyframe.
+anim_unsaved	有未保存修改	Unsaved changes
+anim_duration	时长	Duration
+anim_time_of_total	{} / {} 秒	{} / {} s
+anim_keyframe_count	{} 个关键帧	{} keyframes
+anim_record_translation	录制位置	Record Position
+anim_record_all	录制全部变换	Record All Transforms
+anim_record_hint	在播放头处把选中实体的当前变换写成关键帧	Write the selected entity's current transform as a keyframe at the playhead
+anim_delete_keyframe	删除选中的关键帧	Delete Selected Keyframe
+anim_delete_track	删除这条轨道	Delete This Track
+anim_missing_entity	实体已删除	Missing Entity
+anim_keyframe_detail	关键帧 {} 秒，值 {}	Keyframe {} s, value {}
+log_animation_created	已新建动画 {}	Created animation {}
+log_animation_opened	已打开动画 {}	Opened animation {}
+log_animation_saved	已保存动画 {}	Saved animation {}
+log_animation_recorded	已录制 {} 个关键帧	Recorded {} keyframes
+log_animation_nothing_recorded	没有可录制的属性：请先选中带变换的实体	Nothing to record: select an entity that has a transform first
+log_build_started	开始构建：{}	Building: {}
+log_build_failed	构建失败：{}	Build failed: {}
+log_build_stopped	已停止构建	Build stopped
+log_build_no_project	尚未打开项目，无法构建	No project is open, so there is nothing to build
+log_diagnostic_no_file	这条诊断没有关联源文件	This diagnostic has no associated source file
+log_diagnostic_opened	已定位到 {} 第 {} 行	Jumped to {} line {}

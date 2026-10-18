@@ -48,6 +48,10 @@ pub mod 目录名 {
     pub const 场景: &str = "scenes";
     /// 游戏源码目录。
     pub const 源码: &str = "src";
+    /// 动画文档目录。
+    pub const 动画: &str = "animations";
+    /// 构建产物目录（相对项目根，供界面展示）。
+    pub const 产物: &str = "target";
 }
 
 /// 项目的运行目标声明（`project.ron` 里的 `运行` 字段）。
@@ -111,6 +115,13 @@ pub struct 项目清单 {
     /// 运行目标声明。`None` 表示该项目只能以"独立预览进程"方式运行。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 运行: Option<运行目标清单>,
+    /// 构建配置。`None` 表示用默认配置（`cargo build`）。
+    ///
+    /// 与 [`Self::运行`] 同一条原则：**构建怎么打是项目契约**，
+    /// 不是编辑器全局偏好。同一个编辑器会打开多个项目，
+    /// 每个项目的包名、特性、目标平台都可能不同。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub 构建: Option<crate::build::构建配置>,
 }
 
 impl 项目清单 {
@@ -123,6 +134,7 @@ impl 项目清单 {
             启动场景: None,
             配置: BTreeMap::new(),
             运行: None,
+            构建: None,
         }
     }
 }

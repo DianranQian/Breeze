@@ -103,6 +103,18 @@ pub struct 缩略图缓存 {
 #[derive(Resource, Default)]
 pub struct 诊断资源(pub 运行时诊断);
 
+/// 构建快照资源：界面读的构建配置 + 最近一次报告。
+///
+/// `报告修订` 是**缓存指纹**而不是业务数据：只有它变了才重新克隆报告，
+/// 否则每帧克隆几十条带字符串的诊断会成为稳定的每秒几 MB 分配。
+#[derive(Resource, Default)]
+pub struct 构建快照资源 {
+    /// 供界面读取的快照。
+    pub 快照: editor_core::build::构建快照,
+    /// 快照对应的构建报告修订号。
+    pub 报告修订: u64,
+}
+
 /// 文件对话框请求。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum 文件对话框请求 {
@@ -127,6 +139,10 @@ pub enum 文件对话框请求 {
     导入主题,
     /// 脚本另存为：携带待写入的文本。
     脚本另存为(String),
+    /// 打开一个动画文件（`.anim.ron`）。
+    打开动画文件,
+    /// 动画另存为。
+    动画另存为,
 }
 
 /// 文件对话框结果。
@@ -154,6 +170,10 @@ pub enum 文件对话框结果 {
         /// 父目录。
         父目录: PathBuf,
     },
+    /// 用户选中的动画文件（打开）。
+    打开动画(PathBuf),
+    /// 用户为动画选定的保存路径。
+    动画保存到(PathBuf),
     /// 用户取消。
     取消,
 }
@@ -284,6 +304,25 @@ fn 处理请求(请求: &文件对话框请求) -> 文件对话框结果 {
             None => 文件对话框结果::取消,
         },
 
+        文件对话框请求::打开动画文件 => match rfd::FileDialog::new()
+            .set_title("打开动画")
+            .add_filter("微风动画", &["ron"])
+            .pick_file()
+        {
+            Some(路径) => 文件对话框结果::打开动画(路径),
+            None => 文件对话框结果::取消,
+        },
+
+        文件对话框请求::动画另存为 => match rfd::FileDialog::new()
+            .set_title("动画另存为")
+            .add_filter("微风动画", &["ron"])
+            .set_file_name("animation.anim.ron")
+            .save_file()
+        {
+            Some(路径) => 文件对话框结果::动画保存到(路径),
+            None => 文件对话框结果::取消,
+        },
+
         // 重命名与删除需要文本输入与二次确认，本版本尚未提供对应对话框，
         // 因此如实返回"取消"，而不是假装成功。
         文件对话框请求::重命名资源(_) | 文件对话框请求::确认删除资源(_) => {
@@ -308,6 +347,9 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<诊断资源>()
             .init_resource::<运行时宿主>()
             .init_resource::<crate::run::项目运行管理器>()
+            // 构建任务：真实 cargo 子进程 + 界面读的快照。
+            .init_resource::<crate::build::构建宿主>()
+            .init_resource::<构建快照资源>()
             .init_resource::<文件对话框通道>()
             // ---- 配置与布局持久化 ----
             //
@@ -331,9 +373,14 @@ impl Plugin for BevyStudio插件 {
                 (
                     preview::初始化预览资源,
                     按环境变量打开项目,
-                    // 放在打开项目之后：那时才有选中实体，Inspector 才有内容可看。
-                    按环境变量聚焦面板,
+                    // 恢复布局必须在"聚焦面板"**之前**：恢复会用磁盘上的
+                    // 布局整体替换当前布局，若顺序反了，环境变量让某个面板
+                    // 前台化、紧接着又被旧布局覆盖 —— 表现是"面板明明在，
+                    // 截图里却没有"，而日志里两件事都成功。
                     恢复窗口布局,
+                    // 放在打开项目与恢复布局之后：那时才有选中实体，
+                    // Inspector 才有内容，且聚焦不会被随后的布局恢复抹掉。
+                    按环境变量聚焦面板,
                     按环境变量设置语言,
                     按环境变量设置变换工具,
                     按环境变量打开主题编辑器,
@@ -347,7 +394,11 @@ impl Plugin for BevyStudio插件 {
             // ---- Last：退出前把配置落盘 ----
             .add_systems(
                 Last,
-                (actions::退出时保存配置, crate::run::退出时停止项目运行),
+                (
+                    actions::退出时保存配置,
+                    crate::run::退出时停止项目运行,
+                    crate::build::退出时停止构建,
+                ),
             )
             .add_systems(
                 Update,
@@ -355,6 +406,12 @@ impl Plugin for BevyStudio插件 {
                     actions::处理快捷键,
                     actions::处理文件对话框结果,
                     actions::执行动作队列,
+                    // 构建状态推进必须紧跟动作执行：刚点下"开始构建"的那一帧
+                    // 之后才轮询，日志与"构建中"状态才能在同一帧反映到界面。
+                    actions::轮询构建,
+                    actions::同步构建快照,
+                    // 动画时间在动作之后推进：本帧点了"播放"就立刻开始走时间。
+                    actions::推进动画播放,
                     // 紧跟动作执行：本帧产生的日志（含错误）立刻出现在进程日志里。
                     actions::转发控制台日志到标准错误,
                     actions::读取键盘导航,
@@ -383,7 +440,12 @@ impl Plugin for BevyStudio插件 {
                         输入诊断,
                     )
                         .chain(),
-                    (actions::推进运行时, actions::收集运行时诊断).chain(),
+                    (
+                        actions::推进运行时,
+                        actions::收集运行时诊断,
+                        actions::应用动画预览,
+                    )
+                        .chain(),
                 )
                     .chain(),
             )
@@ -471,6 +533,12 @@ pub fn 确保中文字体已安装(mut 上下文: EguiContexts, mut 已安装: L
 pub const 打开项目环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT";
 /// 指定要打开的场景（项目相对路径）。留空则用启动场景或第一个场景。
 pub const 打开场景环境变量: &str = "BEVY_STUDIO_OPEN_SCENE";
+/// 指定要打开的动画（项目相对路径，如 `animations/关卡.anim.ron`）。
+///
+/// 动画的打开入口在时间轴面板里，而那个面板需要一个**来自文件对话框**的路径。
+/// 与场景同理，自动化脚本点不了原生对话框，因此给一条启动期入口：
+/// 有了它就能对着真实动画截时间轴的图，而不是只能截一张空面板。
+pub const 打开动画环境变量: &str = "BEVY_STUDIO_OPEN_ANIMATION";
 
 /// 启动时按环境变量打开项目与场景。未设置时什么都不做。
 fn 按环境变量打开项目(mut 编辑器: ResMut<EditorStateHolder>) {
@@ -499,6 +567,19 @@ fn 按环境变量打开项目(mut 编辑器: ResMut<EditorStateHolder>) {
                 Err(错误) => warn!("按环境变量打开场景失败：{错误}"),
             },
             Err(错误) => warn!("环境变量里的场景路径非法：{错误}"),
+        }
+    }
+
+    // 动画同理：必须在场景打开之后，动画的轨道要对着场景里的实体才有意义。
+    if let Ok(动画) = std::env::var(打开动画环境变量)
+        && !动画.trim().is_empty()
+    {
+        match scene_doc::path::项目相对路径::解析(&动画) {
+            Ok(路径) => match 编辑器.状态.打开动画(&路径) {
+                Ok(()) => info!("已按环境变量打开动画：{动画}"),
+                Err(错误) => warn!("按环境变量打开动画失败：{错误}"),
+            },
+            Err(错误) => warn!("环境变量里的动画路径非法：{错误}"),
         }
     }
 }
@@ -545,7 +626,7 @@ fn 按环境变量聚焦面板(mut 界面: ResMut<UiStateHolder>) {
         None => warn!(
             "环境变量 {启动聚焦面板环境变量} 的值 `{名字}` 不是已知面板；\
              可用值：scene_tree / inspector / viewport / asset_browser / \
-             console / history / runtime_ecs / performance"
+             console / history / runtime_ecs / performance / script / build / timeline"
         ),
     }
 }
@@ -791,6 +872,8 @@ pub struct 绘制环境<'平台> {
     pub 运行时: &'平台 运行时宿主,
     /// 运行时诊断信息。
     pub 诊断: &'平台 运行时诊断,
+    /// 构建配置与最近一次构建报告。
+    pub 构建: &'平台 editor_core::build::构建快照,
 }
 
 /// 便捷函数：构造一次绘制所需的上下文并调用界面绘制。
@@ -827,6 +910,7 @@ pub fn 绘制一帧(
         正在运行: 环境.运行时.状态.在运行(),
         已暂停: 环境.运行时.状态 == 运行状态::已暂停,
         运行时信息: 环境.诊断,
+        构建: 环境.构建,
     };
     editor_ui::绘制(上下文, &mut 绘制);
 }
@@ -941,6 +1025,38 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::设置语言(语言) => format!("设置语言({})", 语言.自称()),
         UiAction::清空控制台 => "清空控制台".to_string(),
         UiAction::显示关于 => "显示关于".to_string(),
+
+        // ---- 构建 ----
+        UiAction::开始构建 => "开始构建".to_string(),
+        UiAction::停止构建 => "停止构建".to_string(),
+        UiAction::设置构建配置(配置) => format!("设置构建配置({})", 配置.可读命令行()),
+        UiAction::打开构建诊断 { 文件, 行 } => format!(
+            "打开构建诊断({}:{行})",
+            文件
+                .as_ref()
+                .map(|文件| 文件.display().to_string())
+                .unwrap_or_else(|| "?".to_string())
+        ),
+
+        // ---- 动画与时间轴 ----
+        UiAction::新建动画 => "新建动画".to_string(),
+        UiAction::请求打开动画 => "请求打开动画".to_string(),
+        UiAction::打开动画(路径) => format!("打开动画({})", 路径.文本()),
+        UiAction::保存动画 => "保存动画".to_string(),
+        UiAction::请求动画另存为 => "请求动画另存为".to_string(),
+        UiAction::关闭动画 => "关闭动画".to_string(),
+        UiAction::播放动画 => "播放动画".to_string(),
+        UiAction::暂停动画 => "暂停动画".to_string(),
+        UiAction::停止动画 => "停止动画".to_string(),
+        UiAction::动画定位(时间) => format!("动画定位({时间:.3})"),
+        UiAction::设置动画时长(时长) => format!("设置动画时长({时长:.3})"),
+        UiAction::设置动画循环(循环) => format!("设置动画循环({循环})"),
+        UiAction::设置动画速度(速度) => format!("设置动画速度({速度:.2})"),
+        UiAction::录制动画关键帧 { 属性 } => {
+            format!("录制动画关键帧({} 个属性)", 属性.len())
+        }
+        UiAction::删除动画轨道 { 属性, .. } => format!("删除动画轨道({})", 属性.代号()),
+        UiAction::删除动画关键帧 { 时间, .. } => format!("删除动画关键帧({时间:.3})"),
     }
 }
 

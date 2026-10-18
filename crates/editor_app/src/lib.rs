@@ -24,18 +24,21 @@
 
 pub mod actions;
 pub mod bsn_templates;
+pub mod build;
 pub mod capture;
 pub mod config;
 pub mod plugin;
 pub mod preview;
+pub mod run;
 pub mod scene_bridge;
 
+pub use build::构建宿主;
 pub use config::{
     布局待保存, 编辑器配置, 编辑器配置资源, 配置文件路径, 配置目录
 };
 pub use plugin::{
     BevyStudio插件, EditorStateHolder, UiStateHolder, 动作摘要, 文件对话框结果, 文件对话框请求,
-    文件对话框通道, 绘制一帧, 绘制环境, 缩略图缓存, 诊断资源,
+    文件对话框通道, 构建快照资源, 绘制一帧, 绘制环境, 缩略图缓存, 诊断资源,
 };
 pub use preview::{
     编辑器界面相机, 预览实体, 预览来源, 预览渲染目标, 预览相机, 预览相机状态

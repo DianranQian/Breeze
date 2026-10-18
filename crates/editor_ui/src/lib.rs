@@ -12,6 +12,7 @@
 //! 都可以直接用单元测试验证。
 
 pub mod assets_panel;
+pub mod build_panel;
 pub mod console_panel;
 pub mod dev_mode_bar;
 pub mod dev_modes;
@@ -30,6 +31,7 @@ pub mod script;
 pub mod state;
 pub mod theme;
 pub mod theme_editor;
+pub mod timeline_panel;
 pub mod viewport3d;
 pub mod viewport_panel;
 pub mod workspace_bar;
@@ -48,8 +50,8 @@ pub use fonts::{
 pub use icons::{图标, 图标库};
 pub use node_icons::{折叠指示, 节点类型};
 pub use state::{
-    UiAction, 动作队列, 区域快照, 场景行几何, 属性编辑, 控制台过滤, 文本编辑目标, 界面状态,
-    绘制上下文, 视口拖拽, 视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
+    UiAction, 动作队列, 动画关键帧引用, 区域快照, 场景行几何, 属性编辑, 控制台过滤, 文本编辑目标,
+    界面状态, 绘制上下文, 视口拖拽, 视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
 };
 pub use theme::{主题, 主题库, 外观, 明暗, 编辑器配色};
 
@@ -595,6 +597,7 @@ impl 面板查看器<'_, '_> {
             正在运行: self.上下文.正在运行,
             已暂停: self.上下文.已暂停,
             运行时信息: self.上下文.运行时信息,
+            构建: self.上下文.构建,
         }
     }
 
@@ -700,6 +703,8 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             Tab::运行时ecs => history_panel::绘制运行时(ui, &mut 上下文),
             Tab::性能 => history_panel::绘制性能(ui, &mut 上下文),
             Tab::脚本 => script::绘制(ui, &mut 上下文),
+            Tab::构建 => build_panel::绘制(ui, &mut 上下文),
+            Tab::时间轴 => timeline_panel::绘制(ui, &mut 上下文),
         }
     }
 

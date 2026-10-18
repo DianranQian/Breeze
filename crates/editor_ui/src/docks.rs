@@ -31,6 +31,10 @@ pub enum Tab {
     性能,
     /// 脚本编辑器。
     脚本,
+    /// 构建与诊断。
+    构建,
+    /// 动画时间轴。
+    时间轴,
 }
 
 impl Tab {
@@ -57,6 +61,8 @@ impl Tab {
             Tab::运行时ecs => "runtime_ecs",
             Tab::性能 => "performance",
             Tab::脚本 => "script",
+            Tab::构建 => "build",
+            Tab::时间轴 => "timeline",
         }
     }
 
@@ -76,6 +82,8 @@ impl Tab {
             Tab::性能 => "性能",
             // 显示名：代码（内部键仍是 `script`，保持存档兼容）。
             Tab::脚本 => "代码",
+            Tab::构建 => "构建",
+            Tab::时间轴 => "时间轴",
         }
     }
 
@@ -94,6 +102,8 @@ impl Tab {
             Tab::运行时ecs => "runtime_ecs",
             Tab::性能 => "performance",
             Tab::脚本 => "script",
+            Tab::构建 => "build",
+            Tab::时间轴 => "timeline",
         }
     }
 
@@ -117,6 +127,8 @@ impl Tab {
             Tab::运行时ecs,
             Tab::性能,
             Tab::脚本,
+            Tab::构建,
+            Tab::时间轴,
         ]
     }
 }
@@ -171,11 +183,27 @@ pub fn 默认布局() -> DockState<Tab> {
     let [主区, _右列] = 主表面.split_right(
         NodeIndex::root(),
         0.74,
-        vec![Tab::检查器, Tab::历史, Tab::运行时ecs, Tab::性能],
+        vec![
+            Tab::检查器,
+            Tab::历史,
+            // 时间轴放在右列：它与检查器看同一批实体，左右相邻最顺手。
+            Tab::时间轴,
+            Tab::运行时ecs,
+            Tab::性能,
+        ],
     );
     // 0.72 = 上方（旧节点）占 72%，底部 28%。
-    let [上方, _底部] =
-        主表面.split_below(主区, 0.72, vec![Tab::资源浏览器, Tab::控制台, Tab::脚本]);
+    let [上方, _底部] = 主表面.split_below(
+        主区,
+        0.72,
+        vec![
+            Tab::资源浏览器,
+            Tab::控制台,
+            // 构建与诊断紧挨控制台：两者都是"输出的地方"。
+            Tab::构建,
+            Tab::脚本,
+        ],
+    );
     // 0.22 = 左侧（新节点）占 22%。
     let [_视口, _场景树] = 主表面.split_left(上方, 0.22, vec![Tab::场景树]);
 

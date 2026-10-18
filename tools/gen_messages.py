@@ -62,6 +62,8 @@ import sys
     "crates/editor_ui/src/hierarchy_panel.rs",
     "crates/editor_ui/src/viewport_panel.rs",
     "crates/editor_ui/src/console_panel.rs",
+    "crates/editor_ui/src/build_panel.rs",
+    "crates/editor_ui/src/timeline_panel.rs",
     "crates/editor_ui/src/lib.rs",
     "crates/editor_ui/src/docks.rs",
     "crates/editor_ui/src/state.rs",
@@ -108,6 +110,12 @@ import sys
     "{值:.1} {}",
     "{值:.4}",
     "{类别:?}",
+    # 时间轴的自绘文字：刻度值、"实体 · 属性"标签。
+    # 可见部分全是用户数据与数字，编辑器不生成任何可翻译文字。
+    "{时间:.1}",
+    "{时间:.2}",
+    "{时长:.2}",
+    "{实体名} · {属性名}",
     # ---- ③ 用户数据拼接 ----
     #
     # 可见部分是 emoji 与用户自己的资源名，编辑器不生成任何文字。

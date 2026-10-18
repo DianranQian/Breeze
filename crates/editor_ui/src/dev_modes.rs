@@ -185,12 +185,18 @@ fn 三维预设() -> egui_dock::DockState<Tab> {
     let [主区, _右列] = 主.split_right(
         egui_dock::NodeIndex::root(),
         0.78,
-        vec![Tab::检查器, Tab::历史, Tab::性能],
+        vec![Tab::检查器, Tab::历史, Tab::时间轴, Tab::性能],
     );
     let [上方, _底部] = 主.split_below(
         主区,
         0.76,
-        vec![Tab::控制台, Tab::运行时ecs, Tab::资源浏览器, Tab::脚本],
+        vec![
+            Tab::控制台,
+            Tab::构建,
+            Tab::运行时ecs,
+            Tab::资源浏览器,
+            Tab::脚本,
+        ],
     );
     let [_视口, _场景树] = 主.split_left(上方, 0.18, vec![Tab::场景树]);
     布局
@@ -210,9 +216,13 @@ fn 脚本预设() -> egui_dock::DockState<Tab> {
     let [主区, _右列] = 主.split_right(
         egui_dock::NodeIndex::root(),
         0.76,
-        vec![Tab::检查器, Tab::历史],
+        vec![Tab::检查器, Tab::历史, Tab::时间轴],
     );
-    let [上方, _底部] = 主.split_below(主区, 0.72, vec![Tab::控制台, Tab::运行时ecs, Tab::性能]);
+    let [上方, _底部] = 主.split_below(
+        主区,
+        0.72,
+        vec![Tab::控制台, Tab::构建, Tab::运行时ecs, Tab::性能],
+    );
     let [_脚本, _左列] = 主.split_left(上方, 0.20, vec![Tab::资源浏览器, Tab::场景树, Tab::视口]);
     布局
 }

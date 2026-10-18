@@ -22,6 +22,8 @@
 //! 与 Bevy 世界的映射（实体 ⇄ ECS Entity、资源引用 ⇄ `Handle<T>`）
 //! 属于 `editor_app` 的 `scene_bridge` 模块职责。
 
+pub mod animation;
+pub mod build;
 pub mod command;
 pub mod delta;
 pub mod i18n;
@@ -36,6 +38,13 @@ pub mod undo;
 #[path = "模板.rs"]
 pub mod 模板;
 
+pub use animation::{
+    关键帧, 关键帧值, 动画会话, 动画属性, 动画播放状态, 动画文档, 动画格式版本, 动画轨道, 时间容差,
+};
+pub use build::{
+    代码位置, 构建快照, 构建报告, 构建状态, 构建诊断, 构建配置, 构建配置类型, 编译事件,
+    解析编译事件, 诊断级别,
+};
 pub use command::{命令结果, 编辑器命令};
 pub use delta::文档差量;
 pub use i18n::{词条, 词表, 语言};

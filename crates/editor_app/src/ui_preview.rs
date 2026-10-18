@@ -56,6 +56,8 @@ pub struct 面板项 {
     pub 尺寸: (f32, f32),
     /// 左上角偏移（像素）。
     pub 偏移: (f32, f32),
+    /// 锚点预设（决定偏移相对哪条边）。
+    pub 锚点: editor_core::ui_layout::界面锚点,
     /// 背景色。
     pub 背景色: 颜色值,
     /// 文案（按钮/文本时存在）。
@@ -118,6 +120,14 @@ pub fn 收集界面项(文档: &场景文档) -> Vec<面板项> {
             continue;
         }
 
+        let 锚点 = 面板
+            .map(|组件| match 组件.属性.get("锚点") {
+                Some(属性值::枚举(枚举)) => {
+                    editor_core::ui_layout::界面锚点::由值(&枚举.变体名, 枚举.序号)
+                }
+                _ => editor_core::ui_layout::界面锚点::左上,
+            })
+            .unwrap_or(editor_core::ui_layout::界面锚点::左上);
         let (尺寸, 偏移, 背景色) = match 面板 {
             Some(组件) => (
                 (
@@ -159,6 +169,7 @@ pub fn 收集界面项(文档: &场景文档) -> Vec<面板项> {
             来源: 标识,
             尺寸,
             偏移,
+            锚点,
             背景色,
             文案,
         });
@@ -191,7 +202,7 @@ pub fn 同步界面元素(
     mut 状态: ResMut<界面同步状态>,
     mut 字体资源: ResMut<Assets<Font>>,
     已有: Query<Entity, With<界面预览实体>>,
-    相机: Query<Entity, With<预览相机>>,
+    相机: Query<(Entity, &Camera), With<预览相机>>,
 ) {
     let 修订 = 编辑器.状态.文档修订();
     if 状态.已同步修订 == Some(修订) {
@@ -199,7 +210,7 @@ pub fn 同步界面元素(
     }
     // 没有预览相机就没有可锁定的目标：把旧实体清掉后什么都不画，
     // 而不是让 UI 落到编辑器主界面上。
-    let Ok(相机实体) = 相机.single() else {
+    let Ok((相机实体, 相机数据)) = 相机.single() else {
         for 实体 in &已有 {
             命令.entity(实体).despawn();
         }
@@ -207,6 +218,12 @@ pub fn 同步界面元素(
         状态.已同步修订 = Some(修订);
         return;
     };
+    // 锚点换算需要视口尺寸。取相机的逻辑视口；拿不到时退回 1280×720
+    // （宁可位置差一点，也不要整棵树不出现）。
+    let 视口 = 相机数据
+        .logical_viewport_size()
+        .unwrap_or(Vec2::new(1280.0, 720.0));
+    let 视口 = (视口.x, 视口.y);
 
     let 项 = 收集界面项(&编辑器.状态.会话.文档);
     if 项.is_empty() && 状态.已同步修订 == Some(修订) {
@@ -221,21 +238,44 @@ pub fn 同步界面元素(
         return;
     }
 
+    // 首次同步时打一行诊断：界面预览的布局空间（相机逻辑视口）与纹理尺寸
+    // 不一定一致，位置算错时没有这行数据只能靠猜。仅首次输出，不刷屏。
+    if 状态.上次数量 == 0 {
+        info!(
+            "界面预览布局：视口 {}×{}，共 {} 个界面元素",
+            视口.0,
+            视口.1,
+            项.len()
+        );
+    }
     let 字体 = 确保字体(&mut 状态, &mut 字体资源);
     for (序号, 面板) in 项.iter().enumerate() {
+        // 锚点 + 偏移 + 尺寸 → 像素矩形。换算逻辑在 `editor_core::ui_layout`：
+        // 纯函数、有测试，"差一个半宽"这类错误不会靠看截图才发现。
+        let 矩形 = editor_core::ui_layout::计算像素矩形(
+            editor_core::ui_layout::界面盒 {
+                锚点: 面板.锚点,
+                偏移x: 面板.偏移.0,
+                偏移y: 面板.偏移.1,
+                宽: 面板.尺寸.0,
+                高: 面板.尺寸.1,
+            },
+            视口.0,
+            视口.1,
+        );
         let mut 实体命令 = 命令.spawn((
             界面预览实体,
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(面板.偏移.0),
-                top: Val::Px(面板.偏移.1),
-                width: if 面板.尺寸.0 > 0.0 {
-                    Val::Px(面板.尺寸.0)
+                left: Val::Px(矩形.左),
+                top: Val::Px(矩形.上),
+                width: if 矩形.宽 > 0.0 {
+                    Val::Px(矩形.宽)
                 } else {
                     Val::Auto
                 },
-                height: if 面板.尺寸.1 > 0.0 {
-                    Val::Px(面板.尺寸.1)
+                height: if 矩形.高 > 0.0 {
+                    Val::Px(矩形.高)
                 } else {
                     Val::Auto
                 },

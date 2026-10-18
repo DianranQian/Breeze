@@ -37,6 +37,8 @@ pub const 界面按钮组件名: &str = "UiButton";
 /// 界面面板属性。
 #[derive(Debug, Clone, PartialEq)]
 pub struct 界面面板属性 {
+    /// 锚点预设：决定盒子贴在视口的哪条边上。
+    pub 锚点: editor_core::ui_layout::界面锚点,
     /// 宽度（屏幕像素）。
     pub 宽度: f32,
     /// 高度（屏幕像素）。
@@ -52,6 +54,7 @@ pub struct 界面面板属性 {
 impl Default for 界面面板属性 {
     fn default() -> Self {
         Self {
+            锚点: editor_core::ui_layout::界面锚点::左上,
             宽度: 320.0,
             高度: 180.0,
             偏移x: 40.0,
@@ -126,6 +129,13 @@ impl 组件类型 for 界面面板组件类型 {
     fn 导出(&self, 实例: &dyn std::any::Any) -> Option<BTreeMap<String, 属性值>> {
         let 属性 = 实例.downcast_ref::<界面面板属性>()?;
         let mut 结果 = BTreeMap::new();
+        结果.insert(
+            "锚点".to_string(),
+            属性值::枚举(scene_doc::property::枚举值::新建(
+                属性.锚点.变体名(),
+                属性.锚点.序号(),
+            )),
+        );
         结果.insert("宽度".to_string(), 属性值::浮点(属性.宽度));
         结果.insert("高度".to_string(), 属性值::浮点(属性.高度));
         结果.insert("偏移X".to_string(), 属性值::浮点(属性.偏移x));
@@ -140,6 +150,9 @@ impl 组件类型 for 界面面板组件类型 {
         let Some(属性) = 实例.downcast_mut::<界面面板属性>() else {
             return false;
         };
+        if let Some(属性值::枚举(枚举)) = 数据.get("锚点") {
+            属性.锚点 = editor_core::ui_layout::界面锚点::由值(&枚举.变体名, 枚举.序号);
+        }
         if let Some(值) = 数据.get("宽度").and_then(属性值::取浮点) {
             属性.宽度 = 值.max(0.0);
         }
@@ -256,7 +269,27 @@ impl 组件类型 for 界面按钮组件类型 {
 fn 面板字段() -> &'static [属性描述] {
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
+        // 锚点选项：(显示名词条键, 场景文件变体名, 序号)。
+        let 锚点选项: Vec<(String, String, u32)> = editor_core::ui_layout::界面锚点::全部
+            .iter()
+            .map(|锚点| {
+                (
+                    锚点.词条键().to_string(),
+                    锚点.变体名().to_string(),
+                    锚点.序号(),
+                )
+            })
+            .collect();
         vec![
+            属性描述::新建(
+                "锚点",
+                "ui_field_anchor",
+                属性种类::枚举 {
+                    选项: 锚点选项
+                },
+                属性值::枚举(scene_doc::property::枚举值::新建("TopLeft", 0)),
+            )
+            .带提示("ui_field_anchor_tooltip"),
             属性描述::新建(
                 "宽度",
                 "ui_field_width",

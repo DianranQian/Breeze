@@ -718,3 +718,10 @@ shape_circle	圆形	Circle
 rigid_body_static	静态	Static
 rigid_body_dynamic	动态	Dynamic
 rigid_body_kinematic	运动学	Kinematic
+ui_field_anchor	锚点	Anchor
+ui_field_anchor_tooltip	决定盒子贴在视口的哪条边上；换分辨率时位置会跟着走	Which edge the box sticks to; it follows when the viewport resizes
+anchor_top_left	左上	Top Left
+anchor_top_center	顶部居中	Top Center
+anchor_center	居中	Center
+anchor_bottom_right	右下	Bottom Right
+anchor_stretch	拉伸	Stretch

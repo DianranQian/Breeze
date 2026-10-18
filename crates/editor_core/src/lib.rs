@@ -33,6 +33,7 @@ pub mod package;
 pub mod project;
 pub mod selection;
 pub mod state;
+pub mod ui_layout;
 pub mod undo;
 
 // 模块名是中文，但 Rust 的模块文件查找只接受 ASCII 文件名，

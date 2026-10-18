@@ -242,10 +242,21 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 }
             });
 
-        if ui.small_button(上下文.语言.取("refresh")).clicked() {
-            // 资源列表是每次绘制时现场扫描的，因此"刷新"只需要重绘。
-            // 这里请求一次重绘，让按钮有即时反馈。
-            ui.ctx().request_repaint();
+        if ui
+            .small_button(上下文.语言.取("refresh"))
+            .on_hover_text(上下文.语言.取("import_assets_hint"))
+            .clicked()
+        {
+            // 「刷新」现在是**真正的重新导入**：扫描磁盘、对比 `imports.ron`、
+            // 更新缓存并报告新增/变更/缺失。仅请求重绘的旧实现等于什么也没做。
+            上下文.动作.推(UiAction::重新导入资源);
+        }
+        if ui
+            .small_button(上下文.语言.取("check_asset_dependencies"))
+            .on_hover_text(上下文.语言.取("check_asset_dependencies_hint"))
+            .clicked()
+        {
+            上下文.动作.推(UiAction::检查资源依赖);
         }
     });
 
@@ -264,6 +275,26 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 .small()
                 .color(上下文.配色.次要文字),
         );
+        // 导入状态汇总：只有"需要处理"的数量才值得占位置。
+        let 待导入 = 上下文
+            .导入状态
+            .values()
+            .filter(|状态| 状态.需要处理())
+            .count();
+        if 待导入 > 0 {
+            ui.label(
+                RichText::new(上下文.语言.填充("import_pending_count", &[&待导入]))
+                    .small()
+                    .color(上下文.配色.警告),
+            )
+            .on_hover_text(上下文.语言.取("import_pending_hint"));
+        } else if !上下文.导入状态.is_empty() {
+            ui.label(
+                RichText::new(上下文.语言.取("import_all_uptodate"))
+                    .small()
+                    .color(上下文.配色.成功),
+            );
+        }
     });
 
     if 树.is_empty() {
@@ -352,6 +383,27 @@ fn 绘制文件行(
                 资源类别::其他 => "📄",
             };
             ui.label(RichText::new(图标).small());
+        }
+
+        // 导入状态圆点：绿=新增待导入、黄=已变更、灰=最新、红=缺失。
+        //
+        // 用颜色 + 悬停文字，而不是在每行写一个词：资源列表要能一口气扫过，
+        // 文字标签会把行撑得参差不齐。颜色含义在悬停提示里给出。
+        if let Some(状态) = 上下文.导入状态.get(路径文本) {
+            let 颜色 = match 状态 {
+                editor_core::project::导入状态::新增 => 上下文.配色.成功,
+                editor_core::project::导入状态::已变更 => 上下文.配色.警告,
+                editor_core::project::导入状态::最新 => 上下文.配色.次要文字,
+                editor_core::project::导入状态::缺失 => 上下文.配色.错误,
+            };
+            let (矩形, 圆点响应) =
+                ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+            ui.painter().circle_filled(矩形.center(), 3.0, 颜色);
+            圆点响应.on_hover_text(
+                上下文
+                    .语言
+                    .填充("import_state_tooltip", &[&上下文.语言.取(状态.词条键())]),
+            );
         }
 
         let 响应 = ui.add(

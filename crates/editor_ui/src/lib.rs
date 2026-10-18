@@ -500,6 +500,262 @@ fn 绘制_新建项目对话框(
     }
 }
 
+/// 「项目设置」对话框。
+///
+/// # 为什么对话框改的是草稿而不是清单
+///
+/// 用户可能改了一半就取消。若直接改项目清单，取消就要靠"先备份再还原"，
+/// 字段一多必然漏。这里编辑的是 [`界面状态::项目设置草稿`]：
+/// 只有点「保存」才把整份草稿交给动作层校验并写回清单，
+/// 校验失败时错误信息回到对话框里（而不是只写进控制台）。
+///
+/// # 返回值
+///
+/// 返回 `Some(动作)` 表示用户点了保存；调用方负责排进动作队列。
+fn 绘制_项目设置对话框(
+    egui上下文: &egui::Context,
+    界面: &mut 界面状态,
+    项目根目录: Option<&std::path::Path>,
+    配色: 编辑器配色,
+    语言: crate::i18n::语言,
+) -> Option<UiAction> {
+    if !界面.显示项目设置 {
+        return None;
+    }
+    let mut 打开 = true;
+    let mut 要保存 = false;
+    let mut 要取消 = false;
+    let mut 草稿 = 界面.项目设置草稿.clone().unwrap_or_default();
+    let 错误 = 界面.项目设置错误.clone();
+
+    let 窗口响应 = egui::Window::new(语言.取("project_settings"))
+        .collapsible(false)
+        .resizable(true)
+        .default_width(460.0)
+        .open(&mut 打开)
+        .show(egui上下文, |ui| {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            if let Some(根) = 项目根目录 {
+                ui.label(
+                    egui::RichText::new(根.display().to_string())
+                        .small()
+                        .monospace()
+                        .color(配色.次要文字),
+                );
+            }
+            ui.separator();
+
+            egui::Grid::new("project_settings_grid")
+                .num_columns(2)
+                .spacing([8.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label(语言.取("project_name"));
+                    ui.add(egui::TextEdit::singleline(&mut 草稿.名称).desired_width(300.0));
+                    ui.end_row();
+
+                    ui.label(语言.取("project_description"));
+                    ui.add(
+                        egui::TextEdit::multiline(&mut 草稿.说明)
+                            .desired_rows(2)
+                            .desired_width(300.0),
+                    );
+                    ui.end_row();
+
+                    ui.label(语言.取("start_scene"));
+                    let mut 启动场景 = 草稿.启动场景.clone().unwrap_or_default();
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 启动场景)
+                                .hint_text("scenes/main.scene.ron")
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.启动场景 = Some(启动场景).filter(|文本| !文本.trim().is_empty());
+                    }
+                    ui.end_row();
+                });
+
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(语言.取("run_target_title"))
+                    .strong()
+                    .color(配色.文字),
+            );
+            egui::Grid::new("project_settings_run_grid")
+                .num_columns(2)
+                .spacing([8.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label(语言.取("run_target_program"));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut 草稿.运行程序)
+                            .hint_text(语言.取("run_target_program_hint"))
+                            .desired_width(300.0),
+                    );
+                    ui.end_row();
+
+                    ui.label(语言.取("run_target_args"));
+                    let mut 参数文本 = 草稿.运行参数.join("\n");
+                    if ui
+                        .add(
+                            egui::TextEdit::multiline(&mut 参数文本)
+                                .hint_text(语言.取("run_target_args_hint"))
+                                .desired_rows(2)
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.运行参数 = 参数文本
+                            .lines()
+                            .map(str::trim)
+                            .filter(|行| !行.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                    }
+                    ui.end_row();
+
+                    ui.label(语言.取("run_target_working_dir"));
+                    let mut 工作目录 = 草稿.运行工作目录.clone().unwrap_or_default();
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 工作目录)
+                                .hint_text(语言.取("build_target_hint"))
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.运行工作目录 = Some(工作目录).filter(|文本| !文本.trim().is_empty());
+                    }
+                    ui.end_row();
+                });
+
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(语言.取("build"))
+                    .strong()
+                    .color(配色.文字),
+            );
+            egui::Grid::new("project_settings_build_grid")
+                .num_columns(2)
+                .spacing([8.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label(语言.取("build_profile"));
+                    let 当前 = match 草稿.构建.配置类型 {
+                        editor_core::build::构建配置类型::Debug => {
+                            语言.取("build_profile_debug")
+                        }
+                        editor_core::build::构建配置类型::Release => {
+                            语言.取("build_profile_release")
+                        }
+                    };
+                    egui::ComboBox::from_id_salt("project_settings_profile")
+                        .selected_text(当前)
+                        .width(160.0)
+                        .show_ui(ui, |ui| {
+                            for 类型 in editor_core::build::构建配置类型::全部 {
+                                let 名称 = match 类型 {
+                                    editor_core::build::构建配置类型::Debug => {
+                                        语言.取("build_profile_debug")
+                                    }
+                                    editor_core::build::构建配置类型::Release => {
+                                        语言.取("build_profile_release")
+                                    }
+                                };
+                                if ui
+                                    .selectable_label(草稿.构建.配置类型 == 类型, 名称)
+                                    .clicked()
+                                {
+                                    草稿.构建.配置类型 = 类型;
+                                }
+                            }
+                        });
+                    ui.end_row();
+
+                    ui.label(语言.取("build_package"));
+                    let mut 包名 = 草稿.构建.包名.clone().unwrap_or_default();
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 包名)
+                                .hint_text(语言.取("build_package_hint"))
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.构建.包名 = Some(包名).filter(|值| !值.trim().is_empty());
+                    }
+                    ui.end_row();
+
+                    ui.label(语言.取("build_features"));
+                    let mut 特性 = 草稿.构建.特征.join(",");
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 特性)
+                                .hint_text(语言.取("build_features_hint"))
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.构建.特征 = 特性
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|项| !项.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                    }
+                    ui.end_row();
+
+                    ui.label(语言.取("build_target"));
+                    let mut 目标 = 草稿.构建.目标平台.clone().unwrap_or_default();
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 目标)
+                                .hint_text(语言.取("build_target_hint"))
+                                .desired_width(300.0),
+                        )
+                        .changed()
+                    {
+                        草稿.构建.目标平台 = Some(目标).filter(|值| !值.trim().is_empty());
+                    }
+                    ui.end_row();
+                });
+
+            if let Some(错误) = 错误.as_deref() {
+                ui.separator();
+                ui.label(egui::RichText::new(错误).small().color(配色.错误));
+            }
+
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button(语言.取("save")).clicked() {
+                    要保存 = true;
+                }
+                if ui.button(语言.取("cancel")).clicked() {
+                    要取消 = true;
+                }
+            });
+        });
+
+    界面.项目设置草稿 = Some(草稿.clone());
+    记录浮层区域(
+        界面,
+        egui上下文.viewport_rect(),
+        "float_project_settings",
+        窗口响应.map(|响应| 响应.response.rect),
+    );
+
+    if 要保存 {
+        界面.显示项目设置 = false;
+        界面.项目设置错误 = None;
+        return Some(UiAction::保存项目设置(草稿));
+    }
+    if 要取消 || !打开 {
+        界面.显示项目设置 = false;
+        界面.项目设置错误 = None;
+        界面.项目设置草稿 = None;
+    }
+    None
+}
+
 /// "关于"窗口。
 fn 绘制_关于窗口(
     egui上下文: &egui::Context,
@@ -598,6 +854,7 @@ impl 面板查看器<'_, '_> {
             已暂停: self.上下文.已暂停,
             运行时信息: self.上下文.运行时信息,
             构建: self.上下文.构建,
+            导入状态: self.上下文.导入状态,
         }
     }
 
@@ -645,6 +902,16 @@ impl 面板查看器<'_, '_> {
         // 工作区名称对话框：确认后把动作排进队列，由执行器统一处理。
         if let Some(动作) = workspace_bar::绘制对话框(egui上下文, self.上下文.界面, 配色, 语言)
         {
+            self.上下文.动作.推(动作);
+        }
+        // 项目设置对话框：草稿改在界面状态里，只有点保存才整体写回清单。
+        if let Some(动作) = 绘制_项目设置对话框(
+            egui上下文,
+            self.上下文.界面,
+            self.上下文.编辑器.项目.as_ref().map(|项目| 项目.根目录()),
+            配色,
+            语言,
+        ) {
             self.上下文.动作.推(动作);
         }
         // 主题编辑器：读写草稿，并把保存/取消等动作排进队列。

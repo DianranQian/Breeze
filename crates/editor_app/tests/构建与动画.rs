@@ -337,6 +337,8 @@ fn 动作队列能驱动动画录制与播放() {
     世界.insert_resource(editor_app::config::布局待保存::default());
     世界.insert_resource(editor_app::run::项目运行管理器::default());
     世界.insert_resource(构建宿主::新建());
+    世界.insert_resource(editor_app::config::编辑器配置资源::default());
+    世界.insert_resource(editor_app::plugin::导入快照资源::default());
 
     {
         let mut 编辑器 = 世界.resource_mut::<EditorStateHolder>();

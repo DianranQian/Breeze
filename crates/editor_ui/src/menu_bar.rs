@@ -125,7 +125,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                 },
                 菜单分组 {
                     标题: "",
-                    项: vec![菜单项::常可用("project_settings", None)],
+                    项: vec![菜单项::常可用("project_settings", None).需要(可用性::需要项目)],
                 },
                 菜单分组 {
                     标题: "",
@@ -199,7 +199,8 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
             vec![菜单分组 {
                 标题: "",
                 项: vec![
-                    菜单项::常可用("refresh_the_asset_list", None),
+                    菜单项::常可用("refresh_the_asset_list", None).需要(可用性::需要项目),
+                    菜单项::常可用("check_asset_dependencies", None).需要(可用性::需要项目),
                     菜单项::常可用("tooltip_open_assets_folder", None).需要(可用性::需要项目),
                 ],
             }],
@@ -361,7 +362,7 @@ pub fn 菜单项动作(
             crate::dev_modes::示例项目::三维,
         )),
         "close_project" => Some(UiAction::关闭项目),
-        "project_settings" => None, // 未实现
+        "project_settings" => Some(UiAction::显示项目设置(true)),
 
         // ---- 文件 ----
         "new_scene" => Some(UiAction::新建场景),
@@ -416,7 +417,11 @@ pub fn 菜单项动作(
         }),
 
         // ---- 资源 ----
-        "refresh_the_asset_list" => None, // 资源列表每帧扫描，无需显式刷新
+        // 「刷新资源列表」现在是**真的重新导入**：扫描磁盘、对比 `imports.ron`、
+        // 更新缓存并报告新增/变更/缺失。此前它只是请求一次重绘
+        // （因为列表本来就是每帧扫描的），那个按钮等于什么都不做。
+        "refresh_the_asset_list" => Some(UiAction::重新导入资源),
+        "check_asset_dependencies" => Some(UiAction::检查资源依赖),
         "tooltip_open_assets_folder" => Some(UiAction::在资源管理器中显示(
             scene_doc::path::项目相对路径::解析("assets").ok()?,
         )),
@@ -567,6 +572,46 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                             ui.close();
                         }
                     }
+                }
+
+                // 「最近项目」子菜单。
+                //
+                // 它不是静态菜单项：条目来自用户配置里的列表，长度可变。
+                // 因此在这里单独渲染，而不是塞进 `菜单定义()`（那份定义是
+                // 静态的、被覆盖测试逐项比对，不能随用户数据变化）。
+                //
+                // 用绝对路径做按钮文本：重名项目很常见（`游戏/`、`游戏2/`），
+                // 只显示名字会让用户点错。
+                if 菜单名 == "project" && !上下文.界面.最近项目.is_empty() {
+                    ui.separator();
+                    ui.menu_button(语言.取("recent_projects"), |ui| {
+                        let 现有: Vec<std::path::PathBuf> = 上下文.界面.最近项目.clone();
+                        for 目录 in 现有 {
+                            let 存在 = 目录.is_dir();
+                            let 文本 = if 存在 {
+                                目录.display().to_string()
+                            } else {
+                                format!(
+                                    "{}  ({})",
+                                    目录.display(),
+                                    语言.取("recent_project_missing")
+                                )
+                            };
+                            let 响应 = ui.add_enabled(存在, egui::Button::new(文本).frame(false));
+                            if 响应.clicked() {
+                                上下文.动作.推(UiAction::打开最近项目(目录.clone()));
+                                ui.close();
+                            }
+                            if !存在 {
+                                响应.on_disabled_hover_text(语言.取("recent_project_missing_hint"));
+                            }
+                        }
+                        ui.separator();
+                        if ui.button(语言.取("recent_projects_clear")).clicked() {
+                            上下文.动作.推(UiAction::清除最近项目);
+                            ui.close();
+                        }
+                    });
                 }
             });
         }
@@ -942,13 +987,33 @@ mod 测试 {
     fn 未实现的菜单项被如实标注() {
         let 编辑器 = 编辑器状态::新建();
         // 这些是本版本确实没做的功能，必须返回 None 以便界面显示为禁用。
-        {
-            let 文本 = "project_settings";
+        //
+        // 「项目设置」曾经也在这张名单里 —— 它现在有真实实现
+        // （校验 + 写回 project.ron），因此从名单移除，并补一条正向断言：
+        // 一个功能从"未实现"变成"已实现"时，测试必须同时改，
+        // 否则名单会变成"永远为真"的摆设。
+        for 文本 in ["tooltip_feature_not_implemented"] {
             assert!(
                 菜单项动作(文本, crate::i18n::语言::中文, &编辑器).is_none(),
                 "`{文本}` 尚未实现，菜单项动作必须返回 None 而不是假装能用"
             );
         }
+        assert!(
+            matches!(
+                菜单项动作("project_settings", crate::i18n::语言::中文, &编辑器),
+                Some(UiAction::显示项目设置(true))
+            ),
+            "项目设置已经实现，必须返回真实动作"
+        );
+        assert_eq!(
+            菜单项动作("refresh_the_asset_list", crate::i18n::语言::中文, &编辑器),
+            Some(UiAction::重新导入资源),
+            "资源刷新现在是真实导入，不是空按钮"
+        );
+        assert_eq!(
+            菜单项动作("check_asset_dependencies", crate::i18n::语言::中文, &编辑器),
+            Some(UiAction::检查资源依赖)
+        );
     }
 
     #[test]

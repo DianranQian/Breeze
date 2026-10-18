@@ -53,6 +53,8 @@ fn 建测试世界() -> World {
     // 会让**全部**动作用例在 SystemParam 校验阶段一起失败。
     // 这里显式装配，避免下次再踩。
     世界.insert_resource(editor_app::build::构建宿主::新建());
+    世界.insert_resource(editor_app::config::编辑器配置资源::default());
+    世界.insert_resource(editor_app::plugin::导入快照资源::default());
     世界
 }
 

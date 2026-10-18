@@ -82,12 +82,27 @@ pub struct 编辑器配置 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 主题: Option<String>,
     /// 最近打开的项目目录。
+    ///
+    /// # 这是**旧字段**，只为迁移而保留
+    ///
+    /// 早期只记一个项目，格式版本 2 起改为列表（见
+    /// [`编辑器配置::最近项目列表`]）。读到它而列表为空时，
+    /// 启动流程会把它并进列表 —— 用户上次打开的项目不能凭空消失。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 最近项目: Option<PathBuf>,
+    /// 最近打开的项目目录列表（越靠前越新）。
+    ///
+    /// 上限见 [`最近项目上限`]：无限增长会让配置文件变成一条越来越长的
+    /// 历史，菜单也跟着长到不可用。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub 最近项目列表: Vec<PathBuf>,
     /// 界面搜索框等轻量偏好的持久化预留。
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub 偏好: std::collections::BTreeMap<String, String>,
 }
+
+/// 最近项目列表的上限。
+pub const 最近项目上限: usize = 10;
 
 impl Default for 编辑器配置 {
     fn default() -> Self {
@@ -97,6 +112,7 @@ impl Default for 编辑器配置 {
             工作区: None,
             主题: None,
             最近项目: None,
+            最近项目列表: Vec::new(),
             偏好: std::collections::BTreeMap::new(),
         }
     }
@@ -113,7 +129,10 @@ impl 编辑器配置 {
         };
 
         match ron::from_str::<Self>(&文本) {
-            Ok(配置) if 配置.格式版本 <= 配置格式版本 => 配置,
+            Ok(mut 配置) if 配置.格式版本 <= 配置格式版本 => {
+                配置.合并旧最近项目();
+                配置
+            }
             Ok(配置) => {
                 warn!(
                     "编辑器配置格式版本 {} 高于本编辑器支持的 {}，已改用默认配置",
@@ -126,6 +145,43 @@ impl 编辑器配置 {
                 Self::default()
             }
         }
+    }
+
+    /// 把旧版单值 `最近项目` 并进列表（迁移，只做一次）。
+    fn 合并旧最近项目(&mut self) {
+        if let Some(旧) = self.最近项目.take()
+            && !self.最近项目列表.contains(&旧)
+        {
+            self.最近项目列表.insert(0, 旧);
+        }
+        self.最近项目列表.truncate(最近项目上限);
+    }
+
+    /// 记录一次"打开项目"，把它挪到列表最前。
+    ///
+    /// 同一目录重复打开不会产生重复项；超过上限时丢弃最旧的。
+    /// 返回列表最前项是否变化（调用方据此决定是否需要写盘）。
+    pub fn 记录最近项目(&mut self, 目录: &std::path::Path) -> bool {
+        let 目录 = 目录.to_path_buf();
+        let 变化 = self.最近项目列表.first() != Some(&目录);
+        self.最近项目列表.retain(|已有| 已有 != &目录);
+        self.最近项目列表.insert(0, 目录);
+        self.最近项目列表.truncate(最近项目上限);
+        self.最近项目 = None;
+        变化
+    }
+
+    /// 移除一个最近项目。
+    pub fn 移除最近项目(&mut self, 目录: &std::path::Path) -> bool {
+        let 前 = self.最近项目列表.len();
+        self.最近项目列表.retain(|已有| 已有 != 目录);
+        self.最近项目列表.len() != 前
+    }
+
+    /// 清空最近项目列表。
+    pub fn 清空最近项目(&mut self) {
+        self.最近项目列表.clear();
+        self.最近项目 = None;
     }
 
     /// 保存配置。返回是否成功。
@@ -253,7 +309,11 @@ mod 测试 {
             布局: Some("(布局内容)".to_string()),
             工作区: Some("(工作区内容)".to_string()),
             主题: Some("(主题内容)".to_string()),
-            最近项目: Some(PathBuf::from("C:/games/我的游戏")),
+            最近项目: None,
+            最近项目列表: vec![
+                PathBuf::from("C:/games/我的游戏"),
+                PathBuf::from("C:/games/另一个"),
+            ],
             偏好: [("主题".to_string(), "深色".to_string())]
                 .into_iter()
                 .collect(),
@@ -262,6 +322,53 @@ mod 测试 {
 
         let 载入 = 编辑器配置::载入(&路径);
         assert_eq!(载入, 配置);
+    }
+
+    #[test]
+    fn 最近项目去重并移到最前() {
+        let mut 配置 = 编辑器配置::default();
+        assert!(配置.记录最近项目(std::path::Path::new("C:/a")));
+        assert!(配置.记录最近项目(std::path::Path::new("C:/b")));
+        assert_eq!(配置.最近项目列表.len(), 2);
+        // 重复打开 a：移到最前，不新增。
+        assert!(配置.记录最近项目(std::path::Path::new("C:/a")));
+        assert_eq!(配置.最近项目列表.len(), 2);
+        assert_eq!(配置.最近项目列表[0], PathBuf::from("C:/a"));
+        // 重复打开已经在最前的项：不算变化。
+        assert!(!配置.记录最近项目(std::path::Path::new("C:/a")));
+    }
+
+    #[test]
+    fn 最近项目超过上限时丢弃最旧的() {
+        let mut 配置 = 编辑器配置::default();
+        for 序号 in 0..(最近项目上限 + 5) {
+            配置.记录最近项目(std::path::Path::new(&format!("C:/p{序号}")));
+        }
+        assert_eq!(配置.最近项目列表.len(), 最近项目上限);
+        assert_eq!(
+            配置.最近项目列表[0],
+            PathBuf::from(format!("C:/p{}", 最近项目上限 + 4)),
+            "最新的必须在最前"
+        );
+        assert!(
+            !配置.最近项目列表.contains(&PathBuf::from("C:/p0")),
+            "最旧的必须被丢掉"
+        );
+    }
+
+    #[test]
+    fn 旧版单值最近项目会迁移进列表() {
+        let 目录 = tempfile::tempdir().unwrap();
+        let 路径 = 目录.path().join("config.ron");
+        // 模拟旧版配置：只有 `最近项目`，没有列表。
+        let 旧文本 = r#"(
+            格式版本: 2,
+            最近项目: Some("C:/旧项目"),
+        )"#;
+        std::fs::write(&路径, 旧文本).unwrap();
+        let 配置 = 编辑器配置::载入(&路径);
+        assert_eq!(配置.最近项目列表, vec![PathBuf::from("C:/旧项目")]);
+        assert!(配置.最近项目.is_none(), "迁移后旧字段应当被清空");
     }
 
     #[test]

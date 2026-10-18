@@ -21,7 +21,8 @@ use std::time::Duration;
 #[cfg(windows)]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput,
+    MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK,
+    MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput,
 };
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -131,6 +132,26 @@ pub fn 按下() -> bool {
 /// 左键抬起。
 pub fn 抬起() -> bool {
     发送鼠标(取当前指针(), MOUSEEVENTF_LEFTUP)
+}
+
+/// 在指定屏幕坐标完成一次**真实右键单击**。
+///
+/// 与左键同一套 `SendInput` 路径，只是换成 `RIGHTDOWN`/`RIGHTUP`。
+/// 用于验证右键菜单这类"浮层"交互：菜单不会改变布局矩形，
+/// 因此只能靠截图确认它真的弹出来了。
+pub fn 执行右键单击(坐标: (i32, i32)) -> 注入结果 {
+    let mut 结果 = 注入结果 {
+        移动成功: 移动到(坐标),
+        按下成功: false,
+        抬起成功: false,
+        移动步数: 0,
+    };
+    sleep(Duration::from_millis(130));
+    结果.按下成功 = 发送鼠标(取当前指针(), MOUSEEVENTF_RIGHTDOWN);
+    sleep(Duration::from_millis(80));
+    结果.抬起成功 = 发送鼠标(取当前指针(), MOUSEEVENTF_RIGHTUP);
+    sleep(Duration::from_millis(150));
+    结果
 }
 
 /// 在指定屏幕坐标完成一次**真实单击**。

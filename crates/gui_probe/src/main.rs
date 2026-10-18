@@ -695,6 +695,10 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 只验滚轮是否真的改变了滚动位置（不要求区域/状态发生变化）。
     let mut 期望滚动 = false;
     // 插槽 1 里的滚轮：在场景树等可滚动区域上真实发滚轮事件。
+    // 插槽 1 的右键（用于验证右键菜单这类浮层）。
+    let mut 右键用例: Option<String> = None;
+    // 只做视觉取证、不判定"有没有变化"（菜单这类浮层不改变任何记录值）。
+    let mut 允许无变化 = false;
     let mut 滚轮格数: i32 = 0;
     let mut 滚轮区域: Option<String> = None;
     // 插槽 2 里的点击（可多个，逗号分隔）：坐标取自**第二帧证据**，
@@ -763,6 +767,8 @@ fn 拖拽(参数: &[String]) -> i32 {
                 }
             }
             "--scroll-at" => 滚轮区域 = 取值(&mut 下标),
+            "--right-click" => 右键用例 = 取值(&mut 下标),
+            "--allow-no-change" => 允许无变化 = true,
             "--case3" => {
                 if let Some(值) = 取值(&mut 下标) {
                     for 段 in 值.split(',') {
@@ -799,10 +805,15 @@ fn 拖拽(参数: &[String]) -> i32 {
         eprintln!("可执行文件不存在：{}", exe.display());
         return 4;
     }
-    if 从.is_none() && 分割线.is_none() && 用例.is_none() && 用例3.is_empty() && 滚轮格数 == 0
+    if 从.is_none()
+        && 分割线.is_none()
+        && 用例.is_none()
+        && 用例3.is_empty()
+        && 滚轮格数 == 0
+        && 右键用例.is_none()
     {
         eprintln!(
-            "drag 需要 --from/--to、--splitter v|h、--case <name>、--case3 <name[,name]> 或 --scroll <n>"
+            "drag 需要 --from/--to、--splitter v|h、--case <name>、--case3 <name[,name]>、--scroll <n> 或 --right-click <name>"
         );
         return 4;
     }
@@ -1055,6 +1066,32 @@ fn 拖拽(参数: &[String]) -> i32 {
             })
         };
     } // if !需要第一插槽点击
+
+    // ---- 右键（可选）：第一帧证据之后、第二帧证据之前 ----
+    //
+    // 坐标同样来自第一帧证据：点的就是界面上那个真实控件。
+    if let Some(名) = 右键用例.clone() {
+        match 用例坐标(&名, &前证据) {
+            Some((从右, _)) => {
+                let 屏右 = 转屏幕(从右);
+                eprintln!("右键单击 `{名}`：逻辑 {从右:?}，屏幕 {屏右:?}");
+                确保前台(&窗口);
+                std::thread::sleep(Duration::from_millis(150));
+                let _ = input::执行右键单击(屏右);
+                std::thread::sleep(Duration::from_millis(400));
+            }
+            None => {
+                等待退出(&mut 子进程, Duration::from_secs(5));
+                return 拖拽失败报告(
+                    &输出目录,
+                    &名称,
+                    "capture_failed",
+                    &format!("右键用例 `{名}` 在第一帧证据里取不到坐标"),
+                    3,
+                );
+            }
+        }
+    }
 
     // ---- 滚轮（可选）：同样发生在第一帧证据之后、第二帧证据之前 ----
     //
@@ -1336,6 +1373,8 @@ fn 拖拽(参数: &[String]) -> i32 {
         期望不变,
         期望还原,
         期望滚动,
+        允许无变化,
+        &右键用例,
         滚轮格数,
         滚动结果,
         &插槽2点击,
@@ -1346,7 +1385,10 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 只比区域矩形是不够的：点「折叠箭头」不会移动任何面板，
     // 点「运行项目」也不会。真正的事实是场景树可见行/折叠计数、
     // 运行状态与 PID 的变化 —— 它们才是这两个功能的验收依据。
-    let 满足 = if 期望不变 {
+    let 满足 = if 允许无变化 {
+        // 只做视觉取证：截图存在即算采集成功（指针是否到达单独记录）。
+        收到指针 || !变化.is_empty() || !状态变化.is_empty()
+    } else if 期望不变 {
         变化.is_empty() && 状态变化.is_empty()
     } else if 期望滚动 {
         // 滚轮会话：只要行位置真的变了就算通过。
@@ -1713,6 +1755,8 @@ fn 写拖拽报告(
     期望不变: bool,
     期望还原: bool,
     期望滚动: bool,
+    允许无变化: bool,
+    右键用例: &Option<String>,
     滚轮格数: i32,
     滚动结果: (bool, usize),
     插槽2点击: &[serde_json::Value],
@@ -1767,6 +1811,8 @@ fn 写拖拽报告(
         "expect_no_change": 期望不变,
         "expect_restore": 期望还原,
         "expect_scroll": 期望滚动,
+        "allow_no_change": 允许无变化,
+        "right_click_case": 右键用例,
     });
     let _ = std::fs::write(
         输出目录.join(format!("{名称}.drag.json")),

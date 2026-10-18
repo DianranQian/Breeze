@@ -915,14 +915,22 @@ pub fn 输入诊断(
     let Ok(窗口) = 窗口.single() else {
         return;
     };
-    let 按下 = 按键.just_pressed(MouseButton::Left);
-    let 抬起 = 按键.just_released(MouseButton::Left);
-    if 按下 || 抬起 {
-        info!(
-            "[输入诊断] 左键{} 位置 {:?}",
-            if 按下 { "按下" } else { "抬起" },
-            窗口.cursor_position()
-        );
+    // 三个按钮都记：验收里既有左键（选择/按钮）也有右键（上下文菜单）。
+    // 只记左键会让"右键菜单没弹出来"与"右键根本没送达"无法区分。
+    for (按钮, 名称) in [
+        (MouseButton::Left, "左键"),
+        (MouseButton::Right, "右键"),
+        (MouseButton::Middle, "中键"),
+    ] {
+        let 按下 = 按键.just_pressed(按钮);
+        let 抬起 = 按键.just_released(按钮);
+        if 按下 || 抬起 {
+            info!(
+                "[输入诊断] {名称}{} 位置 {:?}",
+                if 按下 { "按下" } else { "抬起" },
+                窗口.cursor_position()
+            );
+        }
     }
 }
 

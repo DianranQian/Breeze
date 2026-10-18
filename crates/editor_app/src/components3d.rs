@@ -1,0 +1,334 @@
+//! 三维灯光组件：让"场景里的灯"成为可编辑的数据。
+//!
+//! # 为什么要单独一个模块
+//!
+//! 三维灯光与 2D/3D 场景组件的**渲染路径不同**：几何体走网格材质，
+//! 灯光是给渲染器提供照明的独立组件（`DirectionalLight` / `PointLight`）。
+//! 把它们放进独立模块，好处有两个：
+//!
+//! 1. 组件定义、字段描述、注册表扩展、预览同步四处改动都在一个文件里，
+//!    评审时能一眼看全；
+//! 2. 不必去动主组件注册表所在的 `scene_bridge`（那里正有其他工作线的改动）。
+//!
+//! # 与 Godot 的对应
+//!
+//! Godot 的 `DirectionalLight3D` / `OmniLight3D` 都是**场景节点**：
+//! 灯的位置/朝向来自节点变换，颜色与强度是节点属性，导出时进场景文件。
+//! 这里完全同构：灯光的方向来自实体变换（四元数），颜色/强度是组件属性。
+//! 因此"拖动灯的旋转"就是"改光照方向"，不需要额外的方向字段。
+//!
+//! # 注册表扩展
+//!
+//! [`扩展注册表`] 在启动时把这两个组件注册进编辑器实际使用的注册表。
+//! Inspector 的字段编辑器、添加组件菜单、场景校验**全部由注册表驱动**，
+//! 所以只要注册成功，这三处自动就有它们（不需要改任何 UI 代码）。
+
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
+
+use scene_doc::property::{属性值, 颜色值};
+use scene_doc::registry::{属性描述, 属性种类, 组件注册表, 组件类型};
+
+/// 方向光组件在场景文件里的类型名。
+pub const 方向光组件名: &str = "方向光";
+
+/// 点光组件在场景文件里的类型名。
+pub const 点光组件名: &str = "点光";
+
+/// 方向光属性。
+#[derive(Debug, Clone, PartialEq)]
+pub struct 方向光属性 {
+    /// 光色。
+    pub 颜色: 颜色值,
+    /// 照度（lux）。Bevy 的 `DirectionalLight::illuminance` 直接对应。
+    pub 照度: f32,
+    /// 是否投射阴影。
+    pub 投射阴影: bool,
+}
+
+impl Default for 方向光属性 {
+    fn default() -> Self {
+        Self {
+            颜色: 颜色值::白(),
+            // Bevy 默认 10000 lux 左右接近正午阳光；编辑器里取略亮一点，
+            // 因为预览还叠着一层环境光。
+            照度: 10_000.0,
+            投射阴影: true,
+        }
+    }
+}
+
+/// 点光属性。
+#[derive(Debug, Clone, PartialEq)]
+pub struct 点光属性 {
+    /// 光色。
+    pub 颜色: 颜色值,
+    /// 强度（流明，Bevy `PointLight::intensity`）。
+    pub 强度: f32,
+    /// 影响半径（米）。Bevy `PointLight::range`。
+    pub 半径: f32,
+}
+
+impl Default for 点光属性 {
+    fn default() -> Self {
+        Self {
+            颜色: 颜色值::白(),
+            强度: 800.0,
+            半径: 20.0,
+        }
+    }
+}
+
+/// 方向光组件类型。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct 方向光组件类型;
+
+impl 组件类型 for 方向光组件类型 {
+    fn 组件名(&self) -> &'static str {
+        方向光组件名
+    }
+
+    fn 默认实例(&self) -> Box<dyn std::any::Any> {
+        Box::new(方向光属性::default())
+    }
+
+    fn 字段描述(&self) -> &[属性描述] {
+        方向光字段()
+    }
+
+    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<BTreeMap<String, 属性值>> {
+        let 属性 = 实例.downcast_ref::<方向光属性>()?;
+        let mut 结果 = BTreeMap::new();
+        结果.insert("颜色".to_string(), 属性值::颜色(属性.颜色));
+        结果.insert("照度".to_string(), 属性值::浮点(属性.照度));
+        结果.insert("投射阴影".to_string(), 属性值::布尔(属性.投射阴影));
+        Some(结果)
+    }
+
+    fn 实例化(
+        &self, 实例: &mut dyn std::any::Any, 数据: &BTreeMap<String, 属性值>
+    ) -> bool {
+        let Some(属性) = 实例.downcast_mut::<方向光属性>() else {
+            return false;
+        };
+        if let Some(值) = 数据.get("颜色").and_then(属性值::取颜色) {
+            属性.颜色 = 值;
+        }
+        if let Some(值) = 数据.get("照度").and_then(属性值::取浮点) {
+            // 负照度没有物理意义；夹到非负，避免整片场景变黑却查不出原因。
+            属性.照度 = 值.clamp(0.0, 200_000.0);
+        }
+        if let Some(值) = 数据.get("投射阴影").and_then(属性值::取布尔) {
+            属性.投射阴影 = 值;
+        }
+        true
+    }
+}
+
+/// 点光组件类型。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct 点光组件类型;
+
+impl 组件类型 for 点光组件类型 {
+    fn 组件名(&self) -> &'static str {
+        点光组件名
+    }
+
+    fn 默认实例(&self) -> Box<dyn std::any::Any> {
+        Box::new(点光属性::default())
+    }
+
+    fn 字段描述(&self) -> &[属性描述] {
+        点光字段()
+    }
+
+    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<BTreeMap<String, 属性值>> {
+        let 属性 = 实例.downcast_ref::<点光属性>()?;
+        let mut 结果 = BTreeMap::new();
+        结果.insert("颜色".to_string(), 属性值::颜色(属性.颜色));
+        结果.insert("强度".to_string(), 属性值::浮点(属性.强度));
+        结果.insert("半径".to_string(), 属性值::浮点(属性.半径));
+        Some(结果)
+    }
+
+    fn 实例化(
+        &self, 实例: &mut dyn std::any::Any, 数据: &BTreeMap<String, 属性值>
+    ) -> bool {
+        let Some(属性) = 实例.downcast_mut::<点光属性>() else {
+            return false;
+        };
+        if let Some(值) = 数据.get("颜色").and_then(属性值::取颜色) {
+            属性.颜色 = 值;
+        }
+        if let Some(值) = 数据.get("强度").and_then(属性值::取浮点) {
+            属性.强度 = 值.clamp(0.0, 100_000.0);
+        }
+        if let Some(值) = 数据.get("半径").and_then(属性值::取浮点) {
+            // 半径为 0 的灯等于不亮；给一个极小值让用户至少能看到"灯还在"。
+            属性.半径 = 值.clamp(0.01, 1000.0);
+        }
+        true
+    }
+}
+
+fn 方向光字段() -> &'static [属性描述] {
+    static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
+    列表.get_or_init(|| {
+        vec![
+            属性描述::新建(
+                "颜色",
+                "light_field_color",
+                属性种类::颜色,
+                属性值::颜色(颜色值::白()),
+            )
+            .带提示("light_field_color_tooltip"),
+            属性描述::新建(
+                "照度",
+                "light_field_illuminance",
+                属性种类::浮点范围(0.0, 200_000.0, 100.0),
+                属性值::浮点(10_000.0),
+            )
+            .带提示("light_field_illuminance_tooltip"),
+            属性描述::新建(
+                "投射阴影",
+                "light_field_shadows",
+                属性种类::布尔,
+                属性值::布尔(true),
+            )
+            .带提示("light_field_shadows_tooltip"),
+        ]
+    })
+}
+
+fn 点光字段() -> &'static [属性描述] {
+    static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
+    列表.get_or_init(|| {
+        vec![
+            属性描述::新建(
+                "颜色",
+                "light_field_color",
+                属性种类::颜色,
+                属性值::颜色(颜色值::白()),
+            )
+            .带提示("light_field_color_tooltip"),
+            属性描述::新建(
+                "强度",
+                "light_field_intensity",
+                属性种类::浮点范围(0.0, 100_000.0, 50.0),
+                属性值::浮点(800.0),
+            )
+            .带提示("light_field_intensity_tooltip"),
+            属性描述::新建(
+                "半径",
+                "light_field_range",
+                属性种类::浮点范围(0.01, 1000.0, 0.5),
+                属性值::浮点(20.0),
+            )
+            .带提示("light_field_range_tooltip"),
+        ]
+    })
+}
+
+/// 把三维灯光组件注册进注册表。
+///
+/// # 为什么返回注册表而不是就地修改
+///
+/// `组件注册表::注册` 会校验"默认值与声明种类一致"，失败是编程错误。
+/// 这里把错误 `expect` 掉：如果内置组件的描述都不自洽，编辑器启动时就该炸，
+/// 而不是等到用户点开 Inspector 才发现某个字段是坏的。
+pub fn 扩展注册表(mut 基础: 组件注册表) -> 组件注册表 {
+    for 类型 in [
+        Box::new(方向光组件类型) as Box<dyn 组件类型>,
+        Box::new(点光组件类型),
+    ] {
+        基础
+            .注册(类型)
+            .expect("三维灯光组件的字段描述与默认值必须自洽；失败说明代码有错");
+    }
+    基础
+}
+
+/// 三维灯光组件名列表（供测试与界面提示）。
+pub fn 灯光组件名列表() -> Vec<&'static str> {
+    vec![方向光组件名, 点光组件名]
+}
+
+#[cfg(test)]
+mod 测试 {
+    use super::*;
+    use scene_doc::registry::组件注册表;
+
+    #[test]
+    fn 扩展后的注册表包含灯光组件() {
+        let 注册表 = 扩展注册表(组件注册表::新建());
+        assert_eq!(注册表.数量(), 2);
+        for 名字 in 灯光组件名列表() {
+            assert!(注册表.已注册(名字), "{名字} 应当被注册");
+        }
+    }
+
+    #[test]
+    fn 灯光组件默认值符合各自声明种类() {
+        let 注册表 = 扩展注册表(组件注册表::新建());
+        for 名字 in 灯光组件名列表() {
+            let 类型 = 注册表.要求(名字).expect("应当能查到");
+            for 描述 in 类型.字段描述() {
+                assert!(
+                    描述.种类.接受(&描述.默认值),
+                    "{名字}.{} 的默认值类型不对",
+                    描述.字段名
+                );
+                assert!(!描述.显示名.is_empty(), "字段必须有显示名词条键");
+            }
+        }
+    }
+
+    #[test]
+    fn 导出与实例化往返一致() {
+        let 类型 = 方向光组件类型;
+        let mut 实例 = 类型.默认实例();
+        let mut 数据 = BTreeMap::new();
+        数据.insert("照度".into(), 属性值::浮点(2500.0));
+        数据.insert("投射阴影".into(), 属性值::布尔(false));
+        数据.insert(
+            "颜色".into(),
+            属性值::颜色(颜色值::srgb(1.0, 0.5, 0.25, 1.0)),
+        );
+        assert!(类型.实例化(&mut *实例, &数据));
+        let 导出 = 类型.导出(&*实例).expect("应当能导出");
+        assert_eq!(导出.get("照度"), Some(&属性值::浮点(2500.0)));
+        assert_eq!(导出.get("投射阴影"), Some(&属性值::布尔(false)));
+        match 导出.get("颜色") {
+            Some(属性值::颜色(颜色)) => assert!((颜色.红 - 1.0).abs() < 1e-6),
+            _ => panic!("颜色应当被导出"),
+        }
+    }
+
+    #[test]
+    fn 非法数值会被夹取而不是原样保留() {
+        let 类型 = 点光组件类型;
+        let mut 实例 = 类型.默认实例();
+        let mut 数据 = BTreeMap::new();
+        数据.insert("强度".into(), 属性值::浮点(-5.0));
+        数据.insert("半径".into(), 属性值::浮点(0.0));
+        类型.实例化(&mut *实例, &数据);
+        let 导出 = 类型.导出(&*实例).unwrap();
+        let 强度 = 导出.get("强度").and_then(属性值::取浮点).unwrap();
+        let 半径 = 导出.get("半径").and_then(属性值::取浮点).unwrap();
+        assert_eq!(强度, 0.0, "负强度必须夹到 0，否则场景会变黑");
+        assert!(半径 >= 0.01, "半径为 0 的灯等于不亮");
+    }
+
+    #[test]
+    fn 缺字段时保留原值() {
+        let 类型 = 方向光组件类型;
+        let mut 实例 = 类型.默认实例();
+        let 原始 = 类型.导出(&*实例).unwrap();
+        // 只给一个字段：其余必须保持默认，而不是被重置成别的值。
+        let mut 数据 = BTreeMap::new();
+        数据.insert("照度".into(), 属性值::浮点(1.0));
+        类型.实例化(&mut *实例, &数据);
+        let 导出 = 类型.导出(&*实例).unwrap();
+        assert_eq!(导出.get("投射阴影"), 原始.get("投射阴影"));
+    }
+}

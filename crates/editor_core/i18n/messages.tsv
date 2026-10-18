@@ -657,3 +657,13 @@ log_build_stopped	已停止构建	Build stopped
 log_build_no_project	尚未打开项目，无法构建	No project is open, so there is nothing to build
 log_diagnostic_no_file	这条诊断没有关联源文件	This diagnostic has no associated source file
 log_diagnostic_opened	已定位到 {} 第 {} 行	Jumped to {} line {}
+light_field_color	颜色	Color
+light_field_color_tooltip	灯光颜色；浓色会让场景整体偏色	Light color; saturated colors tint the whole scene
+light_field_illuminance	照度	Illuminance
+light_field_illuminance_tooltip	单位 lux。正午阳光约 10000，室内约 300	In lux. Noon sunlight is about 10000, indoors about 300
+light_field_shadows	投射阴影	Cast Shadows
+light_field_shadows_tooltip	关闭后这盏灯不参与阴影贴图，适合补光	When off, this light does not write shadow maps; good for fill lights
+light_field_intensity	强度	Intensity
+light_field_intensity_tooltip	单位流明。灯泡约 800，篝火约 3000	In lumens. A bulb is about 800, a campfire about 3000
+light_field_range	半径	Range
+light_field_range_tooltip	影响半径（米）；超出这个距离不再受该灯影响	Influence radius in meters; nothing beyond this distance is lit

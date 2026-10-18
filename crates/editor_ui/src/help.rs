@@ -47,6 +47,14 @@ pub const 快捷键表: &[快捷键条目] = &[
         动作键: "redo_2",
     },
     快捷键条目 {
+        组合: "Ctrl+C",
+        动作键: "copy_entities",
+    },
+    快捷键条目 {
+        组合: "Ctrl+V",
+        动作键: "paste_entities",
+    },
+    快捷键条目 {
         组合: "Ctrl+D",
         动作键: "duplicate_entity",
     },
@@ -212,6 +220,20 @@ pub fn 找到快捷键(组合: &str) -> Option<&'static 快捷键条目> {
 mod 测试 {
     use super::*;
 
+    #[test]
+    fn 快捷键表与实现保持一致() {
+        // 这张表是"用户能在界面上看到的全部快捷键"。`editor_app::actions::
+        // 处理快捷键` 实现了一组组合，两边必须一起改 —— 用一张冻结名单
+        // 把当前状态钉住：改动任一侧都要先来这里确认。
+        let mut 实际: Vec<&str> = 快捷键表.iter().map(|项| 项.组合).collect();
+        实际.sort_unstable();
+        let mut 期望 = vec![
+            "Ctrl+A", "Ctrl+C", "Ctrl+D", "Ctrl+O", "Ctrl+S", "Ctrl+V", "Ctrl+Y", "Ctrl+Z",
+            "Delete", "Esc", "F", "F5", "F6", "F7",
+        ];
+        期望.sort_unstable();
+        assert_eq!(实际, 期望, "帮助窗口的快捷键表与实现不同步");
+    }
     #[test]
     fn 快捷键表非空且组合唯一() {
         assert!(!快捷键表.is_empty());

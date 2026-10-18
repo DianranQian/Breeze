@@ -780,6 +780,19 @@ fn 换项目会清空上一个项目的构建报告() {
         "构建失败后报告应当是非默认状态"
     );
 
+    // 顺便放一个"伪打包结果"：它同样属于旧项目，必须被清掉。
+    {
+        let mut 界面持有 = 世界.resource_mut::<editor_app::plugin::UiStateHolder>();
+        界面持有.状态.打包结果 = Some(editor_ui::state::打包结果视图 {
+            成功: true,
+            输出目录: "旧项目/dist".to_string(),
+            文件数: 3,
+            总字节: 123,
+            失败项: Vec::new(),
+            缺失依赖: Vec::new(),
+        });
+    }
+
     // 打开另一个项目：报告必须回到空闲，否则面板会显示上一个项目的产物。
     let 另一个 = 根.parent().unwrap().join("另一个项目");
     std::fs::create_dir_all(&另一个).unwrap();

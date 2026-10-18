@@ -219,6 +219,10 @@ the_selected_entity_no_longer_exists	选中的实体已不存在	The selected en
 theoretical_max	理论上限	Theoretical Max
 there_is_nothing_to_undo_yet	还没有任何可撤销的操作。	There is nothing to undo yet.
 tooltip_asset_category_and_size	{}\n类别：{}\n大小：{}	{}\nCategory: {}\nSize: {}
+tool_move	移动	Move
+tool_rotate	旋转	Rotate
+tool_scale	缩放	Scale
+tool_select	选择	Select
 tooltip_delete_entity_subtree	删除选中实体及其子树（Delete）	Delete the selected entity and its subtree (Delete)
 tooltip_feature_not_implemented	该功能尚未实现（本版本不提供）	This feature is not implemented yet (not available in this version)
 tooltip_field_name_and_type	{}\n字段名 {} · 类型 {}	{}\nField name {} · Type {}

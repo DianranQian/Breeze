@@ -1,0 +1,56 @@
+(
+    格式版本: 1,
+    元数据: (
+        场景标识: "99999999-9999-4999-8999-999999999999",
+        场景名: "transform_3d",
+        保存时间: None,
+    ),
+    实体表: {
+        "ccccccc1-cccc-4ccc-8ccc-ccccccccccc1": (
+            标识: "ccccccc1-cccc-4ccc-8ccc-ccccccccccc1",
+            名称: "甲",
+            次序: 0,
+            变换: Some((
+                平移: (2.0, 1.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "ccccccc2-cccc-4ccc-8ccc-ccccccccccc2": (
+            标识: "ccccccc2-cccc-4ccc-8ccc-ccccccccccc2",
+            名称: "乙",
+            次序: 1,
+            变换: Some((
+                平移: (-2.0, 0.5, 2.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "ccccccc3-cccc-4ccc-8ccc-ccccccccccc3": (
+            标识: "ccccccc3-cccc-4ccc-8ccc-ccccccccccc3",
+            名称: "丙",
+            次序: 2,
+            变换: Some((
+                平移: (0.0, -1.0, -2.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "ccccccc4-cccc-4ccc-8ccc-ccccccccccc4": (
+            标识: "ccccccc4-cccc-4ccc-8ccc-ccccccccccc4",
+            名称: "丁",
+            次序: 3,
+            变换: Some((
+                平移: (0.0, 0.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+    },
+    顶层顺序: [
+        "ccccccc1-cccc-4ccc-8ccc-ccccccccccc1",
+        "ccccccc2-cccc-4ccc-8ccc-ccccccccccc2",
+        "ccccccc3-cccc-4ccc-8ccc-ccccccccccc3",
+        "ccccccc4-cccc-4ccc-8ccc-ccccccccccc4",
+    ],
+)

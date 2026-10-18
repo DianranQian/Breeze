@@ -373,6 +373,64 @@ struct 菜单记录 {
     items: Vec<String>,
 }
 
+/// 操纵器部件证据。
+///
+/// `dir` 是"沿正方向的屏幕单位向量"：自动验收按 `hit + dir * 距离` 推导拖拽
+/// 终点。这保证每次拖拽都用**当前帧测得的几何**，而不是写死的屏幕坐标。
+#[derive(Debug, Clone, Serialize)]
+struct 操纵器部件记录 {
+    /// 部件代号（`move_x` / `rotate_z` / `scale_uniform` …）。
+    part: String,
+    /// 代表性落点（物理像素）。
+    hit: [i32; 2],
+    /// 拖拽方向（屏幕单位向量，无量纲，无需像素换算）。
+    dir: [f32; 2],
+    /// 包围盒（物理像素）。
+    bbox: 矩形记录,
+}
+
+/// 选中实体的变换证据。
+///
+/// 自动验收靠它核对"拖拽前后哪个分量变了、哪个不该变"，
+/// 而不是只看操纵器图形有没有跟着动。
+#[derive(Debug, Clone, Serialize)]
+struct 变换记录 {
+    /// 实体标识的调试文本（与 `scene_rows[].id` 同一格式，可交叉核对）。
+    entity: String,
+    /// 平移。
+    translate: [f32; 3],
+    /// 旋转四元数 `(x, y, z, w)`。
+    rotation: [f32; 4],
+    /// 绕 Z 轴的旋转角（度）。
+    ///
+    /// 2D 场景的旋转全部绕 Z，单独给出这个数字是为了让验收能直接说
+    /// "转了 12 度"，而不必自己从四元数反解。
+    rotation_deg_z: f32,
+    /// 缩放。
+    scale: [f32; 3],
+}
+
+/// 从四元数解出绕 Z 轴的旋转角（度）。
+///
+/// # 为什么单独给这一个数字
+///
+/// 2D 场景的旋转全部绕 Z 轴。验收要能直接说"转了 12 度"，
+/// 而不是自己从四元数反解 —— 反解写错的概率比读一个数字高得多。
+///
+/// 纯绕 Z 时 `w = cos(θ/2)`、`z = sin(θ/2)`，因此 `θ = 2 * atan2(z, w)`。
+/// 用 `atan2` 而不是 `2 * acos(w)`：后者在 θ 接近 0 与 2π 时对 w 的
+/// 舍入误差极其敏感（acos 在 ±1 附近导数为无穷）。
+fn 绕z角度度(四元数: &(f32, f32, f32, f32)) -> f32 {
+    let (x, y, z, w) = *四元数;
+    // 先归一化：文档里的四元数可能带轻微误差。
+    let 长 = (x * x + y * y + z * z + w * w).sqrt();
+    if !长.is_finite() || 长 < 1e-6 {
+        return 0.0;
+    }
+    let (z, w) = (z / 长, w / 长);
+    (2.0 * z.atan2(w)).to_degrees()
+}
+
 /// 采集证据。
 #[derive(Debug, Clone, Serialize)]
 struct 采集证据 {
@@ -423,6 +481,26 @@ struct 采集证据 {
     /// 空白区菜单只能靠它定位：猜坐标会落到最后一行上，弹出的是行菜单，
     /// 于是"空白菜单坏了"与"点到了行上"无法区分。
     scene_blank: Option<矩形记录>,
+    /// 当前变换工具代号（`select` / `move` / `rotate` / `scale`）。
+    transform_tool: String,
+    /// 本帧悬停的操纵器部件代号；没有悬停为 `null`。
+    gizmo_hover: Option<String>,
+    /// 正在拖拽的操纵器部件代号；没有拖拽为 `null`。
+    gizmo_drag: Option<String>,
+    /// 本帧操纵器各部件的屏幕几何（物理像素）。
+    gizmo_parts: Vec<操纵器部件记录>,
+    /// 主选中实体的当前变换；没有选中或没有变换时为 `null`。
+    selection_transform: Option<变换记录>,
+    /// 当前可撤销步数。
+    ///
+    /// 自动验收用它证明"一次拖拽只提交一次"：拖拽前后应当恰好差 1。
+    undo_steps: usize,
+    /// 最近几条撤销记录的显示名（诊断用；最新在最后）。
+    ///
+    /// 撤销栈异常增长时，名称能直接指出是哪一类命令在反复记录。
+    undo_top: Vec<String>,
+    /// 文档是否有未保存修改。
+    document_dirty: bool,
     /// 控制台（可见日志区域）里的最后若干行文本。
     ///
     /// 与 `project_run.log_tail` 的区别：那个是**运行管理器自己的缓冲**，
@@ -689,6 +767,43 @@ fn 发起一次采集(
             items: 菜单.项.iter().map(|键| (*键).to_string()).collect(),
         }),
         scene_blank: 界面.状态.场景空白矩形.map(转矩形),
+        transform_tool: 界面.状态.变换工具.代号().to_string(),
+        gizmo_hover: 界面.状态.操纵器悬停.map(|部件| 部件.代号().to_string()),
+        gizmo_drag: 界面
+            .状态
+            .操纵器拖拽
+            .as_ref()
+            .map(|会话| 会话.部件.代号().to_string()),
+        gizmo_parts: 界面
+            .状态
+            .操纵器部件几何
+            .iter()
+            .map(|项| 操纵器部件记录 {
+                part: 项.部件.代号().to_string(),
+                // 逻辑点 → 物理像素，与 `regions` / `scene_rows` 同一口径。
+                hit: [物理(项.命中点.x), 物理(项.命中点.y)],
+                dir: [项.拖拽方向.x, 项.拖拽方向.y],
+                bbox: 转矩形(项.包围盒),
+            })
+            .collect(),
+        selection_transform: 编辑器.状态.选择.主选中().and_then(|标识| {
+            编辑器
+                .状态
+                .会话
+                .文档
+                .取(标识)
+                .and_then(|实体| 实体.变换)
+                .map(|变换| 变换记录 {
+                    entity: format!("{标识:?}"),
+                    translate: [变换.平移.0, 变换.平移.1, 变换.平移.2],
+                    rotation: [变换.旋转.0, 变换.旋转.1, 变换.旋转.2, 变换.旋转.3],
+                    rotation_deg_z: 绕z角度度(&变换.旋转),
+                    scale: [变换.缩放.0, 变换.缩放.1, 变换.缩放.2],
+                })
+        }),
+        undo_steps: 编辑器.状态.可撤销步数(),
+        undo_top: 编辑器.状态.最近撤销条目(3),
+        document_dirty: 编辑器.状态.有未保存修改(),
         console_log_tail: 编辑器
             .状态
             .日志列表()

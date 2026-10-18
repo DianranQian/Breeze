@@ -1,0 +1,45 @@
+(
+    格式版本: 1,
+    元数据: (
+        场景标识: "88888888-8888-4888-8888-888888888888",
+        场景名: "transform_2d",
+        保存时间: None,
+    ),
+    实体表: {
+        "bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1": (
+            标识: "bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+            名称: "甲",
+            次序: 0,
+            变换: Some((
+                平移: (120.0, 60.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2": (
+            标识: "bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2",
+            名称: "乙",
+            次序: 1,
+            变换: Some((
+                平移: (-90.0, -50.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+        "bbbbbbb3-bbbb-4bbb-8bbb-bbbbbbbbbbb3": (
+            标识: "bbbbbbb3-bbbb-4bbb-8bbb-bbbbbbbbbbb3",
+            名称: "丙",
+            次序: 2,
+            变换: Some((
+                平移: (-160.0, 90.0, 0.0),
+                旋转: (0.0, 0.0, 0.0, 1.0),
+                缩放: (1.0, 1.0, 1.0),
+            )),
+        ),
+    },
+    顶层顺序: [
+        "bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+        "bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2",
+        "bbbbbbb3-bbbb-4bbb-8bbb-bbbbbbbbbbb3",
+    ],
+)

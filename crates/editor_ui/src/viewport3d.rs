@@ -77,7 +77,40 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
     let mut 新相机 = 相机;
     let 修饰键 = ui.input(|输入| 输入.modifiers);
     let 拖拽 = ui.input(|输入| 输入.pointer.delta());
-    if 响应.dragged() {
+
+    // ---- 操纵器：先算布局与悬停，再决定相机与拾取是否让路 ----
+    //
+    // 顺序很重要：如果先让相机吃掉这次左键拖动，再想画操纵器，
+    // 用户就会发现"抓住 X 轴却把视角转了"。
+    let 主键刚按下 = ui.input(|输入| 输入.pointer.button_pressed(egui::PointerButton::Primary));
+    let 主键按下中 = ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Primary));
+    let 取消键 = ui.input(|输入| 输入.key_pressed(egui::Key::Escape));
+    let 局部指针 = 响应
+        .hover_pos()
+        .or_else(|| ui.input(|输入| 输入.pointer.interact_pos()))
+        .map(|位置| egui::vec2(位置.x - 内容矩形.min.x, 位置.y - 内容矩形.min.y));
+
+    let 工具 = 上下文.界面.变换工具;
+    let 中心世界 = crate::gizmo::操纵器原点(上下文.编辑器).map(|(_, 变换)| 变换.平移);
+
+    // 先按当前相机建立布局（用于悬停判定）。
+    let 初始布局 =
+        中心世界.and_then(|中心| crate::gizmo3d::布局(工具, &相机, 尺寸, 内容矩形.min, 中心));
+    let 初始悬停 = 初始布局
+        .as_ref()
+        .zip(局部指针)
+        .filter(|(_, 局部)| {
+            // 与 2D 同一条裁剪规则：绘制被裁在视口内，命中就必须一起裁。
+            // 否则视口外（例如检查器上方）的落点也能命中操纵器。
+            局部.x >= 0.0 && 局部.y >= 0.0 && 局部.x <= 尺寸.x && 局部.y <= 尺寸.y
+        })
+        .and_then(|(布, 局部)| {
+            布.命中(Pos2::new(内容矩形.min.x + 局部.x, 内容矩形.min.y + 局部.y))
+        });
+    let 操纵器占用 = 上下文.界面.操纵器拖拽.is_some() || 初始悬停.is_some();
+
+    // 相机交互：操纵器被悬停/拖拽时一律让路。
+    if 响应.dragged() && !操纵器占用 {
         let 是平移 = 修饰键.shift;
         let 是轨道 = ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Secondary))
             || ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Middle))
@@ -89,7 +122,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
         }
     }
     let 滚轮 = ui.input(|输入| 输入.smooth_scroll_delta.y);
-    if 响应.hovered() && 滚轮.abs() > 0.01 {
+    if 响应.hovered() && 滚轮.abs() > 0.01 && !操纵器占用 {
         新相机.缩放((-滚轮 * 0.0015).exp());
     }
 
@@ -110,8 +143,35 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
         新相机.距离 = 新相机.距离.clamp(2.0, 40.0);
     }
 
+    // 相机可能已经变了：用**最终**相机重算布局，保证绘制与证据同步。
+    let 最终布局 =
+        中心世界.and_then(|中心| crate::gizmo3d::布局(工具, &新相机, 尺寸, 内容矩形.min, 中心));
+    上下文.界面.操纵器部件几何 = 最终布局
+        .as_ref()
+        .map(|布| 布.部件.clone())
+        .unwrap_or_default();
+
+    // ---- 操纵器交互（生命周期与 2D 完全一致，只有求解器不同）----
+    驱动操纵器(
+        ui,
+        上下文,
+        内容矩形,
+        尺寸,
+        局部指针,
+        主键刚按下,
+        主键按下中,
+        取消键,
+        &新相机,
+        中心世界,
+        初始悬停,
+    );
+
     // ④ 左键点击：选中屏幕上最近的实体（屏幕空间拾取）。
+    //
+    // 操纵器被悬停/拖拽时不让路的话，"抓住手柄"会顺带把手柄后面的实体选中。
     if 响应.clicked()
+        && !操纵器占用
+        && 上下文.界面.操纵器拖拽.is_none()
         && let Some(指针) = 响应.interact_pointer_pos()
     {
         let 局部 = egui::vec2(指针.x - 内容矩形.min.x, 指针.y - 内容矩形.min.y);
@@ -121,12 +181,18 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
     }
     上下文.界面.三维相机 = 新相机;
 
-    // ⑤ 叠加层：网格 → 坐标轴 → 实体 → 选中框。
+    // ⑤ 叠加层：网格 → 坐标轴 → 实体 → 操纵器（操纵器在最上面）。
     let 画布 = ui.painter_at(内容矩形);
     let 原点 = 内容矩形.min;
     画网格(&画布, 原点, &新相机, 尺寸, 上下文);
     画坐标轴(&画布, 原点, &新相机, 尺寸, 上下文);
     画实体(&画布, 原点, &新相机, 尺寸, 上下文);
+    绘制操纵器(&画布, 上下文);
+
+    // ⑥ 工具快捷键（Q/W/E/R）与 Escape 取消，与 2D 视口同一套规则。
+    //
+    // 3D 视口此前完全没有键盘处理：切了工具之后只能靠工具栏切回去。
+    let _ = crate::gizmo::处理工具快捷键(ui, 上下文);
 
     // ⑥ 左下角提示（与 2D 视口一致的输入说明）。
     let 提示位置 = Pos2::new(内容矩形.min.x + 8.0, 内容矩形.max.y - 24.0);
@@ -150,6 +216,107 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
                     .color(上下文.配色.次要文字),
             );
         });
+}
+
+/// 驱动 3D 操纵器：悬停 → 按下 → 拖拽（预览）→ 释放提交 / Escape 取消。
+///
+/// 生命周期与 2D 完全一致（见 `viewport_panel::驱动操纵器`），
+/// 只有求解器换成 [`crate::gizmo3d`]（射线求交）这一处不同。
+#[allow(clippy::too_many_arguments)]
+fn 驱动操纵器(
+    _ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    _内容矩形: Rect,
+    尺寸: egui::Vec2,
+    局部指针: Option<egui::Vec2>,
+    主键刚按下: bool,
+    主键按下中: bool,
+    取消键: bool,
+    相机: &三维相机,
+    中心世界: Option<(f32, f32, f32)>,
+    初始悬停: Option<crate::gizmo::操纵器部件>,
+) {
+    use crate::gizmo;
+
+    let 工具 = 上下文.界面.变换工具;
+    let mut 悬停 = 初始悬停;
+
+    // ---- 1. 已有会话 ----
+    if let Some(mut 会话) = 上下文.界面.操纵器拖拽.take() {
+        let 目标有效 = 会话
+            .起始
+            .iter()
+            .all(|(标识, _)| 上下文.编辑器.会话.文档.存在(*标识));
+        let 主选中 = gizmo::操纵器原点(上下文.编辑器);
+        let 中心 = 主选中.map(|(_, 变换)| 变换.平移);
+
+        if 取消键 || !目标有效 {
+            gizmo::收尾(上下文, 会话, false);
+        } else if let (Some(局部), Some(中心)) = (局部指针, 中心) {
+            if 主键按下中 {
+                if let Some(新) = crate::gizmo3d::求解(
+                    会话.部件,
+                    &mut 会话.基准,
+                    中心,
+                    局部,
+                    相机,
+                    尺寸,
+                    &会话.起始,
+                ) {
+                    会话.最新 = 新.clone();
+                    gizmo::推送预览(上下文, 新);
+                }
+                悬停 = Some(会话.部件);
+                上下文.界面.操纵器拖拽 = Some(会话);
+            } else {
+                gizmo::收尾(上下文, 会话, true);
+            }
+        } else if 主键按下中 {
+            悬停 = Some(会话.部件);
+            上下文.界面.操纵器拖拽 = Some(会话);
+        } else {
+            gizmo::收尾(上下文, 会话, true);
+        }
+    }
+
+    // ---- 2. 按下：命中手柄则建立会话 ----
+    if 主键刚按下
+        && 上下文.界面.操纵器拖拽.is_none()
+        && 局部指针
+            .map(|局部| 局部.x >= 0.0 && 局部.y >= 0.0 && 局部.x <= 尺寸.x && 局部.y <= 尺寸.y)
+            .unwrap_or(false)
+        && let (Some(部件), Some(局部), Some(中心)) = (悬停, 局部指针, 中心世界)
+        && let Some(基准) = crate::gizmo3d::建立基准(部件, 中心, 局部, 相机, 尺寸)
+    {
+        上下文.界面.操纵器拖拽 = Some(gizmo::拖拽会话::新建(
+            工具,
+            部件,
+            gizmo::收集选中变换(上下文.编辑器),
+            基准,
+        ));
+        悬停 = Some(部件);
+    }
+
+    上下文.界面.操纵器悬停 = 悬停;
+}
+
+/// 绘制 3D 操纵器（图元与命中几何是同一份）。
+fn 绘制操纵器(画布: &egui::Painter, 上下文: &绘制上下文<'_>) {
+    if 上下文.界面.变换工具 == crate::gizmo::变换工具::选择 {
+        return;
+    }
+    let 拖拽部件 = 上下文.界面.操纵器拖拽.as_ref().map(|会话| 会话.部件);
+    for 项 in &上下文.界面.操纵器部件几何 {
+        let 色 = crate::gizmo::部件颜色(
+            &上下文.配色,
+            项.部件.轴(),
+            上下文.界面.操纵器悬停,
+            拖拽部件,
+            项.部件,
+        );
+        let 线宽 = crate::gizmo::部件强调(上下文.界面.操纵器悬停, 拖拽部件, 项.部件);
+        crate::gizmo::绘制部件(画布, 项, 色, 线宽, &上下文.配色);
+    }
 }
 
 /// 把相机对准整个场景。

@@ -20,9 +20,10 @@ use std::time::Duration;
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK,
-    MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput,
+    INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP, MOUSEEVENTF_ABSOLUTE,
+    MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN,
+    MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput,
+    VIRTUAL_KEY,
 };
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -132,6 +133,65 @@ pub fn 按下() -> bool {
 /// 左键抬起。
 pub fn 抬起() -> bool {
     发送鼠标(取当前指针(), MOUSEEVENTF_LEFTUP)
+}
+
+/// 按下并抬起一次键盘按键（Windows 虚拟键码）。
+///
+/// # 为什么需要它
+///
+/// "按 Escape 取消拖拽"是一条真实存在的交互契约，而它**只能**用真实键盘
+/// 事件验证：egui 的快捷键读取的是 `RawInput` 里的键盘事件，
+/// 直接改应用内部状态既不真实、也测不到"快捷键有没有接上"。
+///
+/// 返回是否两次 `SendInput` 都送达。
+pub fn 执行按键(虚拟键: u16) -> bool {
+    let 按下 = 发送键盘(虚拟键, 0);
+    sleep(Duration::from_millis(60));
+    let 抬起 = 发送键盘(虚拟键, KEYEVENTF_KEYUP);
+    sleep(Duration::from_millis(120));
+    按下 && 抬起
+}
+
+/// 按下并抬起一次**组合键**（例如 Ctrl+Z）。
+///
+/// 顺序必须是"修饰键按下 → 主键按下 → 主键抬起 → 修饰键抬起"：
+/// 先松开修饰键会让主键被当成独立按键（Ctrl+Z 变成 Z）。
+pub fn 执行组合键(修饰键: u16, 主键: u16) -> bool {
+    let 甲 = 发送键盘(修饰键, 0);
+    sleep(Duration::from_millis(40));
+    let 乙 = 发送键盘(主键, 0);
+    sleep(Duration::from_millis(60));
+    let 丙 = 发送键盘(主键, KEYEVENTF_KEYUP);
+    sleep(Duration::from_millis(40));
+    let 丁 = 发送键盘(修饰键, KEYEVENTF_KEYUP);
+    sleep(Duration::from_millis(150));
+    甲 && 乙 && 丙 && 丁
+}
+
+/// 发送一次键盘事件。
+#[cfg(windows)]
+fn 发送键盘(虚拟键码: u16, 标志: u32) -> bool {
+    let 输入 = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: 虚拟键码 as VIRTUAL_KEY,
+                wScan: 0,
+                dwFlags: 标志,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    // SAFETY: `INPUT` 由本函数完整初始化；`SendInput` 只读它，
+    // 且大小由 `size_of::<INPUT>()` 精确给出。
+    let 已发送 = unsafe { SendInput(1, &输入, std::mem::size_of::<INPUT>() as i32) };
+    已发送 == 1
+}
+
+#[cfg(not(windows))]
+fn 发送键盘(_虚拟键码: u16, _标志: u32) -> bool {
+    false
 }
 
 /// 在指定屏幕坐标完成一次**真实右键单击**。

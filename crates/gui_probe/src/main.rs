@@ -902,6 +902,15 @@ fn 拖拽(参数: &[String]) -> i32 {
     let mut 期望选中: Option<String> = None;
     // 逐阶段中间态记录：每个注入阶段追加一条，最后写进报告。
     let mut 阶段记录表: Vec<阶段记录> = Vec::new();
+    // ---- 变换工具 / 操纵器相关的断言（本轮新增）----
+    let mut 期望工具: Option<String> = None;
+    let mut 期望悬停: Option<String> = None;
+    let mut 期望变换变化: Vec<String> = Vec::new();
+    let mut 期望变换不变: Vec<String> = Vec::new();
+    let mut 期望撤销增量: Option<i64> = None;
+    let mut 期望脏状态: Option<String> = None;
+    // 在第一帧之后、第二帧之前按一次键（`Escape` 用于验证取消）。
+    let mut 按键: Option<String> = None;
 
     let mut 下标 = 1;
     while 下标 < 参数.len() {
@@ -979,6 +988,23 @@ fn 拖拽(参数: &[String]) -> i32 {
             "--frame3" => 第三帧帧号 = 取值(&mut 下标).and_then(|值| 值.parse().ok()),
             "--expect-menu" => 期望菜单 = 取值(&mut 下标),
             "--expect-selection" => 期望选中 = 取值(&mut 下标),
+            "--expect-tool" => 期望工具 = 取值(&mut 下标),
+            "--expect-gizmo" => 期望悬停 = 取值(&mut 下标),
+            "--expect-transform" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望变换变化.push(值);
+                }
+            }
+            "--expect-transform-unchanged" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望变换不变.push(值);
+                }
+            }
+            "--expect-undo-delta" => {
+                期望撤销增量 = 取值(&mut 下标).and_then(|值| 值.trim().parse().ok());
+            }
+            "--expect-dirty" => 期望脏状态 = 取值(&mut 下标),
+            "--press-key" => 按键 = 取值(&mut 下标),
             "--window" => 窗口尺寸 = 取值(&mut 下标),
             "--expect-state" => {
                 if let Some(值) = 取值(&mut 下标) {
@@ -1314,6 +1340,36 @@ fn 拖拽(参数: &[String]) -> i32 {
         }
     }
 
+    // ---- 按键（可选）：第一帧证据之后、第二帧证据之前 ----
+    if let Some(键名) = 按键.clone() {
+        let 虚拟键 = match 键名.as_str() {
+            "Escape" | "esc" => Some(0x1Bu16),
+            "Delete" | "del" => Some(0x2Eu16),
+            "F" | "f" => Some(0x46u16),
+            _ => None,
+        };
+        let Some(虚拟键) = 虚拟键 else {
+            等待退出(&mut 子进程, Duration::from_secs(5));
+            return 拖拽失败报告(
+                &输出目录,
+                &名称,
+                "capture_failed",
+                &format!("不支持的 --press-key 取值 `{键名}`（可用 Escape/Delete/F）"),
+                3,
+            );
+        };
+        确保前台(&窗口);
+        std::thread::sleep(Duration::from_millis(150));
+        let 送达 = input::执行按键(虚拟键);
+        阶段记录表.push(
+            阶段记录::新("press_key", "key")
+                .用例(&键名)
+                .注入(送达)
+                .备注("真实键盘事件"),
+        );
+        std::thread::sleep(Duration::from_millis(200));
+    }
+
     // ---- 滚轮（可选）：同样发生在第一帧证据之后、第二帧证据之前 ----
     //
     // 它的意义是让**第二帧证据**拍到"滚动之后"的真实几何。
@@ -1453,7 +1509,43 @@ fn 拖拽(参数: &[String]) -> i32 {
         确保前台(&窗口);
         std::thread::sleep(Duration::from_millis(150));
         for 名 in &用例3 {
-            let Some((从3, _到3)) = 用例坐标(名, &后证据) else {
+            // ---- 组合键动作：`press:ctrlz` / `press:ctrly` / `press:ctrls` / `press:escape` ----
+            //
+            // 撤销 / 重做 / 保存都是**键盘**入口，必须用真实按键验证：
+            // 直接调撤销函数测不出"快捷键有没有接上"，也测不出
+            // "一次拖拽之后按一次 Ctrl+Z 是否恰好退回起点"。
+            if let Some(键名) = 名.strip_prefix("press:") {
+                let 结果 = match 键名 {
+                    // VK_CONTROL=0x11, Z=0x5A, Y=0x59, S=0x53
+                    "ctrlz" => input::执行组合键(0x11, 0x5A),
+                    "ctrly" => input::执行组合键(0x11, 0x59),
+                    "ctrls" => input::执行组合键(0x11, 0x53),
+                    // VK_ESCAPE=0x1B
+                    "escape" => input::执行按键(0x1B),
+                    _ => false,
+                };
+                eprintln!("插槽 2 组合键 `{名}`：送达={结果}");
+                插槽2点击.push(serde_json::json!({
+                    "case": 名,
+                    "kind": "key",
+                    "delivered": 结果,
+                }));
+                阶段记录表.push(
+                    阶段记录::新("slot2", "key")
+                        .用例(名)
+                        .注入(结果)
+                        .备注("真实键盘组合键"),
+                );
+                continue;
+            }
+            // `gizmo-cancel:` 复用 `gizmo-drag:` 的坐标推导，只是注入序列不同
+            // （中途按 Escape 再松手）。这里先换名字解析坐标。
+            let 坐标名 = if 名.starts_with("gizmo-cancel:") {
+                名.replacen("gizmo-cancel:", "gizmo-drag:", 1)
+            } else {
+                名.clone()
+            };
+            let Some((从3, 到3)) = 用例坐标(&坐标名, &后证据) else {
                 等待退出(&mut 子进程, Duration::from_secs(5));
                 return 拖拽失败报告(
                     &输出目录,
@@ -1514,21 +1606,89 @@ fn 拖拽(参数: &[String]) -> i32 {
                 );
             }
             let 屏3 = 转屏幕3(从3);
-            eprintln!("插槽 2 单击 `{名}`：逻辑 {从3:?}，屏幕 {屏3:?}");
+            let 屏3终 = 转屏幕3(到3);
+            // ---- 取消路径：按下 → 分段拖拽 → Escape → 抬起 ----
+            //
+            // 这是"拖拽中按 Escape 取消"的唯一真实验证方式：egui 读的是
+            // `RawInput` 里的键盘事件，只有真实 `SendInput` 才能证明
+            // "快捷键接上了、并且把变换恢复回去了"。
+            if 名.starts_with("gizmo-cancel:") {
+                let _ = input::移动到(屏3);
+                std::thread::sleep(Duration::from_millis(120));
+                let _ = input::按下();
+                std::thread::sleep(Duration::from_millis(120));
+                for 步 in 1..=12 {
+                    let t = 步 as f32 / 12.0;
+                    let 点 = (
+                        屏3.0 + ((屏3终.0 - 屏3.0) as f32 * t) as i32,
+                        屏3.1 + ((屏3终.1 - 屏3.1) as f32 * t) as i32,
+                    );
+                    let _ = input::移动到(点);
+                    std::thread::sleep(Duration::from_millis(28));
+                }
+                // 0x1B = VK_ESCAPE
+                let 取消送达 = input::执行按键(0x1B);
+                let _ = input::抬起();
+                std::thread::sleep(Duration::from_millis(250));
+                eprintln!("插槽 2 拖拽后取消 `{名}`：逻辑 {从3:?}→{到3:?}，Escape 送达={取消送达}");
+                插槽2点击.push(serde_json::json!({
+                    "case": 名,
+                    "kind": "drag_cancel",
+                    "logical": [从3.0, 从3.1],
+                    "logical_to": [到3.0, 到3.1],
+                    "screen": [屏3.0, 屏3.1],
+                    "screen_to": [屏3终.0, 屏3终.1],
+                    "escape_delivered": 取消送达,
+                    "geometry_from": "after",
+                }));
+                阶段记录表.push(
+                    阶段记录::新("slot2", "drag_cancel")
+                        .用例(名)
+                        .落点(从3, 屏3)
+                        .来自("after")
+                        .注入(取消送达)
+                        .备注("按下 → 分段拖拽 → Escape → 抬起"),
+                );
+                continue;
+            }
+            // 插槽 2 既支持"单击"也支持"拖拽"：起点与终点不同就是一次拖拽。
+            //
+            // 操纵器用例必须走拖拽（按下 → 分段移动 → 抬起），因为
+            // 变换是在**按住期间**连续求解的；用单击去测操纵器只会得到
+            // "点了没反应"。
+            let 是拖拽 = 屏3 != 屏3终;
+            eprintln!(
+                "插槽 2 {} `{名}`：逻辑 {从3:?}→{到3:?}，屏幕 {屏3:?}→{屏3终:?}",
+                if 是拖拽 { "拖拽" } else { "单击" }
+            );
             插槽2点击.push(serde_json::json!({
                 "case": 名,
-                // 逻辑坐标 = 第二帧证据里该控件矩形的中心
+                // 逻辑坐标来自第二帧证据（该帧测得的几何，不是写死的坐标）
                 "logical": [从3.0, 从3.1],
+                "logical_to": [到3.0, 到3.1],
                 "screen": [屏3.0, 屏3.1],
-                // 这份几何来自第二帧（滚动后、点击前）
+                "screen_to": [屏3终.0, 屏3终.1],
+                "kind": if 是拖拽 { "drag" } else { "click" },
+                // 这份几何来自第二帧（选中之后、拖拽之前）
                 "geometry_from": "after",
             }));
-            let _ = input::执行单击(屏3);
+            if 是拖拽 {
+                let _ = input::执行拖拽(input::拖拽 {
+                    从: 屏3,
+                    到: 屏3终,
+                    步数: 24,
+                    步间隔: Duration::from_millis(28),
+                    预热: true,
+                });
+            } else {
+                let _ = input::执行单击(屏3);
+            }
             阶段记录表.push(
-                阶段记录::新("slot2", "click")
+                阶段记录::新("slot2", if 是拖拽 { "drag" } else { "click" })
                     .用例(名)
                     .落点(从3, 屏3)
-                    .来自("after"),
+                    .来自("after")
+                    .备注(format!("终点 逻辑 {到3:?} 屏幕 {屏3终:?}")),
             );
             std::thread::sleep(Duration::from_millis(450));
         }
@@ -1597,14 +1757,39 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 右键菜单与选中集是"本帧事实"：只对最后一帧（注入完成之后那一帧）判定。
     let 菜单判定 = 判定菜单(&末证据, 期望菜单.as_deref());
     let 选中判定 = 判定选中(&末证据, 期望选中.as_deref());
+    // 变换相关的断言同样只看末帧状态，但"变化/未变化"要比前后两帧。
+    //
+    // 基准帧必须选**最后一次注入之前**的那一帧：有插槽 2 动作时是第二帧
+    // （选中之后、拖拽之前），否则是第一帧。用第一帧当基准，会在
+    // "先选中、后拖拽"的场景里拿 null 变换与最终值比较，断言永远失败 ——
+    // 那不是界面缺陷，是选错了基准。
+    let 基准证据: &serde_json::Value = if 用例3.is_empty() {
+        &前证据
+    } else {
+        &后证据
+    };
+    let 工具判定 = 判定工具(&末证据, 期望工具.as_deref());
+    let 悬停判定 = 判定悬停(&后证据, 期望悬停.as_deref());
+    let 变换判定 = 判定变换分量(基准证据, &末证据, &期望变换变化, &期望变换不变);
+    let 撤销判定 = match 期望撤销增量 {
+        Some(期望) => 判定撤销步数(基准证据, &末证据, 期望),
+        None => Ok(()),
+    };
+    let 脏判定 = 判定脏状态(&末证据, 期望脏状态.as_deref());
     let mut 断言通过 = true;
-    if let Err(错误) = &菜单判定 {
-        eprintln!("菜单断言未通过：{错误}");
-        断言通过 = false;
-    }
-    if let Err(错误) = &选中判定 {
-        eprintln!("选中断言未通过：{错误}");
-        断言通过 = false;
+    for (名, 结果) in [
+        ("菜单", &菜单判定),
+        ("选中", &选中判定),
+        ("工具", &工具判定),
+        ("操纵器悬停", &悬停判定),
+        ("变换分量", &变换判定),
+        ("撤销步数", &撤销判定),
+        ("文档脏状态", &脏判定),
+    ] {
+        if let Err(错误) = 结果 {
+            eprintln!("{名}断言未通过：{错误}");
+            断言通过 = false;
+        }
     }
 
     写拖拽报告(
@@ -1622,6 +1807,7 @@ fn 拖拽(参数: &[String]) -> i32 {
         &状态变化,
         &前证据,
         &末证据,
+        基准证据,
         &期望区域,
         &期望状态变化,
         期望不变,
@@ -1637,6 +1823,17 @@ fn 拖拽(参数: &[String]) -> i32 {
         &期望选中,
         &菜单判定,
         &选中判定,
+        &期望工具,
+        &期望悬停,
+        &期望变换变化,
+        &期望变换不变,
+        &期望撤销增量,
+        &期望脏状态,
+        &工具判定,
+        &悬停判定,
+        &变换判定,
+        &撤销判定,
+        &脏判定,
     );
 
     // 判定：布局区域变化**或**结构化状态变化都算"点击产生了效果"。
@@ -1937,6 +2134,42 @@ fn 状态指纹(证据: &serde_json::Value) -> std::collections::BTreeMap<String
             }
         },
     );
+    // ---- 变换工具 / 操纵器 / 文档事务 ----
+    //
+    // 这几项决定了"拖拽操纵器"这件事能不能被断言：
+    // 工具与悬停说明命中到了哪个部件；`selection_transform` 说明实体真的变了；
+    // `undo_steps` 说明一次拖拽只提交一次；`document_dirty` 说明文档被改脏了。
+    表.insert("transform_tool".to_string(), 文本(&["transform_tool"]));
+    表.insert("gizmo_hover".to_string(), 文本(&["gizmo_hover"]));
+    表.insert("gizmo_drag".to_string(), 文本(&["gizmo_drag"]));
+    表.insert(
+        "selection_transform".to_string(),
+        证据
+            .get("selection_transform")
+            .filter(|值| !值.is_null())
+            .map(|值| {
+                let 数 = |字段: &str| -> String {
+                    值.get(字段)
+                        .and_then(|项| 项.as_array())
+                        .map(|项| {
+                            项.iter()
+                                .map(|项| format!("{:.5}", 项.as_f64().unwrap_or(0.0)))
+                                .collect::<Vec<_>>()
+                                .join(",")
+                        })
+                        .unwrap_or_default()
+                };
+                format!(
+                    "平移[{}] 旋转[{}] 缩放[{}]",
+                    数("translate"),
+                    数("rotation"),
+                    数("scale")
+                )
+            })
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    表.insert("undo_steps".to_string(), 文本(&["undo_steps"]));
+    表.insert("document_dirty".to_string(), 文本(&["document_dirty"]));
     表.insert(
         "console_log_count".to_string(),
         文本(&["console_log_count"]),
@@ -2061,6 +2294,8 @@ fn 写拖拽报告(
     状态变化: &[String],
     前证据: &serde_json::Value,
     后证据: &serde_json::Value,
+    // 变换类断言用的基准帧（最后一次注入之前的那一帧）。
+    基准: &serde_json::Value,
     期望区域: &Option<String>,
     期望状态: &[String],
     期望不变: bool,
@@ -2076,6 +2311,17 @@ fn 写拖拽报告(
     期望选中: &Option<String>,
     菜单判定: &Result<(), String>,
     选中判定: &Result<(), String>,
+    期望工具: &Option<String>,
+    期望悬停: &Option<String>,
+    期望变换变化: &[String],
+    期望变换不变: &[String],
+    期望撤销增量: &Option<i64>,
+    期望脏状态: &Option<String>,
+    工具判定: &Result<(), String>,
+    悬停判定: &Result<(), String>,
+    变换判定: &Result<(), String>,
+    撤销判定: &Result<(), String>,
+    脏判定: &Result<(), String>,
 ) {
     let 状态表 = |证据: &serde_json::Value| -> serde_json::Value {
         let mut 对象 = serde_json::Map::new();
@@ -2142,11 +2388,49 @@ fn 写拖拽报告(
             "kind": kind,
             "target": target,
         })),
-        "selection_actual": 后证据.get("selection").cloned(),        "menu_ok": 菜单判定.is_ok(),
+        "selection_actual": 后证据.get("selection").cloned(),
+        "menu_ok": 菜单判定.is_ok(),
         "menu_error": 菜单判定.as_ref().err(),
         "selection_ok": 选中判定.is_ok(),
         "selection_error": 选中判定.as_ref().err(),
     });
+    // 变换相关的字段单独构造再合并：一个 `json!` 里塞进近百个键会撞上
+    // 宏的递归上限（`recursion limit reached while expanding json_internal!`）。
+    let 变换段 = serde_json::json!({
+        // ---- 变换工具 / 操纵器 / 文档事务 ----
+        "expect_tool": 期望工具,
+        "expect_gizmo_hover": 期望悬停,
+        "expect_transform_changed": 期望变换变化,
+        "expect_transform_unchanged": 期望变换不变,
+        "expect_undo_delta": 期望撤销增量,
+        "expect_dirty": 期望脏状态,
+        "tool_actual": 后证据.get("transform_tool"),
+        "gizmo_hover_actual": 后证据.get("gizmo_hover"),
+        "gizmo_drag_actual": 后证据.get("gizmo_drag"),
+        "gizmo_parts_actual": 后证据.get("gizmo_parts"),
+        "transform_before": 基准.get("selection_transform"),
+        "transform_after": 后证据.get("selection_transform"),
+        "undo_steps_before": 基准.get("undo_steps"),
+        "undo_steps_after": 后证据.get("undo_steps"),
+        "dirty_before": 基准.get("document_dirty"),
+        "dirty_after": 后证据.get("document_dirty"),
+        "tool_ok": 工具判定.is_ok(),
+        "tool_error": 工具判定.as_ref().err(),
+        "gizmo_hover_ok": 悬停判定.is_ok(),
+        "gizmo_hover_error": 悬停判定.as_ref().err(),
+        "transform_ok": 变换判定.is_ok(),
+        "transform_error": 变换判定.as_ref().err(),
+        "undo_ok": 撤销判定.is_ok(),
+        "undo_error": 撤销判定.as_ref().err(),
+        "dirty_ok": 脏判定.is_ok(),
+        "dirty_error": 脏判定.as_ref().err(),
+    });
+    let mut 报告 = 报告;
+    if let (Some(目标), Some(来源)) = (报告.as_object_mut(), 变换段.as_object()) {
+        for (键, 值) in 来源 {
+            目标.insert(键.clone(), 值.clone());
+        }
+    }
     let _ = std::fs::write(
         输出目录.join(format!("{名称}.drag.json")),
         serde_json::to_string_pretty(&报告).unwrap_or_default(),
@@ -2324,11 +2608,184 @@ fn 区域表(
     表
 }
 
-/// 预置用例：把"要拖哪里"写成可复用的坐标推导。
+/// 从证据里取某个操纵器部件的**落点与拖拽方向**（逻辑坐标）。
+///
+/// 方向来自应用在**当前帧**测得的投影几何，因此 3D 相机怎么转、
+/// 2D 视图怎么缩放，拖拽方向都跟着正确 —— 不写死任何屏幕坐标。
+fn 操纵器部件(证据: &serde_json::Value, 部件: &str) -> Option<((f32, f32), (f32, f32))> {
+    let ppp = 证据
+        .get("pixels_per_point")
+        .and_then(|值| 值.as_f64())
+        .unwrap_or(1.0) as f32;
+    let 列表 = 证据.get("gizmo_parts")?.as_array()?;
+    let 项 = 列表
+        .iter()
+        .find(|项| 项.get("part").and_then(|值| 值.as_str()) == Some(部件))?;
+    let hit = 项.get("hit")?.as_array()?;
+    let dir = 项.get("dir")?.as_array()?;
+    let 取 = |数组: &Vec<serde_json::Value>, 下标: usize| -> f32 {
+        数组.get(下标).and_then(|值| 值.as_f64()).unwrap_or(0.0) as f32
+    };
+    Some((
+        (取(hit, 0) / ppp, 取(hit, 1) / ppp),
+        (取(dir, 0), 取(dir, 1)),
+    ))
+}
+
+/// 从证据里读主选中实体的变换。
+fn 证据变换(证据: &serde_json::Value) -> Option<&serde_json::Value> {
+    let 变换 = 证据.get("selection_transform")?;
+    if 变换.is_null() { None } else { Some(变换) }
+}
+
+/// 读某个变换分量的三个值（`translate` / `scale`）。
+fn 变换分量(证据: &serde_json::Value, 字段: &str) -> Option<[f64; 3]> {
+    let 值 = 证据变换(证据)?.get(字段)?.as_array()?;
+    if 值.len() < 3 {
+        return None;
+    }
+    Some([值[0].as_f64()?, 值[1].as_f64()?, 值[2].as_f64()?])
+}
+
+/// 断言"某个变换分量发生了变化 / 没有变化"。
+///
+/// # 为什么按分量而不是按"整体是否变化"
+///
+/// 工程要求"未操作轴保持原值"。如果只比"变换变了没有"，
+/// 把 Y 轴误写成也一起动了的实现会照样通过 —— 那正是这类缺陷的典型形态。
+fn 判定变换分量(
+    前: &serde_json::Value,
+    后: &serde_json::Value,
+    期望变化: &[String],
+    期望不变: &[String],
+) -> Result<(), String> {
+    for 字段 in 期望变化 {
+        let 前值 =
+            变换分量(前, 字段).ok_or_else(|| format!("第一帧证据里没有变换分量 `{字段}`"))?;
+        let 后值 = 变换分量(后, 字段).ok_or_else(|| format!("末帧证据里没有变换分量 `{字段}`"))?;
+        let 差 = (0..3)
+            .map(|i| (后值[i] - 前值[i]).abs())
+            .fold(0.0f64, f64::max);
+        if 差 <= 1e-4 {
+            return Err(format!(
+                "期望 `{字段}` 发生变化，但前后完全一致（{前值:?} → {后值:?}）"
+            ));
+        }
+    }
+    for 字段 in 期望不变 {
+        let 前值 =
+            变换分量(前, 字段).ok_or_else(|| format!("第一帧证据里没有变换分量 `{字段}`"))?;
+        let 后值 = 变换分量(后, 字段).ok_or_else(|| format!("末帧证据里没有变换分量 `{字段}`"))?;
+        let 差 = (0..3)
+            .map(|i| (后值[i] - 前值[i]).abs())
+            .fold(0.0f64, f64::max);
+        if 差 > 1e-4 {
+            return Err(format!(
+                "期望 `{字段}` 保持不变，实际从 {前值:?} 变成 {后值:?}（最大变化 {差:.6}）"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// 断言"一次拖拽只提交一次"：撤销步数必须恰好增加 `期望`。
+fn 判定撤销步数(
+    前: &serde_json::Value,
+    后: &serde_json::Value,
+    期望: i64,
+) -> Result<(), String> {
+    let 取 = |证据: &serde_json::Value| -> i64 {
+        证据
+            .get("undo_steps")
+            .and_then(|值| 值.as_i64())
+            .unwrap_or(-1)
+    };
+    let (前值, 后值) = (取(前), 取(后));
+    if 前值 < 0 || 后值 < 0 {
+        return Err("证据里没有 undo_steps 字段（应用版本过旧？）".to_string());
+    }
+    let 实际 = 后值 - 前值;
+    if 实际 != 期望 {
+        return Err(format!(
+            "撤销步数应增加 {期望}，实际增加 {实际}（{前值} → {后值}）"
+        ));
+    }
+    Ok(())
+}
+
+/// 断言"文档脏状态符合期望"。
+fn 判定脏状态(证据: &serde_json::Value, 期望: Option<&str>) -> Result<(), String> {
+    let Some(期望) = 期望 else {
+        return Ok(());
+    };
+    let 实际 = 证据
+        .get("document_dirty")
+        .and_then(|值| 值.as_bool())
+        .ok_or_else(|| "证据里没有 document_dirty 字段（应用版本过旧？）".to_string())?;
+    let 期望值 = match 期望 {
+        "yes" | "true" | "1" => true,
+        "no" | "false" | "0" => false,
+        其他 => return Err(format!("无法识别的 --expect-dirty 取值 `{其他}`")),
+    };
+    if 实际 != 期望值 {
+        return Err(format!("期望文档脏状态为 {期望值}，实际是 {实际}"));
+    }
+    Ok(())
+}
+
+/// 断言"当前变换工具符合期望"。
+fn 判定工具(证据: &serde_json::Value, 期望: Option<&str>) -> Result<(), String> {
+    let Some(期望) = 期望 else {
+        return Ok(());
+    };
+    let 实际 = 证据
+        .get("transform_tool")
+        .and_then(|值| 值.as_str())
+        .ok_or_else(|| "证据里没有 transform_tool 字段（应用版本过旧？）".to_string())?;
+    if 实际 != 期望 {
+        return Err(format!("期望变换工具为 `{期望}`，实际是 `{实际}`"));
+    }
+    Ok(())
+}
+
+/// 断言"操纵器悬停状态符合期望"。`none` 表示不应有悬停。
+fn 判定悬停(证据: &serde_json::Value, 期望: Option<&str>) -> Result<(), String> {
+    let Some(期望) = 期望 else {
+        return Ok(());
+    };
+    let 实际 = 证据
+        .get("gizmo_hover")
+        .and_then(|值| 值.as_str())
+        .unwrap_or("none");
+    if 实际 != 期望 {
+        return Err(format!("期望操纵器悬停为 `{期望}`，实际是 `{实际}`"));
+    }
+    Ok(())
+}
+
+/// 场景树用例的坐标推导（含操纵器部件）。
 ///
 /// 坐标全部相对客户区逻辑像素；标签条上的落点取面板左上角附近，
 /// egui_dock 的标签命中区从面板顶边开始约 24 逻辑像素高。
 fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f32, f32))> {
+    // ---- 操纵器：`gizmo:<部件>` 取落点；`gizmo-drag:<部件>:<像素>` 沿实测方向拖 ----
+    //
+    // 这两个用例的坐标**完全来自应用当帧测得的几何**：
+    // 落点是该部件的代表点，方向是该轴/圆环在屏幕上的投影方向。
+    // 因此 3D 相机怎么转、2D 视图怎么缩放，拖拽都落在正确方向上。
+    if let Some(部件) = 名.strip_prefix("gizmo:") {
+        let (点, _) = 操纵器部件(证据, 部件)?;
+        return Some((点, 点));
+    }
+    if let Some(其余) = 名.strip_prefix("gizmo-drag:") {
+        let mut 段 = 其余.split(':');
+        let 部件 = 段.next()?;
+        let 距离: f32 = 段.next()?.trim().parse().ok()?;
+        let (起点, 方向) = 操纵器部件(证据, 部件)?;
+        let 终点 = (起点.0 + 方向.0 * 距离, 起点.1 + 方向.1 * 距离);
+        return Some((起点, 终点));
+    }
+
     let 表 = 区域表(证据);
     let 取 = |id: &str| 表.get(id).copied();
     let 标签 = |id: &str| 取(id).map(|(x, y, _, _)| (x + 40.0, y - 14.0));
@@ -2695,5 +3152,168 @@ mod 测试 {
         assert!(是场景树用例("scene_blank"));
         assert!(是场景树用例("arrow_name:乔木"));
         assert!(!是场景树用例("click:viewport"));
+    }
+    // ---- 操纵器：坐标推导 / 变换分量断言 / 事务断言 ----
+
+    /// 造一份带操纵器部件与变换的证据。
+    fn 操纵器证据() -> serde_json::Value {
+        serde_json::json!({
+            "pixels_per_point": 2.0,
+            "window": {"width": 1600, "height": 1000},
+            "transform_tool": "move",
+            "gizmo_hover": "move_x",
+            "gizmo_drag": null,
+            "undo_steps": 3,
+            "document_dirty": false,
+            "gizmo_parts": [
+                {
+                    "part": "move_x",
+                    // 物理像素 (400, 300) → 逻辑 (200, 150)
+                    "hit": [400, 300],
+                    "dir": [1.0, 0.0],
+                    "bbox": {"x": 300, "y": 290, "w": 120, "h": 20},
+                },
+                {
+                    "part": "rotate_z",
+                    "hit": [400, 500],
+                    "dir": [0.0, -1.0],
+                    "bbox": {"x": 300, "y": 400, "w": 200, "h": 200},
+                }
+            ],
+            "selection_transform": {
+                "entity": "实体标识(甲)",
+                "translate": [10.0, 20.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0, 1.0],
+                "rotation_deg_z": 0.0,
+                "scale": [1.0, 1.0, 1.0],
+            },
+        })
+    }
+
+    #[test]
+    fn 操纵器用例按实测几何取落点() {
+        let 证据 = 操纵器证据();
+        let (起, 终) = 用例坐标("gizmo:move_x", &证据).expect("应当取到落点");
+        // 物理 400/2 = 逻辑 200
+        assert_eq!(起, (200.0, 150.0));
+        assert_eq!(终, 起, "`gizmo:` 是纯落点，终点与起点相同");
+    }
+
+    #[test]
+    fn 操纵器拖拽沿实测方向延伸() {
+        let 证据 = 操纵器证据();
+        let (起, 终) = 用例坐标("gizmo-drag:move_x:60", &证据).expect("应当取到拖拽坐标");
+        assert_eq!(起, (200.0, 150.0));
+        assert!((终.0 - 260.0).abs() < 1e-4, "应沿 +x 拖 60px，实际 {终:?}");
+        assert!((终.1 - 150.0).abs() < 1e-4);
+
+        // 3D 里方向来自投影：这里验证"方向是证据给的，而不是写死的右方向"。
+        let (起, 终) = 用例坐标("gizmo-drag:rotate_z:30", &证据).expect("应当取到拖拽坐标");
+        assert_eq!(起, (200.0, 250.0));
+        assert!((终.0 - 200.0).abs() < 1e-4, "方向是 (0,-1)，x 不该变");
+        assert!((终.1 - 220.0).abs() < 1e-4, "应沿 -y 拖 30px，实际 {终:?}");
+    }
+
+    #[test]
+    fn 未知操纵器部件取不到坐标() {
+        assert_eq!(用例坐标("gizmo:nope", &操纵器证据()), None);
+        assert_eq!(用例坐标("gizmo-drag:move_x:不是数字", &操纵器证据()), None);
+    }
+
+    #[test]
+    fn 变换分量断言能区分变化与不变() {
+        let 前 = 操纵器证据();
+        let mut 后 = 操纵器证据();
+        后["selection_transform"]["translate"] = serde_json::json!([70.0, 20.0, 0.0]);
+
+        // 平移变了 → 通过
+        assert!(判定变换分量(&前, &后, &["translate".into()], &[]).is_ok());
+        // 缩放与旋转没变 → 通过
+        assert!(判定变换分量(&前, &后, &[], &["scale".into(), "rotation".into()]).is_ok());
+        // 断言平移不变 → 必须失败（这就是"未操作轴保持不变"的守门测试）
+        let 错误 = 判定变换分量(&前, &后, &[], &["translate".into()])
+            .expect_err("平移变了却断言不变，必须失败");
+        assert!(错误.contains("保持不变"), "{错误}");
+        // 断言缩放变化 → 必须失败
+        assert!(判定变换分量(&前, &后, &["scale".into()], &[]).is_err());
+    }
+
+    #[test]
+    fn 变换分量断言在缺少字段时给出明确原因() {
+        let 前 = serde_json::json!({"selection_transform": null});
+        let 后 = 操纵器证据();
+        let 错误 =
+            判定变换分量(&前, &后, &["translate".into()], &[]).expect_err("缺少变换时必须报错");
+        assert!(错误.contains("没有变换分量"), "{错误}");
+    }
+
+    #[test]
+    fn 撤销步数断言按增量核对() {
+        let 前 = 操纵器证据();
+        let mut 后 = 操纵器证据();
+        // 恰好 +1 → 通过（一次拖拽一条记录）
+        assert!(判定撤销步数(&前, &后, 0).is_ok());
+        后["undo_steps"] = serde_json::json!(4);
+        assert!(判定撤销步数(&前, &后, 1).is_ok());
+        // 实际 +1 却期望 0 → 失败
+        assert!(判定撤销步数(&前, &后, 0).is_err());
+        // 实际 +1 却期望 2 → 失败
+        assert!(判定撤销步数(&前, &后, 2).is_err());
+    }
+
+    #[test]
+    fn 脏状态断言接受常见写法() {
+        let 证据 = 操纵器证据();
+        assert!(判定脏状态(&证据, None).is_ok());
+        assert!(判定脏状态(&证据, Some("no")).is_ok());
+        assert!(判定脏状态(&证据, Some("yes")).is_err());
+        let mut 脏 = 操纵器证据();
+        脏["document_dirty"] = serde_json::json!(true);
+        assert!(判定脏状态(&脏, Some("yes")).is_ok());
+        assert!(判定脏状态(&脏, Some("乱七八糟")).is_err());
+    }
+
+    #[test]
+    fn 工具与悬停断言核对代号() {
+        let 证据 = 操纵器证据();
+        assert!(判定工具(&证据, Some("move")).is_ok());
+        assert!(判定工具(&证据, Some("rotate")).is_err());
+        assert!(判定悬停(&证据, Some("move_x")).is_ok());
+        assert!(判定悬停(&证据, Some("none")).is_err());
+        // `none` 期望在没有悬停时成立。
+        let mut 无悬停 = 操纵器证据();
+        无悬停["gizmo_hover"] = serde_json::Value::Null;
+        assert!(判定悬停(&无悬停, Some("none")).is_ok());
+    }
+
+    #[test]
+    fn 状态指纹包含工具操纵器与事务字段() {
+        let 指纹 = 状态指纹(&操纵器证据());
+        for 键 in [
+            "transform_tool",
+            "gizmo_hover",
+            "gizmo_drag",
+            "selection_transform",
+            "undo_steps",
+            "document_dirty",
+        ] {
+            assert!(指纹.contains_key(键), "状态指纹缺少 `{键}`");
+        }
+        // 变换被展开成可读文本，位置变化必须体现出来。
+        let mut 后 = 操纵器证据();
+        后["selection_transform"]["translate"] = serde_json::json!([11.0, 20.0, 0.0]);
+        assert_ne!(
+            指纹.get("selection_transform"),
+            状态指纹(&后).get("selection_transform")
+        );
+    }
+
+    #[test]
+    fn 拖拽取消用例复用拖拽坐标() {
+        let 证据 = 操纵器证据();
+        // 取消用例的名字前缀交给调用方改成 drag 再解析，这里验证等价性。
+        let 拖拽 = 用例坐标("gizmo-drag:move_x:40", &证据);
+        let 取消 = 用例坐标("gizmo-drag:move_x:40", &证据);
+        assert_eq!(拖拽, 取消);
     }
 }

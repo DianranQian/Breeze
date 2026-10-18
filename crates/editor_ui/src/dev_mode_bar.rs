@@ -180,7 +180,16 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
 
     match 模式 {
         开发模式::二维 => {
-            if 上下文
+            // 变换工具组：选择 / 移动 / 旋转 / 缩放。
+            //
+            // 只有 2D/3D 模式才画它 —— 代码/运行/资源模式没有可变换的视口，
+            // 把工具放在那里只会让用户点了没反应。
+            if let Some(工具) = crate::gizmo::绘制工具组(ui, 上下文) {
+                // 切工具会顺手取消正在进行的拖拽（见 `gizmo::切换工具`）。
+                crate::gizmo::切换工具(上下文, 工具);
+            }
+            ui.separator();
+            let 适配响应 = 上下文
                 .图标
                 .图标按钮(
                     ui,
@@ -190,17 +199,25 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
                     配色.文字,
                     true,
                 )
-                .on_hover_text(语言.取("fit_window_hint"))
-                .clicked()
-            {
+                .on_hover_text(语言.取("fit_window_hint"));
+            // 记录按钮矩形：验收要靠"点真实按钮"来把视角变成确定状态，
+            // 而不是假设启动时的相机已经稳定。
+            上下文.界面.布局快照.push(crate::state::区域快照 {
+                标识: "btn_fit_2d",
+                矩形: 适配响应.rect,
+            });
+            if 适配响应.clicked() {
                 上下文.动作.推(UiAction::视口适应窗口);
             }
-            if 上下文
+            let 重置响应 = 上下文
                 .图标
                 .图标按钮(ui, 图标::刷新, None, 图标尺寸, 配色.文字, true)
-                .on_hover_text(语言.取("reset_view_hint"))
-                .clicked()
-            {
+                .on_hover_text(语言.取("reset_view_hint"));
+            上下文.界面.布局快照.push(crate::state::区域快照 {
+                标识: "btn_reset_view_2d",
+                矩形: 重置响应.rect,
+            });
+            if 重置响应.clicked() {
                 上下文.动作.推(UiAction::视口重置视图);
             }
             // 显示开关是**界面状态**，直接改，不需要绕动作队列。
@@ -228,6 +245,13 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
             true
         }
         开发模式::三维 => {
+            // 与 2D 同一套工具组：工具模式是**视口无关**的界面状态，
+            // 切到 3D 时不该换一套工具概念。
+            if let Some(工具) = crate::gizmo::绘制工具组(ui, 上下文) {
+                // 切工具会顺手取消正在进行的拖拽（见 `gizmo::切换工具`）。
+                crate::gizmo::切换工具(上下文, 工具);
+            }
+            ui.separator();
             if 上下文
                 .图标
                 .图标按钮(

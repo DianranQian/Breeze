@@ -17,6 +17,9 @@ pub mod dev_mode_bar;
 pub mod dev_modes;
 pub mod docks;
 pub mod fonts;
+pub mod gizmo;
+pub mod gizmo2d;
+pub mod gizmo3d;
 pub mod hierarchy_panel;
 pub mod history_panel;
 pub mod icons;
@@ -90,6 +93,10 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
     上下文.界面.场景右键菜单 = None;
     上下文.界面.场景空白矩形 = None;
     上下文.界面.场景视口矩形 = None;
+    // 操纵器的悬停与部件几何同样是"本帧事实"：视口没画它，就不该继续留在
+    // 证据里。拖拽会话**不**在这里清 —— 它必须跨帧存活到松手或取消。
+    上下文.界面.操纵器悬停 = None;
+    上下文.界面.操纵器部件几何.clear();
 
     let 视口矩形 = egui上下文.viewport_rect();
     let mut 根界面 = Ui::new(

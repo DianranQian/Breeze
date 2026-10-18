@@ -1552,6 +1552,104 @@ fn 执行单个动作(
                 Err(错误) => 编辑器.错误(format!("打开配置目录失败：{错误}")),
             }
         }
+
+        // ---------------------------------------------------------------
+        // 打包
+        // ---------------------------------------------------------------
+        UiAction::设置打包配置(配置) => {
+            if let Some(项目) = 编辑器.项目.as_mut() {
+                项目.清单可变().打包 = Some(配置);
+                if let Err(错误) = 项目.保存清单() {
+                    编辑器.错误(format!("打包配置写入项目清单失败：{错误}"));
+                }
+            }
+        }
+
+        UiAction::打包项目 => {
+            let Some(项目) = 编辑器.项目.as_ref() else {
+                编辑器.警告(界面状态.语言.取("log_build_no_project").to_string());
+                return;
+            };
+            let 配置 = 项目.清单().打包.clone().unwrap_or_default();
+            let Some(产物) = 构建.报告().主产物().cloned() else {
+                // 没有产物时打出来的包是"没有游戏的资源包"，必须在入口挡住。
+                编辑器.结构化警告("log_package_needs_build", Vec::new());
+                界面状态.打包结果 = Some(editor_ui::state::打包结果视图 {
+                    成功: false,
+                    缺失依赖: Vec::new(),
+                    失败项: Vec::new(),
+                    ..Default::default()
+                });
+                return;
+            };
+
+            let 计划 = editor_core::package::生成打包计划(项目, &配置, Some(&产物));
+            if !计划.可以打包() {
+                界面状态.打包结果 = Some(editor_ui::state::打包结果视图 {
+                    成功: false,
+                    输出目录: String::new(),
+                    文件数: 0,
+                    总字节: 0,
+                    失败项: Vec::new(),
+                    缺失依赖: 计划.缺失依赖.clone(),
+                });
+                编辑器.结构化警告(
+                    "log_package_blocked",
+                    vec![日志参数::用户数据(计划.缺失依赖.len().to_string())],
+                );
+                for 缺失 in &计划.缺失依赖 {
+                    编辑器.警告(format!("打包被阻止：{缺失}"));
+                }
+                return;
+            }
+
+            let 报告 = editor_core::package::执行打包(项目, &配置, &计划);
+            界面状态.打包结果 = Some(editor_ui::state::打包结果视图 {
+                成功: 报告.成功,
+                输出目录: 报告.输出目录.display().to_string(),
+                文件数: 报告.文件数,
+                总字节: 报告.总字节,
+                失败项: 报告.失败项.clone(),
+                缺失依赖: Vec::new(),
+            });
+            if 报告.成功 {
+                编辑器.结构化信息(
+                    "log_package_done",
+                    vec![
+                        日志参数::用户数据(报告.文件数.to_string()),
+                        日志参数::用户数据(editor_core::package::人类可读字节(报告.总字节)),
+                        日志参数::用户数据(报告.输出目录.display().to_string()),
+                    ],
+                );
+            } else {
+                编辑器.结构化错误(
+                    "log_package_failed",
+                    vec![日志参数::用户数据(报告.失败项.len().to_string())],
+                );
+                for (文件, 原因) in &报告.失败项 {
+                    编辑器.错误(format!("打包失败：{文件}：{原因}"));
+                }
+            }
+        }
+
+        UiAction::打开打包目录 => {
+            let Some(项目) = 编辑器.项目.as_ref() else {
+                编辑器.警告(界面状态.语言.取("log_build_no_project").to_string());
+                return;
+            };
+            let 配置 = 项目.清单().打包.clone().unwrap_or_default();
+            let 目录 = 项目.根目录().join(配置.输出目录路径());
+            if !目录.is_dir() {
+                编辑器.结构化警告(
+                    "log_package_dir_missing",
+                    vec![日志参数::用户数据(目录.display().to_string())],
+                );
+                return;
+            }
+            if let Err(错误) = opener::open(&目录) {
+                编辑器.错误(format!("打开打包目录失败：{错误}"));
+            }
+        }
     }
 }
 

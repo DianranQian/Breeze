@@ -1169,6 +1169,13 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         // ---- 帮助与设置 ----
         UiAction::显示帮助(显示) => format!("显示帮助({显示})"),
         UiAction::打开配置目录 => "打开配置目录".to_string(),
+
+        // ---- 打包 ----
+        UiAction::设置打包配置(配置) => {
+            format!("设置打包配置({})", 配置.输出目录路径())
+        }
+        UiAction::打包项目 => "打包项目".to_string(),
+        UiAction::打开打包目录 => "打开打包目录".to_string(),
     }
 }
 

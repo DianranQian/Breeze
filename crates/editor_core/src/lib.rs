@@ -27,6 +27,7 @@ pub mod build;
 pub mod command;
 pub mod delta;
 pub mod i18n;
+pub mod package;
 pub mod project;
 pub mod selection;
 pub mod state;
@@ -48,9 +49,12 @@ pub use build::{
 pub use command::{命令结果, 编辑器命令};
 pub use delta::文档差量;
 pub use i18n::{词条, 词表, 语言};
+pub use package::{
+    人类可读字节, 打包报告, 打包条目, 打包计划, 打包配置, 执行打包, 生成打包计划, 默认输出目录,
+};
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
-    项目结果, 项目错误,
+    项目结果, 项目设置, 项目错误,
 };
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};

@@ -123,6 +123,9 @@ pub struct 项目清单 {
     /// 每个项目的包名、特性、目标平台都可能不同。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub 构建: Option<crate::build::构建配置>,
+    /// 打包配置。`None` 表示用默认配置（输出到 `dist/`）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub 打包: Option<crate::package::打包配置>,
 }
 
 impl 项目清单 {
@@ -136,6 +139,7 @@ impl 项目清单 {
             配置: BTreeMap::new(),
             运行: None,
             构建: None,
+            打包: None,
         }
     }
 }

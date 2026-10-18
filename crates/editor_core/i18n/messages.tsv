@@ -73,6 +73,21 @@ help_project_dir	项目目录	Project Directory
 open_config_dir	打开配置目录	Open Config Directory
 show_console	打开控制台	Open Console
 log_config_dir_opened	已打开配置目录：{}	Opened the config directory: {}
+package_section	打包	Package
+package_all_scenes	包含全部场景	All Scenes
+package_all_scenes_hint	关闭时只打包启动场景与它引用的资源	When off, only the start scene and the assets it references are packaged
+package_button	打包	Package
+package_button_hint	把可执行文件、场景与引用到的资源收集到输出目录	Collect the executable, scenes and referenced assets into the output directory
+package_needs_build	先构建成功一次才能打包（包里必须有可执行文件）	Build successfully first: a package must contain an executable
+package_open_dir	打开产物目录	Open Output Directory
+package_done	打包完成：{} 个文件 / {} → {}	Packaged {} files / {} to {}
+package_failed	打包失败：{} 个文件写入失败	Packaging failed: {} files could not be written
+package_missing_deps	{} 处依赖缺失，打包已阻止	{} missing dependencies; packaging was blocked
+log_package_done	打包完成：{} 个文件，{}，输出到 {}	Packaged {} files, {}, into {}
+log_package_failed	打包失败：{} 个文件写入失败	Packaging failed: {} files could not be written
+log_package_blocked	打包被阻止：{} 处依赖缺失	Packaging blocked: {} missing dependencies
+log_package_needs_build	还没有成功构建过，无法打包（包里必须有可执行文件）	No successful build yet, so there is nothing to package
+log_package_dir_missing	打包输出目录不存在：{}	The package output directory does not exist: {}
 choose_directory_and_create	选择目录并创建	Choose Directory and Create
 clear	清空	Clear
 clear_2	清除	Clear

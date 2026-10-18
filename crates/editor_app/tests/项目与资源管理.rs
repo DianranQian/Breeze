@@ -548,3 +548,70 @@ fn 旧项目清单缺少设计分辨率时用默认值() {
         "缺字段时必须回落到默认设计分辨率"
     );
 }
+
+#[test]
+fn 轨道插值模式会写进动画文件() {
+    let mut 世界 = 建测试世界();
+    let (_目录, 根) = 建项目(&mut 世界);
+
+    // 建一个实体并给它一条轨道。
+    let 实体 = {
+        let mut 持有 = 世界.resource_mut::<EditorStateHolder>();
+        let 文档 = &mut 持有.状态.会话.文档;
+        let 标识 = 文档.生成实体("方块", None);
+        持有.状态.选择.单选(标识);
+        持有.状态.动画 = Some(editor_core::animation::动画会话::新建("测试动画"));
+        // 指定保存路径：没有路径时「保存动画」只会弹对话框，不会直接写盘。
+        持有.状态.动画.as_mut().unwrap().路径 =
+            Some(项目相对路径::解析("anims/test.anim.ron").unwrap());
+        标识
+    };
+    推动作(
+        &mut 世界,
+        vec![UiAction::录制动画关键帧 {
+            属性: vec![editor_core::animation::动画属性::平移],
+        }],
+    );
+    执行动作(&mut 世界);
+    推动作(
+        &mut 世界,
+        vec![UiAction::设置轨道插值 {
+            实体,
+            属性: editor_core::animation::动画属性::平移,
+            插值: editor_core::animation::插值模式::步进,
+        }],
+    );
+    执行动作(&mut 世界);
+
+    let 轨道 = 编辑(&世界)
+        .动画
+        .as_ref()
+        .expect("应当有动画会话")
+        .文档
+        .轨道
+        .iter()
+        .find(|轨道| 轨道.实体 == 实体)
+        .expect("轨道应当存在")
+        .clone();
+    assert_eq!(轨道.插值, editor_core::animation::插值模式::步进);
+
+    // 落盘：插值是数据，必须出现在文件里。
+    let 路径 = 项目相对路径::解析("anims/test.anim.ron").unwrap();
+    推动作(&mut 世界, vec![UiAction::保存动画]);
+    执行动作(&mut 世界);
+    let 文本 = std::fs::read_to_string(根.join(路径.文本())).expect("动画文件应当存在");
+    // 用解码往返断言，而不是在文本里找 "Step"：RON 里的枚举写法属于
+    // 序列化细节（中文变体名），测试不该把它钉死；行为等价才是要验的东西。
+    let 读回 = editor_core::animation::动画文档::解码(&文本, &根.join(路径.文本()))
+        .expect("动画文件应当能解码");
+    let 读回轨道 = 读回
+        .轨道
+        .iter()
+        .find(|轨道| 轨道.实体 == 实体)
+        .expect("读回后轨道应当存在");
+    assert_eq!(
+        读回轨道.插值,
+        editor_core::animation::插值模式::步进,
+        "插值模式必须往返：{文本}"
+    );
+}

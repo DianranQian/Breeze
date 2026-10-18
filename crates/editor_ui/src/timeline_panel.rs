@@ -354,10 +354,34 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 行绘制.text(
                     egui::pos2(行左 + 4.0, 行矩形.center().y),
                     egui::Align2::LEFT_CENTER,
-                    format!("{实体名} · {属性名}"),
+                    // 步进轨道在名字后面加标记：一眼能区分"卡顿"是数据还是掉帧。
+                    match 轨道.插值 {
+                        editor_core::animation::插值模式::线性 => {
+                            format!("{实体名} · {属性名}")
+                        }
+                        editor_core::animation::插值模式::步进 => {
+                            format!("{实体名} · {属性名}（步进）")
+                        }
+                    },
                     egui::FontId::proportional(11.0),
                     配色.文字,
                 );
+
+                // 右键切换插值：线性 ↔ 步进。
+                行响应.context_menu(|ui| {
+                    ui.label(语言.取("interp_mode"));
+                    for 模式 in editor_core::animation::插值模式::全部 {
+                        let 选中 = 轨道.插值 == 模式;
+                        if ui.selectable_label(选中, 语言.取(模式.词条键())).clicked() {
+                            上下文.动作.推(UiAction::设置轨道插值 {
+                                实体: 轨道.实体,
+                                属性: 轨道.属性,
+                                插值: 模式,
+                            });
+                            ui.close();
+                        }
+                    }
+                });
 
                 // 关键帧
                 let mut 命中关键帧: Option<f32> = None;

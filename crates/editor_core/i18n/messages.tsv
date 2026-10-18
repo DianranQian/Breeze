@@ -728,3 +728,6 @@ anchor_stretch	拉伸	Stretch
 display	显示	Display
 design_resolution	设计分辨率	Design Resolution
 design_resolution_hint	游戏界面的排版画布；预览与导出都按这个尺寸等比缩放	The layout canvas for game UI; preview and export scale from it
+interp_mode	插值方式	Interpolation
+interp_linear	线性	Linear
+interp_step	步进	Step

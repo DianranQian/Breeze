@@ -1255,6 +1255,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::实例化场景(路径) => format!("实例化场景({})", 路径.文本()),
         UiAction::请求导出子场景 => "请求导出子场景".to_string(),
         UiAction::导出子场景 { 路径, .. } => format!("导出子场景({})", 路径.文本()),
+        UiAction::设置轨道插值 { 插值, .. } => format!("设置轨道插值({})", 插值.变体名()),
         UiAction::保存动画 => "保存动画".to_string(),
         UiAction::请求动画另存为 => "请求动画另存为".to_string(),
         UiAction::关闭动画 => "关闭动画".to_string(),

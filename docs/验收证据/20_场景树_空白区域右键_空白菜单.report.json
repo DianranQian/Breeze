@@ -1,0 +1,152 @@
+{
+  "allow_no_change": false,
+  "changed_regions": [],
+  "changed_state": [
+    "context_menu"
+  ],
+  "coords": {
+    "from_logical": [
+      0.0,
+      0.0
+    ],
+    "from_screen": [
+      49,
+      83
+    ],
+    "to_logical": [
+      0.0,
+      0.0
+    ],
+    "to_screen": [
+      49,
+      83
+    ]
+  },
+  "expect_menu": "blank",
+  "expect_no_change": false,
+  "expect_region": null,
+  "expect_restore": false,
+  "expect_scroll": false,
+  "expect_selection": null,
+  "expect_state": [
+    "context_menu"
+  ],
+  "input": {
+    "complete": true,
+    "moves": 0,
+    "summary": "move=true down=true up=true steps=0"
+  },
+  "menu_actual": {
+    "kind": "scene_blank",
+    "target": null
+  },
+  "menu_error": null,
+  "menu_ok": true,
+  "name": "scene_blank_right",
+  "pixels_per_point": 1.5,
+  "pointer_reached_app": true,
+  "right_click_case": "scene_blank",
+  "run_after": {
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "pid": null,
+    "running": false,
+    "status": "空闲",
+    "summary": "空闲",
+    "target_kind": "preview-process"
+  },
+  "run_before": {
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "pid": null,
+    "running": false,
+    "status": "空闲",
+    "summary": "空闲",
+    "target_kind": "preview-process"
+  },
+  "schema": 2,
+  "scroll": {
+    "effective": false,
+    "moved_rows": 0,
+    "notches": 0
+  },
+  "selection_actual": {
+    "count": 0,
+    "ids": [],
+    "primary": null
+  },
+  "selection_error": null,
+  "selection_ok": true,
+  "slot2_clicks": [],
+  "stages": [
+    {
+      "action": "skip",
+      "case": null,
+      "geometry_from": null,
+      "input_complete": null,
+      "logical": null,
+      "note": "未指定点击目标（--case / --from / --splitter 都没给）",
+      "screen": null,
+      "stage": "slot1"
+    },
+    {
+      "action": "right_click",
+      "case": "scene_blank",
+      "geometry_from": "before",
+      "input_complete": null,
+      "logical": [
+        130.0,
+        502.0
+      ],
+      "note": null,
+      "screen": [
+        244,
+        836
+      ],
+      "stage": "right_click"
+    }
+  ],
+  "state_after": {
+    "collapsed_count": "0",
+    "console_log_count": "4",
+    "console_log_tail": "微风已启动。请新建或打开一个项目。|已打开项目 `图标类型覆盖验收`：1 个场景，0 个资源|已打开场景 scenes/icons_showcase.scene.ron|场景校验发现问题：1 个资源引用未登记",
+    "context_menu": "scene_blank::new_top_level_entity",
+    "mode": "2d",
+    "run_log_lines": "0",
+    "run_pid": "null",
+    "run_running": "false",
+    "run_status": "空闲",
+    "scene_rows": "0:主相机:false|0:空节点（无组件）:false|0:分组（容器）:true|1:分组里的精灵:false",
+    "selection": "",
+    "workspace": "general"
+  },
+  "state_before": {
+    "collapsed_count": "0",
+    "console_log_count": "4",
+    "console_log_tail": "微风已启动。请新建或打开一个项目。|已打开项目 `图标类型覆盖验收`：1 个场景，0 个资源|已打开场景 scenes/icons_showcase.scene.ron|场景校验发现问题：1 个资源引用未登记",
+    "context_menu": "none",
+    "mode": "2d",
+    "run_log_lines": "0",
+    "run_pid": "null",
+    "run_running": "false",
+    "run_status": "空闲",
+    "scene_rows": "0:主相机:false|0:空节点（无组件）:false|0:分组（容器）:true|1:分组里的精灵:false",
+    "selection": "",
+    "workspace": "general"
+  },
+  "window": {
+    "client": [
+      2400,
+      1425
+    ],
+    "dpi": 144,
+    "handle": "0x1030bd0",
+    "origin": [
+      49,
+      83
+    ],
+    "title": "微风 (Breeze)"
+  }
+}

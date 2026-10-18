@@ -1,0 +1,29 @@
+{
+  "name": "eye_switch",
+  "row": "植被",
+  "pixels_per_point": 1.5,
+  "click_logical": [
+    224.33333333333334,
+    529.0
+  ],
+  "regions": {
+    "eye": {
+      "changed_ratio": 0.10437710437710437,
+      "max_delta": 124.0
+    },
+    "lock": {
+      "changed_ratio": 0.0,
+      "max_delta": 0.0
+    },
+    "arrow": {
+      "changed_ratio": 0.0,
+      "max_delta": 0.0
+    }
+  },
+  "thresholds": {
+    "eye_min": 0.05,
+    "control_max": 0.02
+  },
+  "verdict": "pass",
+  "reasons": []
+}

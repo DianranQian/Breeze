@@ -1,0 +1,152 @@
+{
+  "allow_no_change": false,
+  "changed_regions": [],
+  "changed_state": [
+    "context_menu"
+  ],
+  "coords": {
+    "from_logical": [
+      0.0,
+      0.0
+    ],
+    "from_screen": [
+      87,
+      121
+    ],
+    "to_logical": [
+      0.0,
+      0.0
+    ],
+    "to_screen": [
+      87,
+      121
+    ]
+  },
+  "expect_menu": "row",
+  "expect_no_change": false,
+  "expect_region": null,
+  "expect_restore": false,
+  "expect_scroll": false,
+  "expect_selection": null,
+  "expect_state": [
+    "context_menu"
+  ],
+  "input": {
+    "complete": true,
+    "moves": 0,
+    "summary": "move=true down=true up=true steps=0"
+  },
+  "menu_actual": {
+    "kind": "scene_row",
+    "target": "植被"
+  },
+  "menu_error": null,
+  "menu_ok": true,
+  "name": "row_blank_right",
+  "pixels_per_point": 1.5,
+  "pointer_reached_app": true,
+  "right_click_case": "row_blank:植被",
+  "run_after": {
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "pid": null,
+    "running": false,
+    "status": "空闲",
+    "summary": "空闲",
+    "target_kind": "preview-process"
+  },
+  "run_before": {
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "pid": null,
+    "running": false,
+    "status": "空闲",
+    "summary": "空闲",
+    "target_kind": "preview-process"
+  },
+  "schema": 2,
+  "scroll": {
+    "effective": false,
+    "moved_rows": 0,
+    "notches": 0
+  },
+  "selection_actual": {
+    "count": 0,
+    "ids": [],
+    "primary": null
+  },
+  "selection_error": null,
+  "selection_ok": true,
+  "slot2_clicks": [],
+  "stages": [
+    {
+      "action": "skip",
+      "case": null,
+      "geometry_from": null,
+      "input_complete": null,
+      "logical": null,
+      "note": "未指定点击目标（--case / --from / --splitter 都没给）",
+      "screen": null,
+      "stage": "slot1"
+    },
+    {
+      "action": "right_click",
+      "case": "row_blank:植被",
+      "geometry_from": "before",
+      "input_complete": null,
+      "logical": [
+        151.6666717529297,
+        529.3333129882812
+      ],
+      "note": null,
+      "screen": [
+        315,
+        915
+      ],
+      "stage": "right_click"
+    }
+  ],
+  "state_after": {
+    "collapsed_count": "0",
+    "console_log_count": "3",
+    "console_log_tail": "微风已启动。请新建或打开一个项目。|已打开项目 `青岚山谷（运行目标验收）`：1 个场景，24 个资源|已打开场景 scenes/qinglan_valley.scene.ron",
+    "context_menu": "scene_row:植被:rename,duplicate,new_child_entity_here,move_up,move_down,move_to_top_level,delete",
+    "mode": "2d",
+    "run_log_lines": "0",
+    "run_pid": "null",
+    "run_running": "false",
+    "run_status": "空闲",
+    "scene_rows": "0:青岚山谷:true|1:地形:true|2:青岚山谷地形:false|1:村落:true|2:房屋:true|3:青溪村·东屋:false|3:青溪村·西屋:false|3:青溪村·南屋:false|3:青溪村·谷仓:false|2:点景:true|3:青溪村·水井:false|3:青溪村·木牌:false|1:植被:true|2:乔木:true|3:古樟 01:false|3:古樟 02:false|3:古樟 03:false|3:古樟 04:false|3:古樟 05:false|3:古樟 06:false|3:古樟 07:false|3:古樟 08:false|3:古樟 09:false|3:古樟 10:false|3:古樟 11:false|3:古樟 12:false|3:松树 01:false|3:松树 02:false|3:松树 03:false|3:松树 04:false|2:灌木:true|3:灌木 01:false|3:灌木 02:false|3:灌木 03:false|3:灌木 04:false|1:山石:true|2:山石 01:false|2:山石 02:false|2:山石 03:false|2:山石 04:false|2:山石 05:false|1:人物:true|2:主角:false|2:同门师姐:false|2:采药人:false|2:村民:false",
+    "selection": "",
+    "workspace": "general"
+  },
+  "state_before": {
+    "collapsed_count": "0",
+    "console_log_count": "3",
+    "console_log_tail": "微风已启动。请新建或打开一个项目。|已打开项目 `青岚山谷（运行目标验收）`：1 个场景，24 个资源|已打开场景 scenes/qinglan_valley.scene.ron",
+    "context_menu": "none",
+    "mode": "2d",
+    "run_log_lines": "0",
+    "run_pid": "null",
+    "run_running": "false",
+    "run_status": "空闲",
+    "scene_rows": "0:青岚山谷:true|1:地形:true|2:青岚山谷地形:false|1:村落:true|2:房屋:true|3:青溪村·东屋:false|3:青溪村·西屋:false|3:青溪村·南屋:false|3:青溪村·谷仓:false|2:点景:true|3:青溪村·水井:false|3:青溪村·木牌:false|1:植被:true|2:乔木:true|3:古樟 01:false|3:古樟 02:false|3:古樟 03:false|3:古樟 04:false|3:古樟 05:false|3:古樟 06:false|3:古樟 07:false|3:古樟 08:false|3:古樟 09:false|3:古樟 10:false|3:古樟 11:false|3:古樟 12:false|3:松树 01:false|3:松树 02:false|3:松树 03:false|3:松树 04:false|2:灌木:true|3:灌木 01:false|3:灌木 02:false|3:灌木 03:false|3:灌木 04:false|1:山石:true|2:山石 01:false|2:山石 02:false|2:山石 03:false|2:山石 04:false|2:山石 05:false|1:人物:true|2:主角:false|2:同门师姐:false|2:采药人:false|2:村民:false",
+    "selection": "",
+    "workspace": "general"
+  },
+  "window": {
+    "client": [
+      2400,
+      1425
+    ],
+    "dpi": 144,
+    "handle": "0x1010bd0",
+    "origin": [
+      87,
+      121
+    ],
+    "title": "微风 (Breeze)"
+  }
+}

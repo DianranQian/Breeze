@@ -1,0 +1,12 @@
+{
+  "name": "icon_row_regression",
+  "compared": [
+    {
+      "case": "2d",
+      "before_round": ".verify_v2\\runs\\icons\\after_icons_2d.json",
+      "this_round": ".verify_v2\\runs\\menus\\row_blank_right\\row_blank_right_before.json"
+    }
+  ],
+  "verdict": "pass",
+  "reasons": []
+}

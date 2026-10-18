@@ -33,6 +33,8 @@ pub mod plugin;
 pub mod preview;
 pub mod run;
 pub mod scene_bridge;
+pub mod ui_components;
+pub mod ui_preview;
 
 pub use build::构建宿主;
 pub use config::{

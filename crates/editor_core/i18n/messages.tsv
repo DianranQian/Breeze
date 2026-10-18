@@ -671,3 +671,13 @@ save_subscene	另存为子场景…	Save Branch as Scene…
 subscene_need_selection	先在场景树里选中一个实体（它和它的子节点会被导出）	Select an entity in the scene tree first; it and its children are exported
 log_subscene_done	已保存子场景 {}（{} 个实体）	Saved subscene {} ({} entities)
 log_subscene_missing_root	子场景导出失败：实体 {} 已不在场景里	Subscene export failed: entity {} is no longer in the scene
+ui_field_width	宽度	Width
+ui_field_height	高度	Height
+ui_field_offset_x	偏移 X	Offset X
+ui_field_offset_y	偏移 Y	Offset Y
+ui_field_background	背景色	Background
+ui_field_text	文本	Text
+ui_field_font_size	字号	Font Size
+ui_field_text_color	文字颜色	Text Color
+ui_field_size_tooltip	屏幕像素；0 表示由内容自适应	Screen pixels; 0 means size to content
+ui_field_offset_tooltip	相对视口左上角的像素偏移	Pixel offset from the viewport's top-left corner

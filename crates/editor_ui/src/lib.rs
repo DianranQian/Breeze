@@ -46,7 +46,8 @@ pub use dev_modes::开发模式;
 pub use docks::Tab;
 pub use editor_core::i18n::语言;
 pub use fonts::{
-    内置字体, 内置字体大小, 后备字体环境变量, 字体安装结果, 安装中文字体, 界面代表性中文,
+    内置字体, 内置字体大小, 内置字体字节, 后备字体环境变量, 字体安装结果, 安装中文字体,
+    界面代表性中文,
 };
 pub use icons::{图标, 图标库};
 pub use node_icons::{折叠指示, 节点类型};

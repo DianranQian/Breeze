@@ -69,7 +69,18 @@ use egui::epaint::text::{FontData, FontDefinitions, FontFamily};
 /// 无论从哪个工作目录启动、无论可执行文件被复制到哪里，都能找到它。
 /// 运行时读文件则要考虑相对路径、安装目录、被移动等情况，
 /// 每一种都可能让界面变成方框。
-const 内置字体字节: &[u8] = include_bytes!("../assets/fonts/NotoSansSC-Subset.ttf");
+const 内置字体数据: &[u8] = include_bytes!("../assets/fonts/NotoSansSC-Subset.ttf");
+
+/// 内置中文字体的原始字节（TTF 子集）。
+///
+/// # 为什么要暴露字节
+///
+/// 预览视口里的**游戏 UI 文字**由 Bevy 渲染，而 Bevy 的默认字体没有汉字。
+/// 复用 egui 用的这份子集，既不用额外打包字体，也不会出现"游戏界面里全是方框"。
+/// 调用方（`editor_app::ui_preview`）把它交给 `Assets<Font>` 即可。
+pub fn 内置字体字节() -> &'static [u8] {
+    内置字体数据
+}
 
 /// 内置字体在 `FontDefinitions` 里的键名。
 pub const 内置字体键: &str = "bevy_studio_内置中文字体";
@@ -97,12 +108,12 @@ pub struct 字体安装结果 {
 
 /// 获取内置字体的字节。
 pub fn 内置字体() -> &'static [u8] {
-    内置字体字节
+    内置字体数据
 }
 
 /// 内置字体的字节数（用于日志与测试）。
 pub fn 内置字体大小() -> usize {
-    内置字体字节.len()
+    内置字体数据.len()
 }
 
 /// 读取用户指定的后备字体。文件不存在时返回 `None`。
@@ -131,7 +142,7 @@ pub fn 构造字体定义(后备: Option<(PathBuf, u32, Vec<u8>)>) -> FontDefini
     定义.font_data.insert(
         内置字体键.to_string(),
         Arc::new(FontData {
-            font: Cow::Borrowed(内置字体字节),
+            font: Cow::Borrowed(内置字体数据),
             // 子集是静态字体，不是字体集合，因此字面序号固定为 0。
             index: 0,
             tweak: Default::default(),

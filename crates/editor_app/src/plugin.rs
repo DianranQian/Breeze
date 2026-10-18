@@ -406,6 +406,8 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<导入快照资源>()
             // 灯光预览：把场景里的灯光组件投影成 Bevy 光源。
             .init_resource::<crate::light_preview::灯光同步状态>()
+            // 界面预览：把场景里的 UI 组件投影成 Bevy UI 节点。
+            .init_resource::<crate::ui_preview::界面同步状态>()
             .init_resource::<文件对话框通道>()
             // ---- 配置与布局持久化 ----
             //
@@ -501,6 +503,9 @@ impl Plugin for BevyStudio插件 {
                         // 灯光落在几何体之后：它只依赖文档，与几何体互不影响，
                         // 但放在同一链里能保证"同一帧的文档版本"看到同样的内容。
                         crate::light_preview::同步场景灯光,
+                        // 界面元素同样按修订号重建；它锁定预览相机，
+                        // 因此必须排在预览相机同步之后。
+                        crate::ui_preview::同步界面元素,
                         preview::同步预览相机,
                         preview::同步渲染尺寸,
                         preview::模型诊断,
@@ -682,7 +687,8 @@ fn 恢复最近项目(
 /// 再整体替换。**幂等**，重复执行也不会出现重复注册错误。
 fn 安装扩展组件(mut 编辑器: ResMut<EditorStateHolder>) {
     let 基础 = crate::scene_bridge::默认组件注册表();
-    let 扩展 = crate::components3d::扩展注册表(基础);
+    // 注册顺序无关紧要（名字不冲突），但链式表达清楚"扩展是一层层加的"。
+    let 扩展 = crate::ui_components::扩展注册表(crate::components3d::扩展注册表(基础));
     let 数量 = 扩展.数量();
     编辑器.状态.注册表 = 扩展;
     info!("已安装扩展组件，注册表中共 {数量} 个组件");

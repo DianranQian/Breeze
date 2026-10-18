@@ -362,6 +362,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "log_project_opened", 中文: "已打开项目 `{}`：{} 个场景，{} 个资源", 英文: "Opened project `{}`: {} scenes, {} assets" },
     词条 { 键: "log_project_settings_saved", 中文: "已保存项目设置：{}", 英文: "Saved project settings: {}" },
     词条 { 键: "log_recent_cleared", 中文: "已清除最近项目列表", 英文: "Cleared the recent projects list" },
+    词条 { 键: "log_recent_removed", 中文: "已从最近项目移除：{}", 英文: "Removed from recent projects: {}" },
     词条 { 键: "log_restored_language", 中文: "已恢复界面语言：{}", 英文: "Restored UI language: {}" },
     词条 { 键: "log_restored_layout", 中文: "已恢复上次的窗口布局", 英文: "Restored the previous window layout" },
     词条 { 键: "log_scene_autoload_failed", 中文: "自动载入场景失败：{}", 英文: "Failed to auto-load scene: {}" },

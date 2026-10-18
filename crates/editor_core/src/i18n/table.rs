@@ -397,6 +397,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "open_demo_missing", 中文: "找不到示例项目 `{}`：请确认仓库里的 examples 目录存在", 英文: "Demo project \"{}\" not found: make sure the examples directory exists" },
     词条 { 键: "open_project", 中文: "打开项目…", 英文: "Open Project…" },
     词条 { 键: "open_scene", 中文: "打开场景…", 英文: "Open Scene…" },
+    词条 { 键: "open_source_line_hint", 中文: "在代码面板里打开这一行", 英文: "Open this line in the code panel" },
     词条 { 键: "orbit_reset", 中文: "重置视角", 英文: "Reset View" },
     词条 { 键: "orbit_reset_hint", 中文: "把三维相机重置到默认视角", 英文: "Reset the 3D camera to its default view" },
     词条 { 键: "package_all_scenes", 中文: "包含全部场景", 英文: "All Scenes" },

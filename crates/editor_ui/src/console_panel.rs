@@ -57,6 +57,75 @@ pub fn 统计各级别(日志: &[editor_core::state::日志条目]) -> (usize, u
     (信息, 警告, 错误)
 }
 
+/// 从一行日志里找出一条"源码位置"：`路径:行[:列]`。
+///
+/// # 为什么值得做
+///
+/// 运行项目的日志里最常见的报错形态就是 `src/main.rs:42:5: ...`（rustc、
+/// 链接器、以及用户自己的 `println!` 都会这么写）。把它变成可点的一小段，
+/// 用户排查"游戏为什么崩"时就不用自己从一长串路径里挑出行号再手动打开文件。
+///
+/// # 识别规则（刻意保守）
+///
+/// * 必须出现 `.rs` 扩展名（本项目是 Rust 项目；把任意 `x:1` 当位置会误报）；
+/// * 路径里不允许空白与引号，行号/列号是纯数字；
+/// * 取**最后**一个匹配：日志前缀里常有时间戳（`12:03:45`），
+///   但 `路径.rs:42` 这样带扩展名的模式不会被时间戳误命中。
+///
+/// 返回 `(路径文本, 行号, 列号)`；列号缺失时为 0。
+pub fn 提取源码位置(文本: &str) -> Option<(String, u32, u32)> {
+    let 字节 = 文本.as_bytes();
+    let 标记 = b".rs:";
+    let mut 结果 = None;
+    let mut 起点 = 0;
+    while let Some(偏移) = 文本[起点..].find(".rs:") {
+        let 点位置 = 起点 + 偏移;
+        起点 = 点位置 + 标记.len();
+        // 向左取路径：字母数字、下划线、点、斜杠、反斜杠、连字符、井号。
+        let 左 = 文本[..点位置]
+            .char_indices()
+            .rev()
+            .take_while(|(_, 字符)| {
+                matches!(字符,
+                    'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.' | '/' | '\\' | '-' | '#' | ':')
+            })
+            .last()
+            .map(|(下标, _)| 下标)
+            .unwrap_or(点位置);
+        let 路径 = &文本[左..点位置 + 3];
+        // 向右取数字。
+        let 行开始 = 点位置 + 标记.len();
+        let 行数字: String = 文本[行开始..]
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        if 行数字.is_empty() {
+            continue;
+        }
+        let Ok(行) = 行数字.parse::<u32>() else {
+            continue;
+        };
+        // 可选列：`行:列`。
+        let 列开始 = 行开始 + 行数字.len();
+        let mut 列 = 0;
+        if 文本[列开始..].starts_with(':') {
+            let 列数字: String = 文本[列开始 + 1..]
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect();
+            if let Ok(值) = 列数字.parse::<u32>() {
+                列 = 值;
+            }
+        }
+        // 路径至少要有文件名主体（`.rs` 之前至少一个字符）。
+        if 路径.len() > 3 {
+            结果 = Some((路径.to_string(), 行, 列));
+        }
+    }
+    let _ = 字节;
+    结果
+}
+
 /// 绘制控制台。
 pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let (信息数, 警告数, 错误数) = 统计各级别(上下文.编辑器.日志列表());
@@ -114,6 +183,28 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                             .color(颜色),
                     );
                     ui.label(RichText::new(&条目.消息).color(颜色));
+                    // 日志里带源码位置时给一个"跳转"按钮：
+                    // 运行期报错最常见的就是 `src/main.rs:42:5: ...`。
+                    if let Some((路径, 行, _列)) = 提取源码位置(&条目.消息) {
+                        let 响应 = ui.add(
+                            egui::Button::new(
+                                RichText::new(format!("{路径}:{行}"))
+                                    .small()
+                                    .color(上下文.配色.成功)
+                                    .underline(),
+                            )
+                            .frame(false),
+                        );
+                        if 响应
+                            .on_hover_text(上下文.语言.取("open_source_line_hint"))
+                            .clicked()
+                        {
+                            上下文.动作.推(UiAction::打开构建诊断 {
+                                文件: Some(std::path::PathBuf::from(路径)),
+                                行,
+                            });
+                        }
+                    }
                 });
             }
         });
@@ -182,6 +273,23 @@ mod 测试 {
     fn 统计各级别数量() {
         let (信息, 警告, 错误) = 统计各级别(&造日志());
         assert_eq!((信息, 警告, 错误), (1, 1, 1));
+    }
+
+    #[test]
+    fn 从日志里提取源码位置() {
+        let 例子 = 提取源码位置("error: src/main.rs:42:5: expected item").expect("应当识别");
+        assert_eq!(例子.0, "src/main.rs");
+        assert_eq!(例子.1, 42);
+        assert_eq!(例子.2, 5);
+        // 只有行号没有列。
+        let 例子 = 提取源码位置("at crates/editor_app/src/lib.rs:7").unwrap();
+        assert_eq!(例子.0, "crates/editor_app/src/lib.rs");
+        assert_eq!(例子.1, 7);
+        assert_eq!(例子.2, 0);
+        // 时间戳里的冒号不能被当成行列。
+        assert!(提取源码位置("12:03:45 开始运行").is_none());
+        // 没有 .rs 扩展名的一律不认。
+        assert!(提取源码位置("assets/hero.png:12").is_none());
     }
 
     #[test]

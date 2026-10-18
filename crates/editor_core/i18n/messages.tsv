@@ -681,3 +681,4 @@ ui_field_font_size	字号	Font Size
 ui_field_text_color	文字颜色	Text Color
 ui_field_size_tooltip	屏幕像素；0 表示由内容自适应	Screen pixels; 0 means size to content
 ui_field_offset_tooltip	相对视口左上角的像素偏移	Pixel offset from the viewport's top-left corner
+open_source_line_hint	在代码面板里打开这一行	Open this line in the code panel

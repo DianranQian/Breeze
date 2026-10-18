@@ -494,6 +494,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "recent_project_gone", 中文: "最近项目已不存在，已从列表移除：{}", 英文: "The recent project no longer exists and was removed: {}" },
     词条 { 键: "recent_project_missing", 中文: "目录不存在", 英文: "missing directory" },
     词条 { 键: "recent_project_missing_hint", 中文: "该目录已被移动或删除。可以从列表里清掉。", 英文: "This directory was moved or deleted; you can clear it from the list." },
+    词条 { 键: "recent_project_remove_hint", 中文: "从最近项目里移除这一条", 英文: "Remove this entry from the recent projects" },
     词条 { 键: "recent_projects", 中文: "最近项目", 英文: "Recent Projects" },
     词条 { 键: "recent_projects_clear", 中文: "清除最近项目列表", 英文: "Clear Recent Projects" },
     词条 { 键: "redo", 中文: "↷ 重做", 英文: "↷ Redo" },

@@ -614,14 +614,29 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                                     语言.取("recent_project_missing")
                                 )
                             };
-                            let 响应 = ui.add_enabled(存在, egui::Button::new(文本).frame(false));
-                            if 响应.clicked() {
-                                上下文.动作.推(UiAction::打开最近项目(目录.clone()));
-                                ui.close();
-                            }
-                            if !存在 {
-                                响应.on_disabled_hover_text(语言.取("recent_project_missing_hint"));
-                            }
+                            ui.horizontal(|ui| {
+                                let 响应 =
+                                    ui.add_enabled(存在, egui::Button::new(文本).frame(false));
+                                if 响应.clicked() {
+                                    上下文.动作.推(UiAction::打开最近项目(目录.clone()));
+                                    ui.close();
+                                }
+                                if !存在 {
+                                    响应.on_disabled_hover_text(
+                                        语言.取("recent_project_missing_hint"),
+                                    );
+                                }
+                                // 单项移除：只有「清空最近项目」时，用户想扔掉
+                                // 某一条失效路径就只能连有效的记录一起清掉。
+                                // 这个动作早就实现了，但一直没有入口。
+                                if ui
+                                    .small_button("✕")
+                                    .on_hover_text(语言.取("recent_project_remove_hint"))
+                                    .clicked()
+                                {
+                                    上下文.动作.推(UiAction::移除最近项目(目录.clone()));
+                                }
+                            });
                         }
                         ui.separator();
                         if ui.button(语言.取("recent_projects_clear")).clicked() {

@@ -746,3 +746,4 @@ text_align_left	左	Left
 text_align_center	居中	Center
 text_align_right	右	Right
 audio_audition	试听实体音频	Audition Entity Audio
+recent_project_remove_hint	从最近项目里移除这一条	Remove this entry from the recent projects

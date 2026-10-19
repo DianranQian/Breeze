@@ -500,6 +500,14 @@ pub struct 控制台过滤 {
     pub 显示警告: bool,
     /// 显示错误级。
     pub 显示错误: bool,
+    /// 显示“编辑器”来源。
+    pub 显示编辑器: bool,
+    /// 显示“构建”来源。
+    pub 显示构建: bool,
+    /// 显示“运行”来源。
+    pub 显示运行: bool,
+    /// 显示“资源”来源。
+    pub 显示资源: bool,
 }
 
 impl Default for 控制台过滤 {
@@ -508,6 +516,10 @@ impl Default for 控制台过滤 {
             显示信息: true,
             显示警告: true,
             显示错误: true,
+            显示编辑器: true,
+            显示构建: true,
+            显示运行: true,
+            显示资源: true,
         }
     }
 }

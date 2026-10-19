@@ -1,5 +1,6 @@
 //! 控制台面板：日志、警告与错误。
 
+use editor_core::log_source::日志来源;
 use editor_core::state::{日志级别, 编辑器状态};
 use egui::{RichText, Ui};
 
@@ -10,6 +11,8 @@ use crate::state::{UiAction, 绘制上下文};
 pub struct 显示日志 {
     /// 级别。
     pub 级别: 日志级别,
+    /// 来源（构建/运行/资源/编辑器）。
+    pub 来源: 日志来源,
     /// 正文。
     pub 消息: String,
 }
@@ -29,10 +32,17 @@ pub fn 筛选日志(
             日志级别::警告 => 过滤.显示警告,
             日志级别::错误 => 过滤.显示错误,
         })
+        .filter(|条目| match 日志来源::由条目(条目) {
+            日志来源::编辑器 => 过滤.显示编辑器,
+            日志来源::构建 => 过滤.显示构建,
+            日志来源::运行 => 过滤.显示运行,
+            日志来源::资源 => 过滤.显示资源,
+        })
         // 搜索在**渲染之后**的文本上做：用户看到什么就搜什么。
         // 因此要在当前语言下先渲染再匹配，而不是拿存储内容去比。
         .map(|条目| 显示日志 {
             级别: 条目.级别,
+            来源: 日志来源::由条目(条目),
             消息: 条目.渲染(语言),
         })
         .filter(|条目| 关键字.is_empty() || 条目.消息.contains(关键字))
@@ -57,6 +67,66 @@ pub fn 统计各级别(日志: &[editor_core::state::日志条目]) -> (usize, u
     (信息, 警告, 错误)
 }
 
+/// 统计各来源的日志条数（顺序与 [`日志来源::全部`] 一致）。
+pub fn 统计各来源(日志: &[editor_core::state::日志条目]) -> [(日志来源, usize); 4] {
+    let mut 计数 = [
+        (日志来源::编辑器, 0usize),
+        (日志来源::构建, 0),
+        (日志来源::运行, 0),
+        (日志来源::资源, 0),
+    ];
+    for 条目 in 日志 {
+        let 来源 = 日志来源::由条目(条目);
+        if let Some(项) = 计数.iter_mut().find(|(类别, _)| *类别 == 来源) {
+            项.1 += 1;
+        }
+    }
+    计数
+}
+
+/// 识别被引号包起来、且内含 `.rs:行[:列]` 的源码位置。
+///
+/// 只在引号内部解析，因此路径里的空格不会被当成分隔符。
+fn 引号内的源码位置(文本: &str) -> Option<(String, u32, u32)> {
+    for 引号 in ['"', '\''] {
+        let mut 起点 = 0;
+        while let Some(偏移) = 文本[起点..].find(引号) {
+            let 开头 = 起点 + 偏移 + 引号.len_utf8();
+            let Some(闭合偏移) = 文本[开头..].find(引号) else {
+                break;
+            };
+            let 路径 = 文本[开头..开头 + 闭合偏移].trim().to_string();
+            let 闭引号之后 = 开头 + 闭合偏移 + 引号.len_utf8();
+            起点 = 闭引号之后;
+            if !路径.ends_with(".rs") {
+                continue;
+            }
+            // 行号/列号在引号之后：`:42` 或 `:42:5`。
+            let 余下 = 文本[闭引号之后..].trim_start();
+            let Some(余下) = 余下.strip_prefix(':') else {
+                continue;
+            };
+            let 行数字: String = 余下.chars().take_while(char::is_ascii_digit).collect();
+            let Ok(行) = 行数字.parse::<u32>() else {
+                continue;
+            };
+            let 列 = 余下[行数字.len()..]
+                .strip_prefix(':')
+                .and_then(|尾部| {
+                    尾部
+                        .chars()
+                        .take_while(char::is_ascii_digit)
+                        .collect::<String>()
+                        .parse::<u32>()
+                        .ok()
+                })
+                .unwrap_or(0);
+            return Some((路径, 行, 列));
+        }
+    }
+    None
+}
+
 /// 从一行日志里找出一条"源码位置"：`路径:行[:列]`。
 ///
 /// # 为什么值得做
@@ -74,6 +144,14 @@ pub fn 统计各级别(日志: &[editor_core::state::日志条目]) -> (usize, u
 ///
 /// 返回 `(路径文本, 行号, 列号)`；列号缺失时为 0。
 pub fn 提取源码位置(文本: &str) -> Option<(String, u32, u32)> {
+    // 先试"被引号包起来的路径"：`"C:\my projects\game\src\main.rs":42:5`。
+    //
+    // 为什么必须单独处理：路径里有空格时，下面"向右取空白为止"的规则会
+    // 从空格处截断，把 `C:\my` 当成路径 —— 这是最难查的一类失败（看起来
+    // 能点，点了却打不开文件）。引号是唯一的可靠边界，因此优先识别。
+    if let Some(结果) = 引号内的源码位置(文本) {
+        return Some(结果);
+    }
     let 字节 = 文本.as_bytes();
     let 标记 = b".rs:";
     let mut 结果 = None;
@@ -149,6 +227,31 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         if ui.small_button(上下文.语言.取("clear")).clicked() {
             上下文.动作.推(UiAction::清空控制台);
         }
+    });
+
+    ui.separator();
+
+    // 来源过滤：与级别过滤正交。排查"构建为什么失败"时先把编辑器噪声关掉，
+    // 比在几十行提示里翻找有效得多（Godot 的 Output 面板同样分来源）。
+    ui.horizontal_wrapped(|ui| {
+        ui.label(
+            RichText::new(上下文.语言.取("log_source"))
+                .small()
+                .color(上下文.配色.次要文字),
+        );
+        let mut 过滤 = 上下文.界面.控制台过滤;
+        for (来源, 数量) in 统计各来源(上下文.编辑器.日志列表()) {
+            // 数量用括号附在名称后面：词条本身不带占位符，填充 不会替它。
+            let 文案 = format!("{} ({数量})", 上下文.语言.取(来源.词条键()));
+            let 开关 = match 来源 {
+                日志来源::编辑器 => &mut 过滤.显示编辑器,
+                日志来源::构建 => &mut 过滤.显示构建,
+                日志来源::运行 => &mut 过滤.显示运行,
+                日志来源::资源 => &mut 过滤.显示资源,
+            };
+            ui.checkbox(开关, 文案);
+        }
+        上下文.界面.控制台过滤 = 过滤;
     });
 
     ui.separator();
@@ -251,11 +354,98 @@ mod 测试 {
     }
 
     #[test]
+    fn 引号里的带空格路径不会被截断() {
+        let 文本 = r#"error: could not compile in "C:\my projects\game\src\main.rs":42:5"#;
+        let (路径, 行, 列) = 提取源码位置(文本).expect("应当识别出源码位置");
+        assert_eq!(路径, r"C:\my projects\game\src\main.rs");
+        assert_eq!((行, 列), (42, 5));
+    }
+
+    #[test]
+    fn 没有引号时仍按原有规则解析() {
+        let 文本 = "src/main.rs:12:3: warning: unused variable";
+        let (路径, 行, 列) = 提取源码位置(文本).expect("应当识别出源码位置");
+        assert_eq!(路径, "src/main.rs");
+        assert_eq!((行, 列), (12, 3));
+    }
+
+    #[test]
+    fn 没有源码位置的日志返回空() {
+        assert!(提取源码位置("场景已保存").is_none());
+        assert!(提取源码位置("12:03:45 构建开始").is_none());
+    }
+    #[test]
+    fn 可以只显示构建来源() {
+        use editor_core::state::{日志内容, 日志条目};
+        let 日志 = vec![
+            日志条目 {
+                级别: 日志级别::信息,
+                内容: 日志内容::结构化 {
+                    标识: "log_build_started",
+                    参数: Vec::new(),
+                },
+            },
+            日志条目 {
+                级别: 日志级别::信息,
+                内容: 日志内容::自由文本("编辑器提示".to_string()),
+            },
+            日志条目 {
+                级别: 日志级别::信息,
+                内容: 日志内容::结构化 {
+                    标识: "log_physics_collision_started",
+                    参数: Vec::new(),
+                },
+            },
+        ];
+        let 过滤 = 控制台过滤 {
+            显示编辑器: false,
+            显示运行: false,
+            显示资源: false,
+            ..控制台过滤::default()
+        };
+        let 结果 = 筛选日志(&日志, 过滤, "", crate::i18n::语言::中文);
+        assert_eq!(结果.len(), 1, "只应剩下构建来源");
+        assert_eq!(结果[0].来源, 日志来源::构建);
+    }
+
+    #[test]
+    fn 来源统计与筛选结果一致() {
+        use editor_core::state::{日志内容, 日志条目};
+        let 日志 = vec![
+            日志条目 {
+                级别: 日志级别::信息,
+                内容: 日志内容::结构化 {
+                    标识: "log_build_started",
+                    参数: Vec::new(),
+                },
+            },
+            日志条目 {
+                级别: 日志级别::警告,
+                内容: 日志内容::自由文本("编辑器警告".to_string()),
+            },
+            日志条目 {
+                级别: 日志级别::信息,
+                内容: 日志内容::结构化 {
+                    标识: "log_import_refreshed",
+                    参数: Vec::new(),
+                },
+            },
+        ];
+        let 统计 = 统计各来源(&日志);
+        let 总数: usize = 统计.iter().map(|(_, 数量)| 数量).sum();
+        assert_eq!(总数, 日志.len(), "统计之和必须等于日志总数");
+        let 构建 = 统计
+            .iter()
+            .find(|(来源, _)| *来源 == 日志来源::构建)
+            .map(|(_, 数量)| *数量)
+            .unwrap();
+        assert_eq!(构建, 1);
+    }
+    #[test]
     fn 可以隐藏某一级别() {
         let 过滤 = 控制台过滤 {
             显示信息: false,
-            显示警告: true,
-            显示错误: true,
+            ..控制台过滤::default()
         };
         let 结果 = 筛选日志(&造日志(), 过滤, "", crate::i18n::语言::中文);
         assert_eq!(结果.len(), 2);

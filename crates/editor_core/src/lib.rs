@@ -29,6 +29,7 @@ pub mod command;
 pub mod delta;
 pub mod i18n;
 pub mod instance;
+pub mod log_source;
 pub mod package;
 pub mod project;
 pub mod selection;

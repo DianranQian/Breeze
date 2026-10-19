@@ -753,3 +753,8 @@ log_physics_started	物理世界已建立：{} 个刚体、{} 个碰撞体	Physi
 log_physics_sensor_entered	触发器进入：{} ↔ {}	Trigger entered: {} <-> {}
 log_physics_collision_started	碰撞开始：{} ↔ {}	Collision started: {} <-> {}
 log_physics_collision_stopped	碰撞结束：{} ↔ {}	Collision ended: {} <-> {}
+log_source_editor	编辑器	Editor
+log_source_build	构建	Build
+log_source_runtime	运行	Runtime
+log_source_assets	资源	Assets
+log_source	来源	Source

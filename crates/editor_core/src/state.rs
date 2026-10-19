@@ -424,6 +424,16 @@ impl 编辑器状态 {
         let 名称 = 项目.名称().to_string();
         let 场景数 = 项目.场景列表().len();
         let 资源数 = 项目.资源列表().len();
+        let 类型 = 项目.类型();
+        let cargo摘要 = 项目.cargo_工程().map(|工程| 工程.摘要());
+        let 是否贝维 = 项目
+            .cargo_工程()
+            .map(|工程| 工程.是否贝维工程())
+            .unwrap_or(true);
+        let 有可运行目标 = 项目
+            .cargo_工程()
+            .map(|工程| 工程.有可运行目标())
+            .unwrap_or(true);
         self.项目 = Some(项目);
         // 换项目必须丢掉上一个项目的动画会话。
         //
@@ -441,6 +451,23 @@ impl 编辑器状态 {
                 日志参数::数值(资源数 as i64),
             ],
         );
+        // 原生工程：把"微风从 Cargo.toml 里读到了什么"如实写进控制台。
+        // 这一步是"打开后真正可用"的一部分 —— 用户需要知道当前工程是
+        // 怎么被识别的，以及哪些微风专用能力暂时不适用。
+        if 类型 == crate::project::项目类型::原生Cargo {
+            if let Some(摘要) = cargo摘要 {
+                self.结构化信息(
+                    "log_project_cargo_recognized",
+                    vec![日志参数::用户数据(摘要)],
+                );
+            }
+            if !是否贝维 {
+                self.结构化信息("log_project_cargo_not_bevy", Vec::new());
+            }
+            if !有可运行目标 {
+                self.结构化信息("log_project_cargo_no_bin", Vec::new());
+            }
+        }
         // 打开项目后自动载入启动场景（若有），否则载入场景目录里的第一个。
         let 待载 = self
             .项目
@@ -472,6 +499,13 @@ impl 编辑器状态 {
             }
         } else {
             self.新建场景("主场景");
+            // 原生工程通常一个微风场景文件都没有 —— Bevy 的场景由 Rust
+            // 代码构建。这里**不能**因此判定"打开失败"（代码工作区、构建、
+            // 运行都仍然可用），但必须把限制讲清楚，而不是让用户对着
+            // 一张空场景猜。反过来，微风项目缺场景是配置问题，照旧静默。
+            if 类型 == crate::project::项目类型::原生Cargo {
+                self.结构化信息("log_project_native_no_scene", Vec::new());
+            }
         }
         Ok(())
     }

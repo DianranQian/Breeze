@@ -1,0 +1,227 @@
+== 场景 1：BEVY_STUDIO_MODE=agent 启动即进入智能体布局 ==
+      断言 20 条，失败 0
+    判定：通过（截图 2400×1500，均亮度 32.6，主导色 #1E1F22）
+      断言 20 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1500 与证据窗口 2400×1500 一致
+      [通过] capture_matches_os_client_area   [采集] 操作系统报告的客户区 2400×1500 与截图一致（窗口标题「微风 (Breeze)」，类名「Window Class」）
+      [通过] window_identified                [采集] 已确认目标窗口：标题「微风 (Breeze)」，可见=true，DPI=144
+      [通过] frame_not_constant               [界面] 画面有内容：1451 种颜色，主导色 #1E1F22 占 90.2%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 24 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 24 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 5729 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1498 / 窗口高 1500）
+      [通过] viewport_present                 [界面] 模式 `agent` 的专用布局不使用场景视口（AI Agent 工作区以对话/会话/审查为主）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `agent`（AI Agent）
+      [通过] workspace_selected               [界面] 当前工作区为 `general`（通用，内置，共 4 个工作区）
+      [通过] required_panel_visible           [界面] 面板 `agent_chat` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_sessions` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_review` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] agent_start
+== 场景 2：重启后仍恢复智能体布局（存档往返） ==
+      断言 20 条，失败 0
+    判定：通过（截图 2400×1500，均亮度 32.6，主导色 #1E1F22）
+      断言 20 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1500 与证据窗口 2400×1500 一致
+      [通过] capture_matches_os_client_area   [采集] 操作系统报告的客户区 2400×1500 与截图一致（窗口标题「微风 (Breeze)」，类名「Window Class」）
+      [通过] window_identified                [采集] 已确认目标窗口：标题「微风 (Breeze)」，可见=true，DPI=144
+      [通过] frame_not_constant               [界面] 画面有内容：1451 种颜色，主导色 #1E1F22 占 90.2%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 24 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 24 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 5729 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1498 / 窗口高 1500）
+      [通过] viewport_present                 [界面] 模式 `agent` 的专用布局不使用场景视口（AI Agent 工作区以对话/会话/审查为主）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `agent`（AI Agent）
+      [通过] workspace_selected               [界面] 当前工作区为 `general`（通用，内置，共 4 个工作区）
+      [通过] required_panel_visible           [界面] 面板 `agent_chat` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_sessions` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_review` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] agent_restart
+== 场景 3：普通启动仍是 2D 默认模式 ==
+      断言 22 条，失败 0
+    判定：通过（截图 2400×1500，均亮度 31.4，主导色 #1E1F22）
+      断言 22 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1500 与证据窗口 2400×1500 一致
+      [通过] capture_matches_os_client_area   [采集] 操作系统报告的客户区 2400×1500 与截图一致（窗口标题「微风 (Breeze)」，类名「Window Class」）
+      [通过] window_identified                [采集] 已确认目标窗口：标题「微风 (Breeze)」，可见=true，DPI=144
+      [通过] frame_not_constant               [界面] 画面有内容：1814 种颜色，主导色 #1E1F22 占 58.5%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 31 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 31 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 7546 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1498 / 窗口高 1500）
+      [通过] viewport_width_share             [界面] 视口宽 1365px，占窗口 56.9%（要求 30%~90%）
+      [通过] panel_side_relations             [界面] `scene_tree` 位于视口左侧（矩形 { x: 10, y: 208, w: 370, h: 886 } vs 视口 矩形 { x: 401, y: 208, w: 1365, h: 886 }）
+      [通过] panel_side_relations             [界面] `inspector` 位于视口右侧（矩形 { x: 1787, y: 219, w: 603, h: 1243 } vs 视口 矩形 { x: 401, y: 208, w: 1365, h: 886 }）
+      [通过] bottom_panel_below_viewport      [界面] `asset_browser` 位于视口下方（y=1151，视口底 1094）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `2d`（2D）
+      [通过] required_panel_visible           [界面] 面板 `viewport` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `scene_tree` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `inspector` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] default_2d
+== 场景 4：点击模式栏 2D→AI Agent，布局随之切换 ==
+    注入单击：逻辑 (270.33334, 38.333336)→(270.33334, 38.333336)，屏幕 (569, 255)→(569, 255)（ppp=1.50，客户区原点=(163, 197)）
+      断言 18 条，失败 0
+    判定：通过（截图 2400×1425，均亮度 32.8，主导色 #1E1F22）
+      断言 18 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1425 与证据窗口 2400×1425 一致
+      [通过] window_identified                [采集] 本次未提供目标进程，跳过操作系统层面窗口确认（仅用进程内证据）
+      [通过] frame_not_constant               [界面] 画面有内容：1458 种颜色，主导色 #1E1F22 占 89.7%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 24 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 24 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 5729 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1423 / 窗口高 1425）
+      [通过] viewport_present                 [界面] 模式 `agent` 的专用布局不使用场景视口（AI Agent 工作区以对话/会话/审查为主）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `agent`（AI Agent）
+      [通过] required_panel_visible           [界面] 面板 `agent_chat` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_sessions` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_review` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] click_to_agent
+== 场景 5：AI Agent→3D，专用布局让位给 3D 布局 ==
+    注入单击：逻辑 (127.0, 38.333336)→(127.0, 38.333336)，屏幕 (392, 293)→(392, 293)（ppp=1.50，客户区原点=(201, 235)）
+      断言 21 条，失败 0
+    判定：通过（截图 2400×1425，均亮度 30.5，主导色 #1E1F22）
+      断言 21 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1425 与证据窗口 2400×1425 一致
+      [通过] window_identified                [采集] 本次未提供目标进程，跳过操作系统层面窗口确认（仅用进程内证据）
+      [通过] frame_not_constant               [界面] 画面有内容：2446 种颜色，主导色 #1E1F22 占 52.4%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 28 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 28 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 7783 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1423 / 窗口高 1425）
+      [通过] viewport_width_share             [界面] 视口宽 1515px，占窗口 63.1%（要求 30%~90%）
+      [通过] panel_side_relations             [界面] `scene_tree` 位于视口左侧（矩形 { x: 10, y: 208, w: 316, h: 881 } vs 视口 矩形 { x: 347, y: 208, w: 1515, h: 881 }）
+      [通过] panel_side_relations             [界面] `inspector` 位于视口右侧（矩形 { x: 1883, y: 208, w: 507, h: 1179 } vs 视口 矩形 { x: 347, y: 208, w: 1515, h: 881 }）
+      [通过] bottom_panel_below_viewport      [界面] `console` 位于视口下方（y=1146，视口底 1089）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `3d`（3D）
+      [通过] required_panel_visible           [界面] 面板 `viewport` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `scene_tree` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `inspector` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] click_to_3d
+== 场景 6：3D→代码模式 ==
+    注入单击：逻辑 (190.66666, 38.333336)→(190.66666, 38.333336)，屏幕 (525, 331)→(525, 331)（ppp=1.50，客户区原点=(239, 273)）
+      断言 16 条，失败 0
+    判定：通过（截图 2400×1425，均亮度 33.1，主导色 #1E1F22）
+      断言 16 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1425 与证据窗口 2400×1425 一致
+      [通过] window_identified                [采集] 本次未提供目标进程，跳过操作系统层面窗口确认（仅用进程内证据）
+      [通过] frame_not_constant               [界面] 画面有内容：1509 种颜色，主导色 #1E1F22 占 89.7%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 24 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 24 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 5207 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1423 / 窗口高 1425）
+      [通过] viewport_present                 [界面] 模式 `script` 的专用布局不使用场景视口（视口允许不是激活标签）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `script`（代码）
+      [通过] required_panel_visible           [界面] 面板 `script` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] click_to_script
+== 场景 7：代码→AI Agent，回到智能体布局 ==
+    注入单击：逻辑 (270.33334, 38.333336)→(270.33334, 38.333336)，屏幕 (683, 369)→(683, 369)（ppp=1.50，客户区原点=(277, 311)）
+      断言 18 条，失败 0
+    判定：通过（截图 2400×1425，均亮度 32.8，主导色 #1E1F22）
+      断言 18 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1425 与证据窗口 2400×1425 一致
+      [通过] window_identified                [采集] 本次未提供目标进程，跳过操作系统层面窗口确认（仅用进程内证据）
+      [通过] frame_not_constant               [界面] 画面有内容：1458 种颜色，主导色 #1E1F22 占 89.7%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 24 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 24 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4434 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 5729 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1423 / 窗口高 1425）
+      [通过] viewport_present                 [界面] 模式 `agent` 的专用布局不使用场景视口（AI Agent 工作区以对话/会话/审查为主）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `agent`（AI Agent）
+      [通过] required_panel_visible           [界面] 面板 `agent_chat` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_sessions` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `agent_review` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] click_back_agent
+== 场景 8：打开无微风配置的原生 Cargo 工程 ==
+      断言 22 条，失败 0
+    判定：通过（截图 2400×1500，均亮度 32.4，主导色 #1E1F22）
+      断言 22 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1500 与证据窗口 2400×1500 一致
+      [通过] capture_matches_os_client_area   [采集] 操作系统报告的客户区 2400×1500 与截图一致（窗口标题「微风 (Breeze)」，类名「Window Class」）
+      [通过] window_identified                [采集] 已确认目标窗口：标题「微风 (Breeze)」，可见=true，DPI=144
+      [通过] frame_not_constant               [界面] 画面有内容：2078 种颜色，主导色 #1E1F22 占 58.1%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 31 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 31 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4249 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 7603 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1498 / 窗口高 1500）
+      [通过] viewport_width_share             [界面] 视口宽 1365px，占窗口 56.9%（要求 30%~90%）
+      [通过] panel_side_relations             [界面] `scene_tree` 位于视口左侧（矩形 { x: 10, y: 208, w: 370, h: 886 } vs 视口 矩形 { x: 401, y: 208, w: 1365, h: 886 }）
+      [通过] panel_side_relations             [界面] `inspector` 位于视口右侧（矩形 { x: 1787, y: 219, w: 603, h: 1243 } vs 视口 矩形 { x: 401, y: 208, w: 1365, h: 886 }）
+      [通过] bottom_panel_below_viewport      [界面] `asset_browser` 位于视口下方（y=1151，视口底 1094）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `2d`（2D）
+      [通过] required_panel_visible           [界面] 面板 `viewport` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `asset_browser` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `scene_tree` 在工作区里可见
+[通过] native_open
+[通过] native_manifest_untouched
+[通过] native_no_project_ron
+== 场景 9：原生工程里浏览并打开 Rust 源文件 ==
+      断言 17 条，失败 0
+    判定：通过（截图 2400×1500，均亮度 30.5，主导色 #1E1F22）
+      断言 17 条，失败 0
+      [通过] capture_size_matches_evidence    [采集] 截图 2400×1500 与证据窗口 2400×1500 一致
+      [通过] capture_matches_os_client_area   [采集] 操作系统报告的客户区 2400×1500 与截图一致（窗口标题「微风 (Breeze)」，类名「Window Class」）
+      [通过] window_identified                [采集] 已确认目标窗口：标题「微风 (Breeze)」，可见=true，DPI=144
+      [通过] frame_not_constant               [界面] 画面有内容：2017 种颜色，主导色 #1E1F22 占 65.4%
+      [通过] theme_background_applied         [界面] 主导色 #1E1F22 与主题面板背景 #1E1F22 一致（差 0）
+      [通过] regions_present                  [界面] 证据含 24 块区域
+      [通过] regions_inside_frame             [采集] 全部区域矩形都落在截图内
+      [通过] regions_have_content             [界面] 可见的 24 块区域都画出了内容（≥3 种颜色且存在对比像素）
+      [通过] text_rendered_in_chrome          [界面] `menubar` 有 4244 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `statusbar` 有 1736 个文字/图标像素（阈值 60）
+      [通过] text_rendered_in_chrome          [界面] `toolbar` 有 5102 个文字/图标像素（阈值 40）
+      [通过] chrome_bars_order                [界面] 菜单栏在顶部（y=3），工具栏紧随其后（y=123）
+      [通过] statusbar_at_bottom              [界面] 状态栏贴住窗口底部（底边 1498 / 窗口高 1500）
+      [通过] viewport_present                 [界面] 模式 `script` 的专用布局不使用场景视口（视口允许不是激活标签）
+      [通过] mode_selected                    [界面] 当前主开发模式为 `script`（代码）
+      [通过] required_panel_visible           [界面] 面板 `script` 在工作区里可见
+      [通过] required_panel_visible           [界面] 面板 `console` 在工作区里可见
+[通过] native_open_source
+
+通过 11 项，失败 0 项

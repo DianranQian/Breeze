@@ -101,6 +101,9 @@ impl 布局轮廓 {
             "3d" => Self::场景,
             "run" => Self::调试,
             "script" => Self::无,
+            // AI Agent：专用布局与任何内置工作区的轮廓都不同
+            // （对话/会话/审查/控制台），没有可套用的几何模板。
+            "agent" => Self::无,
             _ => Self::无,
         }
     }
@@ -681,13 +684,27 @@ pub fn 分析(输入: 输入<'_>) -> 分析结果 {
             // 未指定轮廓时只做"存在且不退化"的最低检查。
             布局轮廓::无 => {}
         }
-    } else if 证据.mode.id == "script" || 证据.mode.id == "assets" {
+    } else if 证据.mode.id == "script" || 证据.mode.id == "assets" || 证据.mode.id == "agent"
+    {
         // 脚本/资源模式的默认布局里视口是**标签之一**，不一定处于激活状态，
         // 因此不把"没有视口矩形"当成缺陷。
+        //
+        // AI Agent 模式更进一步：它的专用布局（对话/会话/审查/控制台）
+        // **本来就没有场景视口**，这是产品定义，不是漏画。此时"布局对不对"
+        // 由 `--expect-panels agent_chat,agent_sessions,agent_review` 断言，
+        // 而不是靠视口矩形间接判断。
         收集.通过(
             "viewport_present",
             断言类别::界面,
-            format!("模式 `{}` 允许视口不是激活标签", 证据.mode.id),
+            format!(
+                "模式 `{}` 的专用布局不使用场景视口（{}）",
+                证据.mode.id,
+                if 证据.mode.id == "agent" {
+                    "AI Agent 工作区以对话/会话/审查为主"
+                } else {
+                    "视口允许不是激活标签"
+                }
+            ),
         );
     } else {
         收集.失败(

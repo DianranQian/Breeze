@@ -101,7 +101,7 @@ run 的选项：
   --expect-theme dark|light
   --expect-panels a,b,c
   --expect-status <片段>   可重复
-  --expect-mode <id>      期望激活的主开发模式（2d/3d/script/run/assets）
+  --expect-mode <id>      期望激活的主开发模式（2d/3d/script/agent；run/assets 为已移除的旧值）
   --expect-workspace <id> 期望激活的工作区 id
   --min-viewport <0..1>   视口最小宽度占比（默认 0.30）
 "#

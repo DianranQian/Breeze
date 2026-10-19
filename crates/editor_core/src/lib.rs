@@ -24,6 +24,7 @@
 
 pub mod animation;
 pub mod build;
+pub mod cargo_project;
 pub mod collision;
 pub mod command;
 pub mod delta;
@@ -50,6 +51,9 @@ pub use build::{
     代码位置, 构建快照, 构建报告, 构建状态, 构建诊断, 构建配置, 构建配置类型, 编译事件,
     解析编译事件, 诊断级别,
 };
+pub use cargo_project::{
+    Cargo包, Cargo可执行目标, Cargo工程, Cargo识别错误, 原生清单文件名
+};
 pub use command::{命令结果, 编辑器命令};
 pub use delta::文档差量;
 pub use i18n::{词条, 词表, 语言};
@@ -59,7 +63,7 @@ pub use package::{
 };
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
-    项目结果, 项目设置, 项目错误,
+    项目类型, 项目结果, 项目设置, 项目错误,
 };
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};

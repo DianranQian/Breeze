@@ -1,0 +1,1095 @@
+   Compiling editor_core v0.1.0 (C:\Spaces\Share\10_Code\10_Bevy\开发bevyIDE\crates\editor_core)
+warning: function `解析锁定版本` is never used
+   --> crates\bsn_bridge\src\capability.rs:246:4
+    |
+246 | fn 解析锁定版本(清单: &str, 包名: &str) -> Option<String> {
+    |    ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `bsn_bridge` (lib) generated 1 warning
+   Compiling editor_ui v0.1.0 (C:\Spaces\Share\10_Code\10_Bevy\开发bevyIDE\crates\editor_ui)
+   Compiling editor_app v0.1.0 (C:\Spaces\Share\10_Code\10_Bevy\开发bevyIDE\crates\editor_app)
+warning: function `能解析真实抓取的DSH事件` should have a snake case name
+   --> crates\editor_app\src\agent_dsh.rs:466:8
+    |
+466 |     fn 能解析真实抓取的DSH事件() {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `能解析真实抓取的_dsh事件`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: function `空行与非JSON行被忽略` should have a snake case name
+   --> crates\editor_app\src\agent_dsh.rs:493:8
+    |
+493 |     fn 空行与非JSON行被忽略() {
+    |        ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `空行与非_json行被忽略`
+
+warning: function `BSN模板生成的文档能构建出正确的运行时世界` should have a snake case name
+  --> crates\editor_app\tests\BSN场景接入.rs:58:4
+   |
+58 | fn BSN模板生成的文档能构建出正确的运行时世界() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `bsn模板生成的文档能构建出正确的运行时世界`
+   |
+   = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: function `BSN模板生成的文档保存并重新打开后完全一致` should have a snake case name
+   --> crates\editor_app\tests\BSN场景接入.rs:189:4
+    |
+189 | fn BSN模板生成的文档保存并重新打开后完全一致() {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `bsn模板生成的文档保存并重新打开后完全一致`
+
+warning: function `BSN模板生成的文档进入编辑器会话后可撤销重做` should have a snake case name
+   --> crates\editor_app\tests\BSN场景接入.rs:209:4
+    |
+209 | fn BSN模板生成的文档进入编辑器会话后可撤销重做() {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `bsn模板生成的文档进入编辑器会话后可撤销重做`
+
+warning: function `BSN文档里的组件属性可以被编辑器正常修改` should have a snake case name
+   --> crates\editor_app\tests\BSN场景接入.rs:239:4
+    |
+239 | fn BSN文档里的组件属性可以被编辑器正常修改() {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `bsn文档里的组件属性可以被编辑器正常修改`
+
+warning: `editor_app` (test "BSN场景接入") generated 4 warnings
+warning: `editor_app` (lib test) generated 2 warnings
+    Finished `test` profile [optimized + debuginfo] target(s) in 2m 47s
+     Running unittests src\lib.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\bsn_bridge-32898233b3c52d4a.exe)
+
+running 23 tests
+test capability::测试::五个层次都有对应条目 ... ok
+test capability::测试::边界摘要覆盖全部条目 ... ok
+test capability::测试::版本解析能处理多包清单 ... ok
+test extract::测试::变换转换保留全部十个分量 ... ok
+test capability::测试::官方_bsn_文件格式在_0_20_0_仍未提供 ... ok
+test capability::测试::能力清单与锁定版本一致 ... ok
+test capability::测试::每条能力都有证据且键唯一 ... ok
+test host::测试::裸世界给出错误而不是崩溃 ... ok
+test extract::测试::根实体不存在时返回错误 ... ok
+test extract::测试::注册表缺组件时拒绝导出 ... ok
+test extract::测试::缺少名称时自动命名并记录规范化 ... ok
+test template::测试::模板与说明的标识唯一 ... ok
+test extract::测试::未转换组件会被记录而不是丢掉 ... ok
+test extract::测试::提取出的文档通过自身校验 ... ok
+test template::测试::模板列表与说明表一一对应 ... ok
+test template::测试::没有依赖资源时实例化返回错误而不是崩溃 ... ok
+test extract::测试::引擎派生组件默认被忽略且不算数据损失 ... ok
+test host::测试::插件自带实体导致总数不能当场景实体数 ... ok
+test host::测试::宿主装配了实例化所需资源 ... ok
+test template::测试::基础模板实例化后可读到名称与变换 ... ok
+test host::测试::场景规模按层级数而不是按世界实体数 ... ok
+test template::测试::参数模板接受运行时数值 ... ok
+test template::测试::说明表的规模与真实提取结果一致 ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\官方场景原型.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\官方场景原型-71a4ff50a2cfea30.exe)
+
+running 9 tests
+test 裸世界实例化返回错误而不是崩溃 ... ok
+test bsn_list_产生多个根实体 ... ok
+test 组件补丁是合并不是整体替换 ... ok
+test 层级关系双向成立且子级有序 ... ok
+test 多层嵌套层级正确 ... ok
+test 基础变换在实例化后逐分量正确 ... ok
+test 必需组件被引擎自动补齐 ... ok
+test 没有井号名字时不产生名称组件 ... ok
+test bsn_宏能构建并实例化多个实体 ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\标识符约束.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\标识符约束-f54ad7d465a2d596.exe)
+
+running 3 tests
+test 中文命名的组件类型不能直接写在_bsn_里 ... ok
+test 字段名可以是中文而类型名必须是_ascii ... ok
+test 中文命名的组件可以经变量插入 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\转换边界.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\转换边界-c67784c2a1bf49bb.exe)
+
+running 13 tests
+test 同名实体不会被合并 ... ok
+test 适配层的提取配置不改动世界 ... ok
+test 实体身份是新的唯一标识且不复用运行时实体 ... ok
+test 注册表缺组件时报错而不是跳过 ... ok
+test 组件字段值逐项核对 ... ok
+test 未赋值组件仍按默认值出现在文档里 ... ok
+test 参数模板的运行期数值完整进入文档 ... ok
+test 未登记组件导致严格转换失败而不是静默丢弃 ... ok
+test 空场景只有根时也能正确提取 ... ok
+test 完整转换_名称变换层级与次序逐项核对 ... ok
+test 世界类型与文档类型不同的组件经转换器接入 ... ok
+test 规范化项被如实记录 ... ok
+test 写入磁盘读回后文档完全一致 ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src\lib.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\editor_app-baeb69986475aaba.exe)
+
+running 117 tests
+test agent_context::测试::没有项目时项目摘要报错而不是返回空串 ... ok
+test agent_context::测试::场景摘要有实体数与层级 ... ok
+test agent_dsh::测试::截断按字符而不是字节 ... ok
+test agent_context::测试::实体摘要包含组件与属性 ... ok
+test agent_dsh::测试::工具事件能识别写操作 ... ok
+test agent_dsh::测试::状态判定只依据真实退出码与最终事件 ... ok
+test agent_dsh::测试::版本解析取第一行非空 ... ok
+test agent_dsh::测试::空行与非JSON行被忽略 ... ok
+test agent_dsh::测试::能解析真实抓取的DSH事件 ... ok
+test audio_components::测试::未指定文件时导出空值 ... ok
+test audio_components::测试::扩展注册表包含音频组件 ... ok
+test audio_components::测试::导出实例化往返并夹取音量 ... ok
+test audio_components::测试::默认值符合声明种类 ... ok
+test audio_preview::测试::只识别音频扩展名 ... ok
+test audio_preview::测试::可以从实体读取音频组件 ... ok
+test agent_dsh::测试::未知类型保留原文 ... ok
+test audio_preview::测试::没有音频组件时读不出来 ... ok
+test audio_preview::测试::绝对路径解析到项目根下 ... ok
+test bsn_templates::测试::可见性映射是稳定定点 ... ok
+test bsn_templates::测试::模板列表与说明表一一对应 ... ok
+test bsn_templates::测试::编辑器提取器与注册表组件名对齐 ... ok
+test build::测试::停止空闲宿主是安全的 ... ok
+test build::测试::空闲宿主状态正确 ... ok
+test capture::测试::未设置环境变量时不启用采集 ... ok
+test capture::测试::窗口尺寸解析拒绝非法输入 ... ok
+test capture::测试::窗口尺寸解析接受常见写法 ... ok
+test capture::测试::颜色转十六进制格式正确 ... ok
+test components3d::测试::导出与实例化往返一致 ... ok
+test components3d::测试::扩展后的注册表包含灯光组件 ... ok
+test components3d::测试::灯光组件默认值符合各自声明种类 ... ok
+test components3d::测试::缺字段时保留原值 ... ok
+test components3d::测试::非法数值会被夹取而不是原样保留 ... ok
+test config::测试::最近项目去重并移到最前 ... ok
+test config::测试::最近项目超过上限时丢弃最旧的 ... ok
+test config::测试::配置目录可从环境变量推导 ... ok
+test light_preview::测试::投影清单按文档顺序列出灯光 ... ok
+test light_preview::测试::解析方向光 ... ok
+test light_preview::测试::解析点光并对非法值夹取 ... ok
+test light_preview::测试::非灯光实体解析为_none ... ok
+test physics_components::测试::刚体往返 ... ok
+test physics_components::测试::未知形状名按序号兜底 ... ok
+test physics_components::测试::注册表包含物理组件且默认值自洽 ... ok
+test physics_components::测试::碰撞体往返并夹取尺寸 ... ok
+test preview::测试::变换转换与运行时桥接保持一致 ... ok
+test preview::测试::投影不会往文档里塞辅助实体 ... ok
+test preview::测试::只有带精灵组件的实体产生可见渲染 ... ok
+test preview::测试::投影携带真实变换与尺寸 ... ok
+test light_preview::测试::同步系统会生成光源实体并在无灯时恢复填充光 ... ok
+test preview::测试::投影顺序与场景树一致 ... ok
+test preview::测试::文档中不存在任何预览辅助命名 ... ok
+test preview::测试::无精灵文档投影为空 ... ok
+test preview::测试::显示尺寸使用自定义尺寸否则用默认 ... ok
+test preview::测试::渲染尺寸被收敛到合法区间 ... ok
+test preview::测试::解析精灵属性会取出全部字段 ... ok
+test preview::测试::解析精灵属性对缺失字段有合理默认 ... ok
+test preview::测试::贴图缓存记录并复用请求 ... ok
+test preview::测试::隐藏实体不产生预览渲染 ... ok
+test preview::测试::预览渲染目标在无纹理时不给渲染结果 ... ok
+test preview::测试::颜色转_bevy_区分色彩空间 ... ok
+test preview::测试::默认预览尺寸与视口包围框约定一致 ... ok
+test build::测试::没有清单时报告失败而不是panic ... ok
+test run::测试::日志只保留最近两百行 ... ok
+test config::测试::缺失文件返回默认配置而不是报错 ... ok
+test agent_dsh::测试::探测不存在的可执行文件报未安装 ... ok
+test run::测试::状态机只在运行中才算运行 ... ok
+test run::测试::目标类型有稳定的证据代号且能区分预览 ... ok
+test run::测试::空白的运行目标声明视为未声明 ... ok
+test config::测试::旧版单值最近项目会迁移进列表 ... ok
+test config::测试::损坏的配置文件回退到默认值 ... ok
+test scene_bridge::测试::内置组件名列表与注册表一致 ... ok
+test scene_bridge::测试::内置组件的默认值都符合各自声明的种类 ... ok
+test scene_bridge::测试::变换数据与_bevy_transform_往返一致 ... ok
+test scene_bridge::测试::实体映射表双向一致 ... ok
+test scene_bridge::测试::悬空父实体不会导致子实体丢失 ... ok
+test scene_bridge::测试::未注册组件被跳过但不影响其他组件 ... ok
+test scene_bridge::测试::构建世界会创建实体与变换 ... ok
+test scene_bridge::测试::构建世界会应用已注册组件 ... ok
+test config::测试::旧版单布局配置能被识别为待迁移 ... ok
+test run::测试::缺少项目清单时给出明确错误 ... ok
+test scene_bridge::测试::相机正交半高拒绝非法值 ... ok
+test scene_bridge::测试::注册表与插入分支一一对应 ... ok
+test scene_bridge::测试::空场景能正常构建 ... ok
+test scene_bridge::测试::组件导出与实例化往返一致 ... ok
+test scene_bridge::测试::退化四元数被替换为单位四元数 ... ok
+test scene_bridge::测试::运行时宿主启动停止后世界被彻底丢弃 ... ok
+test scene_bridge::测试::默认注册表包含全部内置组件 ... ok
+test run::测试::未声明运行目标时退回独立预览进程 ... ok
+test scene_bridge::测试::运行时的修改不会影响文档快照 ... ok
+test tile_terrain::测试::参数解析会收拢越界值 ... ok
+test tile_terrain::测试::四角掩码按位权组合 ... ok
+test tile_terrain::测试::地表字符有唯一映射 ... ok
+test tile_terrain::测试::边缘采样被_clamp_到图内 ... ok
+test ui_components::测试::扩展注册表包含全部界面组件 ... ok
+test ui_components::测试::按钮文本与颜色往返 ... ok
+test ui_components::测试::界面组件默认值符合声明种类 ... ok
+test ui_components::测试::面板导出实例化往返 ... ok
+test ui_preview::测试::按钮优先于文本 ... ok
+test ui_preview::测试::收集面板与按钮并读取字段 ... ok
+test ui_preview::测试::非界面实体不计入 ... ok
+test config::测试::缺少可选字段的旧配置仍可加载 ... ok
+test config::测试::版本过新的配置回退到默认值 ... ok
+test config::测试::配置往返一致 ... ok
+test config::测试::保存不留下临时文件 ... ok
+test run::测试::声明的运行目标不存在时报错而不是退回预览进程 ... ok
+test config::测试::保存会创建缺失的父目录 ... ok
+test ui_preview::测试::文本对齐会传给文本布局 ... ok
+test ui_preview::测试::同步系统生成带目标相机的节点树 ... ok
+test run::测试::声明的运行目标被采用且工作目录为项目根 ... ok
+test run::测试::运行目标可以声明项目内相对路径与工作目录 ... ok
+test bsn_templates::测试::说明表的规模与真实提取结果一致 ... ok
+test bsn_templates::测试::模板产出的文档通过自身校验 ... ok
+test run::测试::stderr_被标记后进入日志 ... ok
+test run::测试::启动真实命令并捕获输出与退出状态 ... ok
+test agent_context::测试::项目摘要用真实临时目录 ... ok
+test tile_terrain::测试::示例地形能烘焙出完整纹理 ... ok
+test agent_context::测试::变更收集能读到未跟踪文件 ... ok
+test run::测试::停止会结束正在运行的子进程 ... ok
+
+test result: ok. 117 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running unittests src\main.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\bevy_studio-4ff647980a280f4b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\BSN场景接入.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\BSN场景接入-21a65ef736713e8b.exe)
+
+running 12 tests
+test 可见性映射与既有桥接反向一致 ... ok
+test 默认组件注册表未被_bsn_接入改动 ... ok
+test 编辑器提取器与注册表一一对应 ... ok
+test 现有场景文件格式未因_bsn_接入改变 ... ok
+test BSN模板生成的文档能构建出正确的运行时世界 ... ok
+test 生成模板文档不写任何文件 ... ok
+test BSN模板生成的文档进入编辑器会话后可撤销重做 ... ok
+test 模板元数据与真实提取一致 ... ok
+test BSN文档里的组件属性可以被编辑器正常修改 ... ok
+test 提取与构建都不修改源世界与源文档 ... ok
+test 模板生成的文档实体身份稳定且唯一 ... ok
+test BSN模板生成的文档保存并重新打开后完全一致 ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\主题持久化.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\主题持久化-5cac3e2de469bcd9.exe)
+
+running 7 tests
+test 切主题不改变工作区布局 ... ok
+test 切语言不改变主题与工作区 ... ok
+test 内置主题被修改后能恢复出厂配色 ... ok
+test 切工作区不改变主题 ... ok
+test 主题库写入配置后重启能恢复当前主题 ... ok
+test 外观参数在存档里被收敛到安全区间 ... ok
+test 损坏的主题存档回退内置且不影响工作区 ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\动作可达性.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\动作可达性-7590ff7ccd4fb379.exe)
+
+running 1 test
+test 每个动作变体都有构造点 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\动作闭环.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\动作闭环-63a51eb43de3c002.exe)
+
+running 11 tests
+test 未打开项目时保存动作会记录错误而不是崩溃 ... ok
+test 文件对话框请求会被投递到通道 ... ok
+test 拖动会以按下位置为基准移动实体 ... ok
+test 通过动作队列可以撤销重做且标识保持不变 ... ok
+test 通过动作队列可以修改属性并立刻反映到文档 ... ok
+test 添加未注册组件会记录错误而不是假装成功 ... ok
+test 运行与停止不会改动编辑器文档 ... ok
+test 通过动作队列可以删除实体 ... ok
+test 通过动作队列可以新建实体并被自动选中 ... ok
+test 选择动作会正确改变选择集 ... ok
+test 完整闭环_通过动作搭场景保存到磁盘再重新打开 ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\原生工程构建与运行.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\原生工程构建与运行-2ea8d18d1acb6482.exe)
+
+running 4 tests
+test 只有库的原生工程运行入口给出准确诊断 ... ok
+test 原生工程的运行入口是真实cargo目标 ... ok
+test 原生工程能通过真实cargo构建出可执行产物 ... ok
+test 编辑器状态里打开的原生工程能直接跑完整链路 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.72s
+
+     Running tests\多面板工作区.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\多面板工作区-62a4acb874ab3bc5.exe)
+
+running 29 tests
+test 注册表里的显示名不含中文 ... ok
+test 显示尺寸与变换缩放互不混淆 ... ok
+test 注册表里的显示名与提示都是合法词条键 ... ok
+test 损坏的布局文本不会破坏当前布局 ... ok
+test 恢复默认布局能把改乱的布局修回来 ... ok
+test 贴图相对路径拼接到项目根内 ... ok
+test 缺少视口的工作区布局会被安全修复 ... ok
+test 界面类动作会被动作执行器处理 ... ok
+test 恢复默认布局动作能真正生效 ... ok
+test 语言切换动作改变界面语言并标记配置待写 ... ok
+test 预览默认尺寸与视口拾取约定一致 ... ok
+test 重复设置同一语言是幂等的 ... ok
+test 未知语言回退到中文 ... ok
+test 窗口布局与场景文件存放位置互不干扰 ... ok
+test 面板布局可以序列化并原样恢复 ... ok
+test 损坏的配置回退到默认值且语言回到中文 ... ok
+test 语言偏好能持久化并恢复 ... ok
+test 删除父实体后子实体的选择也被清理 ... ok
+test 删除实体后选择集不会留下失效引用 ... ok
+test 连续撤销重做后预览投影始终与文档一致 ... ok
+test 检查器修改属性会同步到场景文档 ... ok
+test 场景树选择会更新全局选择状态 ... ok
+test 修改变换后预览投影立刻反映新位置 ... ok
+test 文档修订号在预览需要时递增而在选择变化时不递增 ... ok
+test 属性编辑不会丢失选择状态 ... ok
+test 添加与删除精灵组件会改变预览投影 ... ok
+test 撤销后预览投影回到原状态 ... ok
+test 渲染世界里的实体不会进入场景文件 ... ok
+test 多面板编辑后保存重开属性一致 ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\工作区持久化.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\工作区持久化-eb80d5d7975989e3.exe)
+
+running 7 tests
+test 配置格式版本已升级到工作区版本 ... ok
+test 切换语言不改变工作区身份与布局 ... ok
+test 内置工作区不能被删除且删除当前用户工作区安全回退 ... ok
+test 旧版单布局配置被迁移成工作区 ... ok
+test 损坏的工作区存档安全回退到内置工作区 ... ok
+test 工作区集写入配置后重启能恢复当前项 ... ok
+test 一个工作区的改动不影响其他工作区 ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\构建与动画.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\构建与动画-eff6664c30f848b3.exe)
+
+running 12 tests
+test 没有清单时构建如实失败而不是假装成功 ... ok
+test 默认动画路径规范 ... ok
+test 删除实体后动画轨道被如实报告为悬空 ... ok
+test 动画求值在中间时刻插值且不写场景文档 ... ok
+test 动画播放覆盖预览变换而不改文档 ... ok
+test 动作队列能驱动动画录制与播放 ... ok
+test 构建配置写进项目清单并往返 ... ok
+test 打开诊断会把源码装进脚本面板并定位到行 ... ok
+test 切线编辑可保存加载并可撤销重做 ... ok
+test 动画保存后重新打开关键帧仍在 ... ok
+test 编译错误被解析成可跳转诊断 ... ok
+test 构建成功时报告产物路径 ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests\物理模拟.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\物理模拟-cb88767ed72f33fc.exe)
+
+running 4 tests
+test 暂停时物理不再推进 ... ok
+test 停止运行后物理世界被丢弃且可以重新开始 ... ok
+test 触发器接触会写进控制台日志 ... ok
+test 运行后动态刚体下落并被地面接住 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\示例模板安装.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\示例模板安装-b3441548bbe237ae.exe)
+
+running 1 test
+test 示例项目能复制到仓库外且在模板消失后仍可打开 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\示例项目.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\示例项目-724c13e3cabb6130.exe)
+
+running 5 tests
+test 贴图路径都是项目相对路径 ... ok
+test 三维示例使用受光几何体与真实模型 ... ok
+test 二维示例使用程序化瓦片地形 ... ok
+test 素材目录没有孤儿文件 ... ok
+test 素材是有效非空文件 ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\项目与资源管理.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\项目与资源管理-684fa59dd105e224.exe)
+
+running 23 tests
+test 打开失效的最近项目会被清理并给出警告 ... ok
+test 清除最近项目会同时清空配置与界面 ... ok
+test 复制粘贴可以跨场景搬实体 ... ok
+test 停止试听会排入停止请求 ... ok
+test 可以删除整条动画轨道 ... ok
+test 没有构建产物时打包会被阻止并说明原因 ... ok
+test 旧项目清单缺少设计分辨率时用默认值 ... ok
+test 空剪贴板粘贴只留一条提示 ... ok
+test 设计分辨率可保存并拒绝非法值 ... ok
+test 试听选中实体的音频组件 ... ok
+test 可以从最近项目里移除单条记录 ... ok
+test 实例化场景会插入实体并且是一个撤销步 ... ok
+test 非法的项目设置会留在对话框并给出错误 ... ok
+test 打包配置会写进项目清单 ... ok
+test 轨道插值模式会写进动画文件 ... ok
+test 依赖检查会报告缺失的资源引用 ... ok
+test 打包配置可保存且拒绝越界输出目录 ... ok
+test 打开项目会记入最近项目列表 ... ok
+test 重新导入资源会写缓存并让状态变为最新 ... ok
+test 导出子场景后可以再实例化回来 ... ok
+test 项目设置经由动作写盘并可读回 ... ok
+test 换项目会清空上一个项目的构建报告 ... ok
+test 试听请求只会为音频文件排队 ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\预览宽高比.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\预览宽高比-ae310be117bbdd35.exe)
+
+running 5 tests
+test 竖屏_1080x1920_不拉伸 ... ok
+test 横屏_1920x1080_不拉伸 ... ok
+test 横屏_1280x720_不拉伸 ... ok
+test 面板变窄变宽都不改变画面比例 ... ok
+test 零尺寸与极小面板不会产生非法纹理尺寸 ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\lib.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\editor_core-63e49da9b3679746.exe)
+
+running 155 tests
+test animation::测试::三次插值切线改变曲线 ... ok
+test animation::测试::平滑插值两端慢中间快 ... ok
+test animation::测试::循环采样与不循环夹取 ... ok
+test animation::测试::动画历史有容量上限 ... ok
+test animation::测试::插入后保持时间升序 ... ok
+test animation::测试::关键帧按时间求值并插值 ... ok
+test animation::测试::删除只删容差内的帧 ... ok
+test animation::测试::三次插值端点与中点正确 ... ok
+test animation::测试::动画撤销重做能还原切线 ... ok
+test animation::测试::同一时刻插入会替换而不是重复 ... ok
+test animation::测试::三次插值切线可保存与加载 ... ok
+test animation::测试::四元数插值走最短路径且保持单位长度 ... ok
+test animation::测试::三次插值缺切线时按相邻帧推算且不停顿 ... ok
+test animation::测试::录制时间夹取但不回绕 ... ok
+test animation::测试::录制关键帧取自文档当前变换 ... ok
+test animation::测试::三次插值对四元数降级为平滑 ... ok
+test animation::测试::插值模式往返与未知兜底 ... ok
+test animation::测试::播放状态推进与循环 ... ok
+test animation::测试::文本往返且不丢关键帧 ... ok
+test animation::测试::会话能判断未保存修改 ... ok
+test animation::测试::校验报告悬空实体与空轨道 ... ok
+test animation::测试::步进插值保持左帧直到下一帧 ... ok
+test animation::测试::求值保留文档里未被动画覆盖的分量 ... ok
+test animation::测试::求值跳过已删除的实体 ... ok
+test animation::测试::版本过新的动画文件被拒绝 ... ok
+test animation::测试::线性插值在中点取中间值 ... ok
+test build::测试::报告按级别排序并统计 ... ok
+test build::测试::无诊断失败给出摘要而不是空列表 ... ok
+test build::测试::状态判定 ... ok
+test build::测试::配置类型代号往返 ... ok
+test build::测试::解析结构化错误诊断 ... ok
+test build::测试::配置参数按固定顺序组装 ... ok
+test build::测试::解析产物与结束事件 ... ok
+test build::测试::非_json_行不算错误 ... ok
+test build::测试::默认配置只构建当前包 ... ok
+test cargo_project::测试::通配匹配覆盖常见形态 ... ok
+test collision::测试::未知变体名退化为矩形 ... ok
+test collision::测试::缺字段用默认值 ... ok
+test collision::测试::解析圆形 ... ok
+test collision::测试::解析矩形 ... ok
+test delta::测试::并入不同实体取并集 ... ok
+test delta::测试::并入保留较早的执行前状态 ... ok
+test delta::测试::改一个实体只记录一个实体 ... ok
+test delta::测试::未变化的文档差量为空 ... ok
+test delta::测试::逆向应用可以精确还原修改 ... ok
+test delta::测试::逆向应用可以还原元数据与资源表 ... ok
+test delta::测试::逆向应用可以还原新增与删除 ... ok
+test delta::测试::估算字节与场景规模无关 ... ok
+test i18n::测试::两种语言都有非空文案 ... ok
+test i18n::测试::关键界面区域的词条齐备 ... ok
+test i18n::测试::场景错误词条占位符中英一致 ... ok
+test i18n::测试::切换语言可往返 ... ok
+test i18n::测试::两种语言都能查到每一条词条 ... ok
+test i18n::测试::填充参数不足时不会崩溃 ... ok
+test i18n::测试::填充在两种语言下都替换占位符 ... ok
+test i18n::测试::多行文案确实含换行 ... ok
+test i18n::测试::文案里不应出现字面量的反斜杠_n ... ok
+test i18n::测试::每个场景错误类别都有中英词条 ... ok
+test i18n::测试::缺失的键返回键本身 ... ok
+test i18n::测试::英文文案不应与中文完全相同 ... ok
+test i18n::测试::词表按键有序且无重复 ... ok
+test i18n::测试::语言代号往返一致且未知代号回退 ... ok
+test i18n::测试::语言自称与反查一致 ... ok
+test i18n::测试::键是规范化的小写标识符 ... ok
+test i18n::测试::默认语言是中文 ... ok
+test instance::测试::不存在的父实体退化为顶层 ... ok
+test cargo_project::测试::缺少清单时明确说明 ... ok
+test instance::测试::同名两次实例化会得到不同名字 ... ok
+test instance::测试::实例化复制整棵子树并重映射身份 ... ok
+test instance::测试::实例根带来源标记与资源引用 ... ok
+test instance::测试::导出不存在的根返回_none ... ok
+test instance::测试::导出后重新实例化得到独立副本 ... ok
+test instance::测试::导出子树只包含该子树并换新身份 ... ok
+test instance::测试::挂到指定父实体下 ... ok
+test instance::测试::空源场景不产生任何实体 ... ok
+test log_source::测试::全部来源都有词条键且互不重复 ... ok
+test instance::测试::通过快照命令可撤销 ... ok
+test log_source::测试::结构化条目的来源由标识决定 ... ok
+test log_source::测试::自由文本算编辑器来源 ... ok
+test log_source::测试::键前缀映射到正确来源 ... ok
+test package::测试::输出目录必须是项目内相对路径 ... ok
+test package::测试::输出目录规范化与字节格式化 ... ok
+test selection::测试::切换可以取消选中并回退主选中项 ... ok
+test selection::测试::单选会覆盖之前的选择 ... ok
+test selection::测试::清理失效项会剔除不在文档里的实体 ... ok
+test state::测试::取消变换恢复起始且不产生撤销记录 ... ok
+test state::测试::只改选择不会递增文档修订号 ... ok
+test state::测试::失败的命令不递增修订号 ... ok
+test state::测试::嵌套错误子消息按当前语言整体渲染 ... ok
+test state::测试::已有日志在切换语言后按新语言渲染 ... ok
+test cargo_project::测试::无效的清单给出解析错误而不是panic ... ok
+test state::测试::提交变换只产生一条撤销记录且撤销回到起始 ... ok
+test state::测试::提交变换只写变了的那部分实体 ... ok
+test state::测试::文档修订号在所有修改路径上递增 ... ok
+test state::测试::未知标识不会渲染成空白 ... ok
+test cargo_project::测试::单包工程识别主程序 ... ok
+test state::测试::用户数据在两种语言下都保持原文 ... ok
+test state::测试::未迁移的自由文本条目原样显示 ... ok
+test state::测试::结构化日志不改变顺序与上限行为 ... ok
+test state::测试::结构化日志保留级别与参数 ... ok
+test state::测试::结构化日志的标识是符号键而不是句子 ... ok
+test state::测试::自动载入失败携带错误类别与参数 ... ok
+test state::测试::自由文本日志在改造后仍原样工作 ... ok
+test state::测试::错误里的用户数据在两种语言下都保留 ... ok
+test state::测试::零位移提交不产生撤销记录 ... ok
+test state::测试::预览变换改文档但不产生撤销记录 ... ok
+test state::测试::预览相同变换不递增修订号 ... ok
+test ui_layout::测试::右下按到边距离放置 ... ok
+test ui_layout::测试::居中落在正中间 ... ok
+test ui_layout::测试::左上按偏移放置 ... ok
+test ui_layout::测试::拉伸时偏移过大不会产生负尺寸 ... ok
+test ui_layout::测试::拉伸铺满并留偏移 ... ok
+test ui_layout::测试::渲染尺寸保持设计宽高比 ... ok
+test ui_layout::测试::渲染尺寸受上限约束且比例不变 ... ok
+test ui_layout::测试::渲染尺寸对非法输入保持正数 ... ok
+test ui_layout::测试::竖屏设计稿不会被面板拉横 ... ok
+test ui_layout::测试::适配缩放同尺寸不缩放 ... ok
+test ui_layout::测试::适配缩放等比并居中 ... ok
+test ui_layout::测试::适配缩放设计尺寸为零时退回原尺寸 ... ok
+test ui_layout::测试::锚点往返与未知兜底 ... ok
+test ui_layout::测试::顶部居中水平居中 ... ok
+test undo::测试::不同目标的连续编辑不会合并 ... ok
+test undo::测试::丢弃最旧条目不会破坏保存点的正确性 ... ok
+test undo::测试::保存点能让文档恢复干净状态 ... ok
+test undo::测试::合并后撤销回到最早状态 ... ok
+test cargo_project::测试::只有库目标时没有可运行目标 ... ok
+test undo::测试::提交后可以撤销重做 ... ok
+test undo::测试::新操作会清空重做分支 ... ok
+test undo::测试::有重做分支时不合并 ... ok
+test undo::测试::清空会重置保存点 ... ok
+test undo::测试::结构性命令永不合并 ... ok
+test undo::测试::超出内存预算会丢弃最旧条目但至少保留一步 ... ok
+test undo::测试::超出步数上限会丢弃最旧条目 ... ok
+test undo::测试::超过合并窗口另起一条 ... ok
+test cargo_project::测试::src_bin下的目标被自动发现 ... ok
+test undo::测试::连续编辑在合并窗口内合并成一条 ... ok
+test cargo_project::测试::多个可执行目标都被列出且主程序在前 ... ok
+test undo::测试::重做命令会把首次生成的实体标识填回去 ... ok
+test undo::测试::重做命令对其他命令保持原样 ... ok
+test cargo_project::测试::工作区根包自己的可执行目标优先 ... ok
+test project::测试::空名称与不存在的启动场景会被拒绝且不改清单 ... ok
+test project::测试::清空运行程序会移除运行声明 ... ok
+test cargo_project::测试::多包工作区按成员展开并能选出可运行目标 ... ok
+test package::测试::缺失引用会阻止打包 ... ok
+test project::测试::依赖检查报告缺失的资源引用 ... ok
+test project::测试::导入状态经历新增到最新再到变更与缺失 ... ok
+test package::测试::有产物时把它放在包根目录 ... ok
+test project::测试::项目设置能读回清单里的字段 ... ok
+test package::测试::包含全部场景时把其余场景也带上 ... ok
+test package::测试::计划只包含启动场景可达的资源 ... ok
+test package::测试::再次打包会清空旧产物 ... ok
+test state::测试::打开项目会丢掉上一个项目的动画会话 ... ok
+test package::测试::执行打包会复制文件并写清单 ... ok
+test undo::测试::一千实体场景下历史占用与场景规模无关 ... ok
+test state::测试::一千实体下单次编辑代价与场景规模无关 ... ok
+
+test result: ok. 155 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests\原生Cargo工程.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\原生Cargo工程-0e4ae0f4e08ffcec.exe)
+
+running 8 tests
+test 非工程目录给出明确错误 ... ok
+test 只有库的工程能打开但没有运行目标 ... ok
+test 损坏的清单给出解析错误而不是打开成功 ... ok
+test 打开原生工程不会修改用户清单与源码 ... ok
+test 编辑器状态能打开原生工程并给出限制说明 ... ok
+test 无微风配置的原生工程可以被打开并使用 ... ok
+test 工作区工程能选出可运行成员且构建根在workspace根 ... ok
+test 微风项目仍然按原格式打开 ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\撤销差量往返.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\撤销差量往返-ea90d4dc61d6e6ec.exe)
+
+running 1 test
+test 每种命令的差量都能精确回滚 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\模板独立化.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\模板独立化-d1ab04e1968a47d8.exe)
+
+running 16 tests
+test 模板_开发期兜底能发现仓库示例且环境变量能完全绕过它 ... ok
+test 模板_源目录不是模板时给出明确错误 ... ok
+test 模板_打开已有项目目录会区分各种无效情况 ... ok
+test 模板_拒绝复制到模板自身或自身内部 ... ok
+test 模板_环境变量指向单个模板时可用且三种失败原因互不相同 ... ok
+test 模板_目标非空时默认拒绝且原文件不被改动 ... ok
+test 模板_资源路径拒绝绝对路径与目录穿越 ... ok
+test 模板_环境变量指向模板根时列出全部模板 ... ok
+test 模板_复制后的项目能打开且资源路径能解析到真实文件 ... ok
+test 模板_目标为空目录时允许写入 ... ok
+test 模板_从注入根集合发现_完全不读真实仓库 ... ok
+test 模板_删除源模板后复制出的项目仍然可以打开 ... ok
+test 模板_复制到仓库外目标成功且文件数与源一致 ... ok
+test 模板_允许覆盖时确实覆盖并清掉旧文件 ... ok
+test 模板_可以只复制可见项 ... ok
+test 模板_真实示例复制到临时目录后可以打开 ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\编辑闭环.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\编辑闭环-9e583222bc598372.exe)
+
+running 29 tests
+test 保存到未打开项目时给出明确错误而不是静默失败 ... ok
+test 文件名清理会去掉危险字符 ... ok
+test 空选择集的查询不会崩溃 ... ok
+test 未打开项目时也能在内存中编辑场景 ... ok
+test 选择集清理失效项 ... ok
+test 日志面板会区分级别并统计问题数 ... ok
+test 撤销栈独立测试_内存预算能防止无限增长 ... ok
+test 里程碑A_打开不存在的项目会给出明确错误 ... ok
+test 里程碑A_拒绝在非空目录创建项目以免覆盖用户文件 ... ok
+test 项目清单版本过新时拒绝打开 ... ok
+test 里程碑A_可以创建选择删除实体 ... ok
+test 里程碑B_多选批量修改只占一步撤销 ... ok
+test 里程碑B_撤销重做能精确还原属性修改 ... ok
+test 里程碑B_调整层级后撤销能还原两侧次序 ... ok
+test 资源移动会同步更新场景中的引用 ... ok
+test 未保存修改的检测跟随撤销栈 ... ok
+test 里程碑B_撤销删除实体能恢复整棵子树与层级 ... ok
+test 里程碑A_创建项目会生成完整目录布局 ... ok
+test 打开场景会重置撤销历史 ... ok
+test 里程碑A_可以打开已创建的项目 ... ok
+test 项目外的文件不会被当成资源 ... ok
+test 关闭项目后再打开能恢复场景内容 ... ok
+test 保存失败后编辑器状态保持不变 ... ok
+test 里程碑A_保存并重新打开场景后数据完全一致 ... ok
+test 资源扫描能识别各类资源 ... ok
+test 场景列表能列出项目中的场景 ... ok
+test 里程碑B_组件属性修改会立刻反映到文档并且可保存 ... ok
+test 编辑器文档与运行时快照互相独立 ... ok
+test 里程碑B_修改后再保存不会丢失之前的修改 ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src\lib.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\editor_ui-4e7336bedf958803.exe)
+
+running 257 tests
+test agent::测试::上下文去重并影响提示 ... ok
+test agent::测试::任务状态只有结束后才不再推进 ... ok
+test assets_panel::测试::空列表构建出空树 ... ok
+test agent::测试::新建会话会选中并用第一条用户消息做标题 ... ok
+test agent::测试::连接状态摘要反映真实数据 ... ok
+test assets_panel::测试::深层嵌套目录能正确构建 ... ok
+test agent::测试::项目路径规范化统一分隔符与大小写 ... ok
+test collision_overlay::测试::文档收集只包含有碰撞体的实体 ... ok
+test assets_panel::测试::搜索保留匹配文件及其所在目录 ... ok
+test assets_panel::测试::搜索无匹配时返回空 ... ok
+test agent::测试::会话按项目隔离 ... ok
+test assets_panel::测试::目录排序把目录排在文件之前 ... ok
+test assets_panel::测试::空关键字返回完整树 ... ok
+test agent::测试::任务结束会写回状态并结束运行标记 ... ok
+test collision_overlay::测试::圆形轮廓取半径 ... ok
+test agent::测试::删除会话会选中相邻会话 ... ok
+test collision_overlay::测试::矩形轮廓取宽度与高度 ... ok
+test collision_overlay::测试::没有碰撞体组件时返回_none ... ok
+test assets_panel::测试::大小显示可读 ... ok
+test build_panel::测试::没有项目时构建配置是默认值 ... ok
+test assets_panel::测试::扁平列表能构建出正确的目录树 ... ok
+test collision_overlay::测试::非法尺寸被夹成正数 ... ok
+test console_panel::测试::从日志里提取源码位置 ... ok
+test console_panel::测试::关键字过滤 ... ok
+test console_panel::测试::可以只显示构建来源 ... ok
+test console_panel::测试::可以隐藏某一级别 ... ok
+test console_panel::测试::引号里的带空格路径不会被截断 ... ok
+test console_panel::测试::搜索基于渲染后的文本 ... ok
+test console_panel::测试::来源统计与筛选结果一致 ... ok
+test console_panel::测试::没有引号时仍按原有规则解析 ... ok
+test console_panel::测试::没有源码位置的日志返回空 ... ok
+test console_panel::测试::空日志统计为零 ... ok
+test console_panel::测试::级别前缀随语言变化 ... ok
+test console_panel::测试::结构化日志按当前语言渲染 ... ok
+test console_panel::测试::统计各级别数量 ... ok
+test console_panel::测试::默认过滤显示全部 ... ok
+test dev_mode_bar::测试::模式导航顺序稳定 ... ok
+test dev_mode_bar::测试::每个模式都有名称与说明键 ... ok
+test dev_modes::测试::已移除模式在旧存档里给出具体迁移说明 ... ok
+test dev_modes::测试::三个编辑模式齐全且id唯一 ... ok
+test dev_modes::测试::完全无法识别的存档返回错误 ... ok
+test dev_modes::测试::模式栏不再包含与工作区重叠的运行与资源 ... ok
+test dev_modes::测试::每个模式默认布局都可用且彼此不同 ... ok
+test dev_modes::测试::智能体预设每个标签只出现一次 ... ok
+test docks::测试::面板标题互不相同 ... ok
+test dev_modes::测试::出厂工作区集只有内置工作区没有模式名副本 ... ok
+test dev_modes::测试::通用工作区基线随模式变化 ... ok
+test docks::测试::默认布局包含所有面板且视口不可关闭 ... ok
+test dev_modes::测试::二维布局缺视口时仍会被修复 ... ok
+test fonts::测试::内置字体大小合理 ... ok
+test dev_modes::测试::未知当前模式回退到2d并留下说明 ... ok
+test fonts::测试::中文字体只追加不替换默认字体 ... ok
+test docks::测试::默认布局序列化往返不丢面板 ... ok
+test fonts::测试::内置字体文件头合法 ... ok
+test dev_modes::测试::按模式修复不会覆盖智能体布局 ... ok
+test fonts::测试::后备字体排在内置字体之后 ... ok
+test gizmo2d::测试::中心附近优先命中中心手柄而不是轴 ... ok
+test gizmo2d::测试::命中轴向手柄末端 ... ok
+test gizmo2d::测试::布局随工具变化且选择工具没有部件 ... ok
+test gizmo2d::测试::旋转圆环在圆周上命中而圆内不命中 ... ok
+test gizmo2d::测试::最短角差覆盖所有边界 ... ok
+test gizmo2d::测试::求解结果对同一输入是确定的 ... ok
+test gizmo2d::测试::旋转跨过角度边界不会突然反转 ... ok
+test gizmo2d::测试::移动_x_按世界坐标差计算而不是像素增量 ... ok
+test gizmo2d::测试::缩放基准在指针压在中心线上时拒绝开始 ... ok
+test gizmo2d::测试::等比缩放同时改_x_与_y_而_z_不变 ... ok
+test fonts::测试::egui_默认字体不含中文字形 ... ok
+test gizmo2d::测试::等比缩放从中心开始也成立 ... ok
+test gizmo2d::测试::等比缩放比例恒为正不会翻面 ... ok
+test gizmo2d::测试::缩放比例随相机缩放正确换算 ... ok
+test fonts::测试::后备字体缺失时静默跳过 ... ok
+test fonts::测试::内置字体覆盖用户可能输入的常用汉字 ... ok
+test fonts::测试::内置字体覆盖界面代表性中文 ... ok
+test gizmo2d::测试::轴向缩放只改该轴且不产生零值 ... ok
+test fonts::测试::拉丁字符仍被覆盖 ... ok
+test gizmo3d::测试::三个旋转环各自绕对应轴旋转 ... ok
+test gizmo3d::测试::三轴缩放分别只改对应分量 ... ok
+test gizmo3d::测试::不同相机朝向与距离下结果都不含非有限值 ... ok
+test gizmo3d::测试::射线与轴平行时拒绝建立基准 ... ok
+test gizmo3d::测试::平面移动在射线与平面平行时不更新 ... ok
+test gizmo3d::测试::布局三个工具都有部件且选择工具没有 ... ok
+test gizmo3d::测试::最短角差与二d规则一致 ... ok
+test gizmo3d::测试::平面移动的三轴位移都被限制在该平面内 ... ok
+test gizmo3d::测试::正交视角下退化轴不生成部件 ... ok
+test gizmo3d::测试::相机背后的中心不产生布局 ... ok
+test gizmo3d::测试::轴向移动沿该轴产生位移且其他轴不变 ... ok
+test gizmo3d::测试::轴长随相机距离增大而增大_屏幕长度基本恒定 ... ok
+test gizmo::测试::圆环折线是闭合的 ... ok
+test gizmo::测试::两次九十度等于一次一百八十度 ... ok
+test dev_modes::测试::旧存档里的已移除模式被丢弃但保留其余模式 ... ok
+test gizmo::测试::工具代号可往返解析 ... ok
+test gizmo::测试::收拢缩放保留符号且不产生零或非有限值 ... ok
+test gizmo::测试::施加旋转保持四元数规范化 ... ok
+test gizmo::测试::无变化会话可被识别 ... ok
+test gizmo::测试::点到线段距离在端点处退化为点距 ... ok
+test gizmo::测试::绕_z旋转九十度得到半角正弦余弦 ... ok
+test gizmo::测试::退化四元数退回单位值而不是_nan ... ok
+test gizmo::测试::部件归类与轴归属正确 ... ok
+test dev_modes::测试::版本2存档被迁移到2d模式 ... ok
+test help::测试::关键快捷键在表里 ... ok
+test gizmo::测试::零长度线段不会除零 ... ok
+test help::测试::快捷键表与实现保持一致 ... ok
+test help::测试::每条快捷键的动作词条都存在 ... ok
+test help::测试::快捷键表非空且组合唯一 ... ok
+test hierarchy_panel::测试::删除实体后折叠集合可被清理 ... ok
+test hierarchy_panel::测试::名称过长导致空间不足时没有空白区 ... ok
+test hierarchy_panel::测试::折叠内层节点只隐藏它自己的后代 ... ok
+test hierarchy_panel::测试::展开后按原有顺序恢复后代 ... ok
+test hierarchy_panel::测试::折叠父节点后子节点与深层后代都不可见 ... ok
+test hierarchy_panel::测试::搜索会保留匹配项及其祖先 ... ok
+test hierarchy_panel::测试::折叠集合不会改变场景文档 ... ok
+test hierarchy_panel::测试::无匹配时返回空列表 ... ok
+test docks::测试::默认布局的区域空间关系正确 ... ok
+test docks::测试::默认布局四个区域都获得有效矩形 ... ok
+test hierarchy_panel::测试::折叠切换是纯界面状态且可重复 ... ok
+test hierarchy_panel::测试::显示行反映隐藏与锁定标记 ... ok
+test hierarchy_panel::测试::显示行按深度优先顺序并有正确缩进 ... ok
+test dev_modes::测试::损坏的单模式布局只回退该模式 ... ok
+test hierarchy_panel::测试::有子实体标记正确 ... ok
+test hierarchy_panel::测试::没有状态开关时空白区一直延伸到行右边缘 ... ok
+test hierarchy_panel::测试::空关键字返回全部 ... ok
+test hierarchy_panel::测试::空白区宽度不足以点击时不注册 ... ok
+test hierarchy_panel::测试::空白区落在名称与开关之间且不重叠 ... ok
+test hierarchy_panel::测试::行太矮时不注册空白区 ... ok
+test hierarchy_panel::测试::锁定实体不可被视口选中 ... ok
+test history_panel::测试::历史列表把已应用与可重做分开且顺序正确 ... ok
+test history_panel::测试::只有可重做时列表正确 ... ok
+test history_panel::测试::空历史产生空列表 ... ok
+test icons::测试::图标库初始为空 ... ok
+test docks::测试::默认布局各栏占比合理 ... ok
+test icons::测试::按扩展名推断图标 ... ok
+test icons::测试::图片文件走白色描边以便染色 ... ok
+test inspector_panel::测试::值摘要覆盖所有种类且不崩溃 ... ok
+test inspector_panel::测试::列表新元素的默认值符合元素种类 ... ok
+test inspector_panel::测试::单位四元数对应零角度 ... ok
+test inspector_panel::测试::欧拉角与四元数往返一致 ... ok
+test inspector_panel::测试::退化四元数不会产生_nan ... ok
+test menu_bar::测试::已实现的菜单项在无项目无选中时可用性正确 ... ok
+test menu_bar::测试::未实现的菜单项被如实标注 ... ok
+test menu_bar::测试::窗口菜单映射到正确的面板 ... ok
+test menu_bar::测试::自定义可用性默认是始终可用 ... ok
+test menu_bar::测试::菜单定义结构完整且没有空菜单 ... ok
+test menu_bar::测试::运行控制的可用性由运行状态决定 ... ok
+test menu_bar::测试::需要选中的菜单项在有选中时才产生动作 ... ok
+test node_icons::测试::只有变换与可见性的实体不算任何专用类型 ... ok
+test node_icons::测试::多组件优先级固定且与添加顺序无关 ... ok
+test node_icons::测试::容器与普通实体按真实子实体关系区分 ... ok
+test icons::测试::每个图标都能解码出可见像素 ... ok
+test node_icons::测试::已注册组件各自映射到专用图标 ... ok
+test node_icons::测试::带模型资源的精灵被判成三维网格 ... ok
+test node_icons::测试::折叠指示由子实体与展开状态共同决定 ... ok
+test node_icons::测试::未知组件回退到通用类型 ... ok
+test node_icons::测试::每种节点类型的图标互不相同 ... ok
+test node_icons::测试::空的模型属性仍算二维精灵 ... ok
+test node_icons::测试::类型都有代号与词条键且唯一 ... ok
+test script::测试::关键字与标识符被区分 ... ok
+test script::测试::字符串与注释不会被当成关键字 ... ok
+test script::测试::数字与范围运算符区分 ... ok
+test script::测试::未闭合字符串不会越界 ... ok
+test script::测试::查找与命中跳转 ... ok
+test script::测试::空查找不产生命中 ... ok
+test script::测试::空行不产生词元也不崩溃 ... ok
+test script::测试::类型名与宏有独立角色 ... ok
+test script::测试::脚本文档的未保存判定 ... ok
+test script::测试::语言按扩展名识别 ... ok
+test icons::测试::图标名称唯一且资源真实存在 ... ok
+test state::测试::以锚点缩放保持锚点世界坐标不变 ... ok
+test state::测试::可见世界矩形与屏幕映射自洽 ... ok
+test state::测试::可见世界矩形尺寸与缩放一致 ... ok
+test state::测试::屏幕与世界往返一致 ... ok
+test state::测试::竖屏设计帧在横面板里左右留边 ... ok
+test state::测试::缩放被限制在合法区间 ... ok
+test state::测试::设计帧下世界原点落在画面中心 ... ok
+test state::测试::设计帧下的可见世界矩形按设计尺寸算 ... ok
+test state::测试::设计帧会等比缩进面板并留边 ... ok
+test state::测试::试听状态机 ... ok
+test state::测试::适应包围盒后对象可见 ... ok
+test state::测试::适应极小包围盒时缩放松紧有度 ... ok
+test theme::测试::三个内置主题彼此不同 ... ok
+test theme::测试::主题重名与空名被拒绝 ... ok
+test theme::测试::修改内置主题写入覆盖层且能恢复 ... ok
+test theme::测试::内置主题不能被删除 ... ok
+test theme::测试::内置主题齐全且id唯一 ... ok
+test theme::测试::外观参数会被夹到安全区间 ... ok
+test theme::测试::存档里损坏的主题被跳过而不是整体失败 ... ok
+test theme::测试::导入的主题一律成为用户主题 ... ok
+test theme::测试::存档往返保留用户主题与当前项 ... ok
+test theme::测试::导入重名会自动加后缀 ... ok
+test theme::测试::导出再导入保持配色一致 ... ok
+test theme::测试::新建主题继承当前配色并可切换 ... ok
+test theme::测试::每个主题的语义配色槽位都不透明 ... ok
+test theme::测试::深色与浅色的明暗属性正确 ... ok
+test theme::测试::用户主题可删除且回退到深色 ... ok
+test theme_editor::测试::每个槽位都能真正改写配色 ... ok
+test theme::测试::高对比度主题的对比度足够 ... ok
+test theme_editor::测试::颜色槽位表没有重复键 ... ok
+test theme_editor::测试::颜色槽位表覆盖全部必需类别 ... ok
+test timeline_panel::测试::刻度数量随时长增长而不会爆炸 ... ok
+test viewport3d::测试::世界x轴在默认视角下投影到屏幕右侧 ... ok
+test viewport3d::测试::世界z轴在默认视角下投影到屏幕左侧 ... ok
+test viewport3d::测试::世界上方向投影到屏幕上方 ... ok
+test viewport3d::测试::屏幕射线与投影互为逆 ... ok
+test viewport3d::测试::屏幕射线与投影在偏心点上也一致 ... ok
+test dev_modes::测试::智能体模式的存档往返保留专用布局 ... ok
+test viewport3d::测试::投影把目标点放在视口中心 ... ok
+test viewport3d::测试::相机背后的点被剔除 ... ok
+test viewport3d::测试::距离与俯仰都被夹住 ... ok
+test viewport3d::测试::重置回到默认视角 ... ok
+test viewport3d::测试::默认相机位于目标上方 ... ok
+test dev_modes::测试::存档往返保留当前模式与各模式布局 ... ok
+test viewport_panel::测试::三维几何体按地面或墙面取二维尺寸 ... ok
+test viewport_panel::测试::世界包围盒覆盖所有可见实体 ... ok
+test viewport_panel::测试::命中测试会跳过锁定与隐藏的实体 ... ok
+test viewport_panel::测试::命中测试选中覆盖点位的实体 ... ok
+test viewport_panel::测试::无变换的实体不出现在视口里 ... ok
+test viewport_panel::测试::框的包含判定 ... ok
+test viewport_panel::测试::瓦片地形按显示尺寸计算包围框 ... ok
+test viewport_panel::测试::空场景没有世界包围盒 ... ok
+test viewport_panel::测试::精灵尺寸取自自定义尺寸属性 ... ok
+test viewport_panel::测试::缩放会影响实体框大小 ... ok
+test viewport_panel::测试::负缩放按绝对值处理 ... ok
+test workspace_bar::测试::截断不会在字符中间切断汉字 ... ok
+test workspace_bar::测试::短名称原样显示 ... ok
+test workspace_bar::测试::长名称会被截断并保留提示 ... ok
+test viewport_panel::测试::隐藏实体不出现在可见框里 ... ok
+test workspaces::测试::不同内置工作区使用不同布局 ... ok
+test workspaces::测试::关闭面板后仍可通过聚焦重新访问 ... ok
+test workspaces::测试::内置工作区不能被删除或重命名 ... ok
+test workspaces::测试::内置工作区齐全且id唯一 ... ok
+test workspaces::测试::修复能把坏布局与失效当前项拉回可用状态 ... ok
+test workspaces::测试::切换会同步当前布局避免丢改动 ... ok
+test workspaces::测试::切换工作区会恢复对应布局 ... ok
+test workspaces::测试::删除当前工作区会安全回退到通用 ... ok
+test workspaces::测试::布局指纹能反映面板位置变化 ... ok
+test workspaces::测试::损坏存档整体失败并给出错误 ... ok
+test workspaces::测试::新建工作区拒绝空名与重名 ... ok
+test workspaces::测试::每个内置预设都包含全部面板且含视口 ... ok
+test workspaces::测试::旧版单布局迁移为迁移工作区 ... ok
+test workspaces::测试::存档为未知字段时仍可读取 ... ok
+test workspaces::测试::单个工作区布局损坏只影响它自己 ... ok
+test workspaces::测试::重置当前只影响当前工作区 ... ok
+test 测试::动作队列按顺序取出并清空 ... ok
+test workspaces::测试::重置全部内置只恢复内置工作区 ... ok
+test workspaces::测试::浮动面板不影响其他工作区 ... ok
+test 测试::恢复默认布局能修复被改乱的布局 ... ok
+test 测试::聚焦未打开的面板会把它加进布局 ... ok
+test fonts::测试::内置字体覆盖界面源码里的全部汉字 ... ok
+test workspaces::测试::用户工作区可新建复制重命名删除 ... ok
+test 测试::界面状态可构造且默认布局完整 ... ok
+test 测试::在普通模式恢复默认布局不会带入智能体面板 ... ok
+test 测试::切到智能体模式会装上智能体布局 ... ok
+test workspaces::测试::存档往返保留全部工作区与当前项 ... ok
+test workspaces::测试::标签可以合并进其他面板组并拆分到新节点 ... ok
+test 测试::模式往返切换各自保留布局 ... ok
+test workspaces::测试::面板可以浮动并停靠回来 ... ok
+test workspaces::测试::不同工作区拥有结构性不同的布局 ... ok
+test workspaces::测试::各内置工作区的真实布局矩形合理 ... ok
+
+test result: ok. 257 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\main.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\gui_probe-e85fe4ec56bfecff.exe)
+
+running 34 tests
+test analysis::测试::中文检测覆盖汉字但不误判拉丁 ... ok
+test analysis::测试::被浮窗整块盖住的区域会被跳过而不是判成空白 ... ok
+test analysis::测试::只被盖住一角的按钮仍然参与内容判定 ... ok
+test analysis::测试::覆盖占比按交集面积计算 ... ok
+test image_stats::测试::亮度对黑白正确 ... ok
+test 测试::变换分量断言能区分变化与不变 ... ok
+test image_stats::测试::区域越界时统计为零而不是崩溃 ... ok
+test image_stats::测试::颜色差取最大分量差 ... ok
+test 测试::变换分量断言在缺少字段时给出明确原因 ... ok
+test 测试::场景树用例判定覆盖新增的两种落点 ... ok
+test 测试::场景空白区用例取矩形中心 ... ok
+test 测试::工具与悬停断言核对代号 ... ok
+test 测试::拖拽取消用例复用拖拽坐标 ... ok
+test 测试::撤销步数断言按增量核对 ... ok
+test analysis::测试::退出码与判定对应 ... ok
+test 测试::操纵器拖拽沿实测方向延伸 ... ok
+test 测试::操纵器用例按实测几何取落点 ... ok
+test 测试::无法识别的菜单期望取值被拒绝 ... ok
+test 测试::未指定菜单断言时永远通过 ... ok
+test 测试::未知操纵器部件取不到坐标 ... ok
+test 测试::状态指纹包含工具操纵器与事务字段 ... ok
+test 测试::脏状态断言接受常见写法 ... ok
+test 测试::状态指纹包含选中集与右键菜单 ... ok
+test 测试::菜单断言为none时要求确实没有菜单 ... ok
+test 测试::菜单断言能区分行菜单与空白菜单 ... ok
+test 测试::菜单种类不同则状态指纹不同 ... ok
+test 测试::行空白区缺失时不退化成点名称 ... ok
+test 测试::选中断言按行名称核对标识 ... ok
+test 测试::阶段记录序列化保留落点与几何来源 ... ok
+test analysis::测试::尺寸不符被判为采集失败 ... ok
+test analysis::测试::无窗口信息时不把窗口断言算成失败 ... ok
+test analysis::测试::纯色画面被判为界面缺陷而不是采集失败 ... ok
+test analysis::测试::未被覆盖的空白区域仍然判失败 ... ok
+test analysis::测试::被浮层盖住的区域不计入空白清单 ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\icon_bake-7a56c142f05a9833.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\miniruntime-51af3dd0501f2d78.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\scene_doc-2eaa7697c5d8571a.exe)
+
+running 23 tests
+test error::测试::底层原因可访问 ... ok
+test error::测试::参数保留路径版本与底层原因 ... ok
+test error::测试::本地化占位符过多时不崩溃 ... ok
+test error::测试::本地化按传入语言渲染且参数不翻译 ... ok
+test error::测试::每个类别都有唯一消息键 ... ok
+test error::测试::错误身份是稳定类别而不是文案 ... ok
+test path::测试::拒绝目录穿越 ... ok
+test path::测试::拒绝空路径与空段 ... ok
+test path::测试::忽略当前目录段 ... ok
+test path::测试::拒绝绝对路径 ... ok
+test path::测试::拼接不会逃出项目根 ... ok
+test path::测试::父目录与换名 ... ok
+test path::测试::资源标识往返序列化 ... ok
+test registry::测试::接受规则容忍数值互换但拒绝跨类 ... ok
+test property::测试::属性值往返序列化 ... ok
+test registry::测试::注册与查询 ... ok
+test registry::测试::注册期校验默认值种类 ... ok
+test property::测试::资源类别由扩展名推断 ... ok
+test property::测试::颜色收拢到合法区间 ... ok
+test registry::测试::拒绝重复注册 ... ok
+test path::测试::解析时统一分隔符 ... ok
+test property::测试::收拢会清掉_nan ... ok
+test property::测试::整数与浮点互相容忍 ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\场景持久化.rs (C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\deps\场景持久化-2c5bf56deb2f06f4.exe)
+
+running 19 tests
+test 删除子树会连带删除所有后代 ... ok
+test 悬空父实体会被校验发现 ... ok
+test 样例场景校验通过 ... ok
+test 次序冲突会被校验发现 ... ok
+test 版本过新的场景被拒绝加载并给出明确错误 ... ok
+test 复制实体会生成唯一名称且不共享标识 ... ok
+test 层级操作保持次序连续且不产生环 ... ok
+test 资源表同步能发现组件里新增的引用 ... ok
+test 资源改名会同步更新所有引用 ... ok
+test 深度优先遍历顺序与场景树一致 ... ok
+test 缺少可选字段的旧版本场景仍可加载 ... ok
+test 未知的组件属性被原样保留 ... ok
+test 场景保存后重新打开数据保持一致 ... ok
+test 原文件丢失时可从备份重建 ... ok
+test 原文件损坏时可从备份恢复 ... ok
+test 保存失败时原文件不被破坏 ... ok
+test 真实文件系统的保存与读取是原子的 ... ok
+test 真实文件系统的损坏文件会回退到备份 ... ok
+test 性能_保存一千个实体不会退化为平方复杂度 ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+   Doc-tests bsn_bridge
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests editor_app
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests editor_core
+
+running 1 test
+test crates\editor_core\src\i18n.rs - i18n (line 24) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.39s; merged doctests compilation took 0.25s
+   Doc-tests editor_ui
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests scene_doc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -9,6 +9,10 @@ license.workspace = true
 [dependencies]
 scene_doc.workspace = true
 serde.workspace = true
+# 原生 Cargo / Bevy 工程识别需要**只读地**解析用户的 `Cargo.toml`
+# （工作区成员、[[bin]] 目标、bevy 依赖）。这个版本本来就在依赖图里，
+# 不引入新的下载。见 `cargo_project` 模块头部说明。
+toml = "1.1"
 serde_json.workspace = true
 ron.workspace = true
 uuid.workspace = true

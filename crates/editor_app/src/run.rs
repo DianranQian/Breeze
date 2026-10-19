@@ -62,6 +62,15 @@ pub enum 运行目标类型 {
     独立预览进程,
     /// 项目声明的真实可执行程序。
     项目可执行程序,
+    /// 原生 Cargo 工程里的可执行目标：通过 `cargo run -p <包> --bin <目标>` 启动。
+    ///
+    /// # 为什么和 [`Self::项目可执行程序`] 分开
+    ///
+    /// 它不是"某个固定路径的程序"，而是"这个工程的某个 Cargo 目标"：
+    /// 目标未构建时由 cargo 先构建，包/目标名来自 `Cargo.toml`，
+    /// 失败原因是编译错误而不是"程序不存在"。这三种差别都必须在
+    /// 界面上说清楚，否则用户会把编译失败当成运行器坏了。
+    Cargo可执行目标,
 }
 
 impl 运行目标类型 {
@@ -70,6 +79,7 @@ impl 运行目标类型 {
         match self {
             Self::独立预览进程 => "preview-process",
             Self::项目可执行程序 => "game",
+            Self::Cargo可执行目标 => "cargo-target",
         }
     }
 
@@ -169,6 +179,15 @@ impl 项目运行管理器 {
             // 这句必须明确写出"不是游戏运行时"：它是产品诚实性的落点。
             运行目标类型::独立预览进程 => "独立预览进程（非游戏运行时）".to_string(),
             运行目标类型::项目可执行程序 => "项目可执行程序".to_string(),
+            运行目标类型::Cargo可执行目标 => match self.命令.as_ref() {
+                // 把真实的包/目标名带上：workspace 里"跑的是哪个成员"是
+                // 用户最需要确认的一件事。
+                Some(命令) => {
+                    let 参数 = 命令.参数.join(" ");
+                    format!("Cargo 可执行目标（cargo {参数}）")
+                }
+                None => "Cargo 可执行目标".to_string(),
+            },
         }
     }
 
@@ -310,26 +329,33 @@ fn 转发输出(
 ///
 /// # 目标解析顺序（决定"运行"到底跑什么）
 ///
-/// 1. 项目清单声明了 `运行.程序` → 用**它**（[`运行目标类型::项目可执行程序`]）。
+/// 1. 项目清单声明了 `运行.程序` → 用**它**。原生 Cargo 工程的清单是
+///    打开时从 `Cargo.toml` 推导的，默认目标即
+///    `cargo run -p <包> --bin <目标>`（[`运行目标类型::Cargo可执行目标`]）；
+///    微风项目声明的是具体程序（[`运行目标类型::项目可执行程序`]）。
 ///    程序找不到时返回错误，**不退回**预览进程：用户以为在跑游戏、
 ///    实际只是又开了一个编辑器，是最坏的误导。
-/// 2. 清单没声明 → 用微风自身再开一个进程打开该项目
+/// 2. 原生 Cargo 工程但**没有**可执行目标（只有库/没有 bin）→ 明确报错。
+/// 3. 微风项目且没声明 → 用微风自身再开一个进程打开该项目
 ///    （[`运行目标类型::独立预览进程`]）。这条链路是真实的（独立进程、
 ///    真实 stdout/stderr、可停止），但**不是游戏运行时**。
 ///
-/// `可执行文件` 是编辑器自身的路径，只有第 2 种情况用得上。
+/// `可执行文件` 是编辑器自身的路径，只有第 3 种情况用得上。
 pub fn 解析运行命令(
     项目根: &Path,
     当前模式: &str,
     可执行文件: &Path,
     清单: Option<&editor_core::project::项目清单>,
+    类型: editor_core::project::项目类型,
 ) -> Result<运行命令, String> {
     if !项目根.is_dir() {
         return Err(format!("项目目录不存在：{}", 项目根.display()));
     }
-    if !项目根.join("project.ron").is_file() {
+    let 是微风工程 = 项目根.join("project.ron").is_file();
+    let 是cargo工程 = 项目根.join("Cargo.toml").is_file();
+    if !是微风工程 && !是cargo工程 {
         return Err(format!(
-            "不是微风项目（缺少 project.ron）：{}",
+            "项目根目录下既没有 project.ron（微风项目）也没有 Cargo.toml（Cargo 工程）：{}",
             项目根.display()
         ));
     }
@@ -361,11 +387,27 @@ pub fn 解析运行命令(
                 .iter()
                 .map(|(键, 值)| (键.clone(), 值.clone()))
                 .collect(),
-            目标类型: 运行目标类型::项目可执行程序,
+            目标类型: if 类型 == editor_core::project::项目类型::原生Cargo {
+                运行目标类型::Cargo可执行目标
+            } else {
+                运行目标类型::项目可执行程序
+            },
         });
     }
 
-    // ---- 情况 2：默认的独立预览进程 ----
+    // ---- 情况 2：原生 Cargo 工程没有可执行目标 ----
+    //
+    // 这里**必须**报错而不是退回预览进程：只有库的工程没有任何游戏可跑，
+    // 再开一个编辑器窗口只会让用户以为"运行成功"。
+    if 类型 == editor_core::project::项目类型::原生Cargo {
+        return Err(format!(
+            "该 Cargo 工程没有可执行目标（只有库，或 [workspace] 里没有 bin）：无法启动游戏。\
+             项目根：{}；请检查 Cargo.toml 的 [[bin]] 或 src/main.rs",
+            项目根.display()
+        ));
+    }
+
+    // ---- 情况 3：微风项目的默认独立预览进程 ----
     Ok(运行命令 {
         程序: 可执行文件.to_path_buf(),
         参数: Vec::new(),
@@ -459,13 +501,20 @@ pub fn 退出时停止项目运行(
 #[cfg(test)]
 mod 测试 {
     use super::*;
-    use editor_core::project::{运行目标清单, 项目清单};
+    use editor_core::project::{运行目标清单, 项目清单, 项目类型};
 
     #[test]
     fn 缺少项目清单时给出明确错误() {
         let 目录 = std::env::temp_dir().join("breeze_run_missing_project");
         let _ = std::fs::create_dir_all(&目录);
-        let 错误 = 解析运行命令(&目录, "2d", Path::new("bevy-studio.exe"), None).unwrap_err();
+        let 错误 = 解析运行命令(
+            &目录,
+            "2d",
+            Path::new("bevy-studio.exe"),
+            None,
+            项目类型::微风,
+        )
+        .unwrap_err();
         assert!(
             错误.contains("project.ron"),
             "错误应指出缺少项目清单：{错误}"
@@ -477,7 +526,14 @@ mod 测试 {
         let 目录 = std::env::temp_dir().join("breeze_run_ok_project");
         let _ = std::fs::create_dir_all(&目录);
         std::fs::write(目录.join("project.ron"), "()").unwrap();
-        let 命令 = 解析运行命令(&目录, "3d", Path::new("bevy-studio.exe"), None).unwrap();
+        let 命令 = 解析运行命令(
+            &目录,
+            "3d",
+            Path::new("bevy-studio.exe"),
+            None,
+            项目类型::微风,
+        )
+        .unwrap();
         assert_eq!(命令.工作目录, 目录);
         assert_eq!(
             命令.目标类型,
@@ -523,8 +579,14 @@ mod 测试 {
             环境: [("K".to_string(), "V".to_string())].into_iter().collect(),
             工作目录: None,
         });
-        let 命令 = 解析运行命令(&目录, "2d", Path::new("bevy-studio.exe"), Some(&清单))
-            .expect("应当能解析");
+        let 命令 = 解析运行命令(
+            &目录,
+            "2d",
+            Path::new("bevy-studio.exe"),
+            Some(&清单),
+            项目类型::微风,
+        )
+        .expect("应当能解析");
         assert_eq!(
             命令.目标类型,
             运行目标类型::项目可执行程序,
@@ -554,8 +616,14 @@ mod 测试 {
             环境: Default::default(),
             工作目录: Some("run_dir".to_string()),
         });
-        let 命令 = 解析运行命令(&目录, "3d", Path::new("bevy-studio.exe"), Some(&清单))
-            .expect("应当能解析");
+        let 命令 = 解析运行命令(
+            &目录,
+            "3d",
+            Path::new("bevy-studio.exe"),
+            Some(&清单),
+            项目类型::微风,
+        )
+        .expect("应当能解析");
         assert_eq!(命令.程序, 目录.join("bin").join(程序名));
         assert_eq!(命令.工作目录, 目录.join("run_dir"));
     }
@@ -578,8 +646,14 @@ mod 测试 {
             环境: Default::default(),
             工作目录: None,
         });
-        let 错误 = 解析运行命令(&目录, "2d", Path::new("bevy-studio.exe"), Some(&清单))
-            .expect_err("必须报错");
+        let 错误 = 解析运行命令(
+            &目录,
+            "2d",
+            Path::new("bevy-studio.exe"),
+            Some(&清单),
+            项目类型::微风,
+        )
+        .expect_err("必须报错");
         assert!(
             错误.contains("运行目标不存在"),
             "错误应明确指出运行目标不存在：{错误}"

@@ -392,6 +392,43 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         }
 
         ui.separator();
+        // ---- 源文件入口 ----
+        //
+        // 资源浏览器只扫 `assets/`，而 Rust 源码在 `src/`（原生 Cargo 工程
+        // 还可能是多个成员包的 `src/`）。没有这个入口，用户只能靠"点构建
+        // 诊断跳转"才能打开源文件 —— 那不叫浏览。
+        let 源文件 = 上下文.界面.源文件(上下文.编辑器.项目.as_ref());
+        let 当前路径 = 上下文
+            .界面
+            .脚本
+            .文档
+            .as_ref()
+            .and_then(|文档| 文档.路径.clone());
+        let 显示文本 = 当前路径
+            .as_ref()
+            .map(|路径| 路径.文本().to_string())
+            .unwrap_or_else(|| 语言.取("source_files").to_string());
+        egui::ComboBox::from_id_salt("script_source_files")
+            .selected_text(egui::RichText::new(显示文本).small())
+            .width(220.0)
+            .show_ui(ui, |ui| {
+                if 源文件.is_empty() {
+                    ui.label(
+                        egui::RichText::new(语言.取("source_files_empty"))
+                            .small()
+                            .color(配色.次要文字),
+                    );
+                    return;
+                }
+                for 路径 in &源文件 {
+                    let 选中 = 当前路径.as_ref() == Some(路径);
+                    if ui.selectable_label(选中, 路径.文本()).clicked() {
+                        上下文.动作.推(UiAction::打开脚本(路径.clone()));
+                    }
+                }
+            });
+
+        ui.separator();
         match 上下文.界面.脚本.文档.as_ref() {
             Some(文档) => {
                 let 名 = 文档.显示名(语言);

@@ -339,6 +339,15 @@ log_level_info	信息	Info
 log_level_warning	警告	Warning
 log_level_error	错误	Error
 log_project_opened	已打开项目 `{}`：{} 个场景，{} 个资源	Opened project `{}`: {} scenes, {} assets
+log_project_cargo_recognized	已从 Cargo.toml 识别工程：{}	Recognized the project from Cargo.toml: {}
+log_project_cargo_not_bevy	该项目没有依赖 bevy：它可能不是 Bevy 游戏工程。构建与运行仍按 Cargo 目标工作。	This project does not depend on bevy: it may not be a Bevy game. Build and run still work through Cargo targets.
+log_project_cargo_no_bin	该项目没有可执行目标（只有库）：没有「运行游戏」入口，但构建仍然可用。	This project has no executable target (library only): there is no "run game" entry, but building still works.
+log_project_native_no_scene	该项目没有微风场景文件：场景编辑暂不适用（Bevy 场景由 Rust 代码构建），代码、资源与构建工作区可正常使用。	This project has no Breeze scene file: scene editing does not apply here (Bevy builds scenes from Rust code), while the code, assets and build workspaces keep working.
+project_type_breeze	微风项目	Breeze project
+project_type_cargo	原生 Cargo 工程	Native Cargo project
+project_settings_native_readonly	这是原生 Cargo 工程：项目设置来自 Cargo.toml，微风不会改写它。	This is a native Cargo project: its settings come from Cargo.toml and Breeze will not rewrite it.
+source_files	源文件	Sources
+source_files_empty	没有找到 Rust 源文件（src/main.rs、src/lib.rs、src/bin/*.rs）。	No Rust source files found (src/main.rs, src/lib.rs, src/bin/*.rs).
 log_scene_opened	已打开场景 {}	Opened scene {}
 log_scene_saved	已保存场景 {}	Saved scene {}
 log_scene_created	已新建场景 `{}`	Created scene `{}`

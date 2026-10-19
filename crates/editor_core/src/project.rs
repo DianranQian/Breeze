@@ -35,8 +35,60 @@ use scene_doc::path::{路径错误, 项目相对路径};
 use scene_doc::property::资源类别;
 use scene_doc::storage::{场景存储, 文件系统场景存储};
 
+use crate::cargo_project::{Cargo工程, Cargo识别错误};
+
 /// 项目清单文件名。
 pub const 项目清单文件名: &str = "project.ron";
+
+/// 项目的来源类型。
+///
+/// # 为什么需要这一层（而不是"没有 project.ron 就失败"）
+///
+/// 一个原生 Bevy 项目的标准形态就是**普通 Cargo 工程**：没有 `project.ron`、
+/// 没有 `scenes/`、场景由 Rust 代码构建。产品要求它必须能被正常打开，
+/// 但**不能**因此把两种项目混为一谈 —— 很多行为恰好相反：
+///
+/// | 行为 | 微风项目 | 原生 Cargo 工程 |
+/// | --- | --- | --- |
+/// | 项目清单 | `project.ron` 是权威数据 | 由 `Cargo.toml` **只读**推导 |
+/// | 保存设置 | 写回 `project.ron` | **不得**往用户工程里写任何东西 |
+/// | 场景目录 | `scenes/` 里的场景文件 | 可能一个都没有（代码构建） |
+/// | 运行目标 | 清单声明的程序 | Cargo 可执行目标（`cargo run`） |
+///
+/// 因此这里显式区分类型，而不是让"清单里恰好是空的"去暗示。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 项目类型 {
+    /// 微风自有格式：根目录有 `project.ron`。
+    微风,
+    /// 原生 Cargo / Bevy 工程：靠 `Cargo.toml` 识别，清单只存在于内存里。
+    原生Cargo,
+}
+
+impl 项目类型 {
+    /// 稳定 id（进日志与证据 JSON，不随语言变化）。
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::微风 => "breeze",
+            Self::原生Cargo => "cargo",
+        }
+    }
+
+    /// 名称词条键。
+    pub fn 名称键(self) -> &'static str {
+        match self {
+            Self::微风 => "project_type_breeze",
+            Self::原生Cargo => "project_type_cargo",
+        }
+    }
+
+    /// 这个类型的项目清单是不是磁盘上的权威数据。
+    ///
+    /// 原生工程的清单是**每次打开时从 Cargo.toml 推导出来的快照**，
+    /// 写回去就等于篡改用户的构建配置，因此必须为 `false`。
+    pub fn 清单可写(self) -> bool {
+        matches!(self, Self::微风)
+    }
+}
 
 /// 项目清单的当前格式版本。
 pub const 项目格式版本: u32 = 1;
@@ -184,7 +236,7 @@ pub enum 项目错误 {
     项目已存在(PathBuf),
 
     /// 找不到项目清单。
-    #[error("`{0}` 不是微风项目：未找到 project.ron")]
+    #[error("`{0}` 不是可识别的项目：既没有微风的 project.ron，也没有 Cargo.toml")]
     未找到项目(PathBuf),
 
     /// 项目清单的格式版本高于本编辑器。
@@ -195,6 +247,14 @@ pub enum 项目错误 {
         /// 本编辑器支持的版本号。
         支持版本: u32,
     },
+
+    /// Cargo 工程识别失败（原生工程路径）。
+    #[error(transparent)]
+    Cargo工程(#[from] Cargo识别错误),
+
+    /// 试图改写一个原生工程的清单（必须被拒绝）。
+    #[error("`{0}` 是原生 Cargo 工程，微风不会写入它的 Cargo.toml 或创建 project.ron")]
+    原生工程只读(PathBuf),
 
     /// 项目清单解析失败。
     #[error("项目清单解析失败：{} —— {来源}", 路径.display())]
@@ -249,6 +309,10 @@ pub struct 项目描述 {
     根目录: PathBuf,
     /// 已解析的清单。
     清单: 项目清单,
+    /// 项目来源类型。
+    类型: 项目类型,
+    /// 原生 Cargo 工程的识别结果（`类型 == 微风` 时为 `None`）。
+    cargo: Option<Cargo工程>,
 }
 
 impl 项目描述 {
@@ -257,7 +321,7 @@ impl 项目描述 {
     /// 安全约束：只允许在**空目录**或**不存在**的目录里创建。
     /// 这样即使调用方传错路径，也不会把用户的既有文件覆盖掉。
     pub fn 创建(根目录: impl AsRef<Path>, 名称: impl Into<String>) -> 项目结果<Self> {
-        let 根 = 根目录.as_ref().to_path_buf();
+        let 根 = 绝对化(根目录.as_ref());
 
         if 根.exists() {
             if !根.is_dir() {
@@ -282,6 +346,8 @@ impl 项目描述 {
         let 描述 = Self {
             根目录: 根.clone(),
             清单: 项目清单::新建(名称),
+            类型: 项目类型::微风,
+            cargo: None,
         };
 
         // 建目录
@@ -303,13 +369,33 @@ impl 项目描述 {
     }
 
     /// 打开一个已有项目。
+    ///
+    /// # 两种项目，一条入口
+    ///
+    /// 产品要求"原生 Bevy 项目必须能直接打开"，但**不能**为此复制一套
+    /// 互不兼容的项目管理。因此这里按真实工程结构分派：
+    ///
+    /// 1. 有 `project.ron` → 微风项目（格式版本校验、解析失败都会明确报错）；
+    /// 2. 没有 `project.ron` 但有 `Cargo.toml` → 原生 Cargo / Bevy 工程，
+    ///    清单由 Cargo 结构**只读推导**（见 [`crate::cargo_project`]）；
+    /// 3. 两者都没有 → [`项目错误::未找到项目`]。
+    ///
+    /// 根目录一律**绝对化**：项目路径与构建工作目录必须是同一个字符串来源，
+    /// 否则日志里的路径、cargo 的 `current_dir`、最近项目记录会三处不一致。
     pub fn 打开(根目录: impl AsRef<Path>) -> 项目结果<Self> {
-        let 根 = 根目录.as_ref().to_path_buf();
-        let 清单路径 = 根.join(项目清单文件名);
-
-        if !清单路径.is_file() {
-            return Err(项目错误::未找到项目(根));
+        let 根 = 绝对化(根目录.as_ref());
+        if 根.join(项目清单文件名).is_file() {
+            return Self::打开微风(根);
         }
+        if 根.join(crate::cargo_project::原生清单文件名).is_file() {
+            return Self::打开原生工程(根);
+        }
+        Err(项目错误::未找到项目(根))
+    }
+
+    /// 打开一个微风项目（`project.ron` 是权威清单）。
+    fn 打开微风(根: PathBuf) -> 项目结果<Self> {
+        let 清单路径 = 根.join(项目清单文件名);
 
         let 文本 = std::fs::read_to_string(&清单路径)
             .map_err(|错误| 项目错误::文件错误(&清单路径, 错误))?;
@@ -338,8 +424,98 @@ impl 项目描述 {
         }
 
         Ok(Self {
-            根目录: 根, 清单
+            根目录: 根,
+            清单,
+            类型: 项目类型::微风,
+            cargo: None,
         })
+    }
+
+    /// 打开一个原生 Cargo / Bevy 工程。
+    ///
+    /// # 这里**不**写任何文件
+    ///
+    /// 不创建 `project.ron`、不改 `Cargo.toml`、不移动源码与资源。
+    /// 清单只是一份内存快照，用来让构建、运行、项目名这些公共链路
+    /// 不必为"两种项目"分叉。
+    ///
+    /// # 清单里放什么
+    ///
+    /// * 名称：根包名；虚拟工作区没有根包时用目录名；
+    /// * 运行目标：默认 Cargo 可执行目标 → `cargo run -p <包> --bin <目标>`；
+    ///   只有库目标时**不**声明运行目标（库不是游戏，给一个必然失败的入口
+    ///   比不给更糟）；
+    /// * 构建配置：固定包名，保证 workspace 里构建的是同一个包；
+    /// * 启动场景：`None`（原生工程通常没有微风的场景文件）。
+    fn 打开原生工程(根: PathBuf) -> 项目结果<Self> {
+        let 工程 = Cargo工程::读取(&根)?;
+        let 名称 = 工程
+            .默认包()
+            .map(|包| 包.名称.clone())
+            .or_else(|| {
+                // 纯虚拟工作区（没有根包、成员全是库）也要有个可显示的名字。
+                根.file_name()
+                    .and_then(|名| 名.to_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "Cargo 工程".to_string());
+
+        let mut 清单 = 项目清单::新建(名称);
+        清单.说明 = 工程.摘要();
+
+        if let Some(目标) = 工程.默认可执行目标() {
+            // 用 `cargo run` 而不是直接指向 `target/debug/xxx.exe`：
+            // 后者在"还没构建过"时必然不存在，而用户点「运行项目」的语义
+            // 是"跑我的游戏"，不是"跑上次的构建产物"。
+            清单.运行 = Some(运行目标清单 {
+                程序: "cargo".to_string(),
+                参数: vec![
+                    "run".to_string(),
+                    "-p".to_string(),
+                    目标.包名.clone(),
+                    "--bin".to_string(),
+                    目标.名称.clone(),
+                ],
+                环境: BTreeMap::new(),
+                工作目录: None,
+            });
+            清单.构建 = Some(crate::build::构建配置 {
+                包名: Some(目标.包名.clone()),
+                二进制名: Some(目标.名称.clone()),
+                ..crate::build::构建配置::default()
+            });
+        }
+
+        Ok(Self {
+            根目录: 根,
+            清单,
+            类型: 项目类型::原生Cargo,
+            cargo: Some(工程),
+        })
+    }
+
+    /// 项目来源类型。
+    pub fn 类型(&self) -> 项目类型 {
+        self.类型
+    }
+
+    /// 是否微风自有格式的项目。
+    pub fn 是微风项目(&self) -> bool {
+        self.类型 == 项目类型::微风
+    }
+
+    /// 原生 Cargo 工程的识别结果（微风项目为 `None`）。
+    pub fn cargo_工程(&self) -> Option<&Cargo工程> {
+        self.cargo.as_ref()
+    }
+
+    /// 构建时必须使用的 `Cargo.toml` 所在目录。
+    ///
+    /// 与 [`Self::根目录`] **始终一致**：原生工程里根目录就是 workspace 根，
+    /// 成员包的选择通过 `-p` 完成，而不是换工作目录 —— 换工作目录会让
+    /// `target/`、相对资源路径、诊断里的文件路径全部漂移。
+    pub fn 构建根目录(&self) -> PathBuf {
+        self.根目录.clone()
     }
 
     /// 项目根目录。
@@ -401,6 +577,13 @@ impl 项目描述 {
 
     /// 保存项目清单。
     pub fn 保存清单(&self) -> 项目结果<()> {
+        // 原生工程：清单是从 `Cargo.toml` 推导出来的**只读**快照。
+        // 写它就等于替用户改构建配置（还会凭空造出一个 project.ron，
+        // 下次打开时项目类型就会从"原生"变成"微风"）。这里必须拒绝，
+        // 而不是"悄悄不写" —— 静默失败会让用户以为自己改的设置生效了。
+        if !self.类型.清单可写() {
+            return Err(项目错误::原生工程只读(self.根目录.clone()));
+        }
         let 清单路径 = self.清单路径();
         let 文本 = ron::ser::to_string_pretty(
             &self.清单,
@@ -416,7 +599,13 @@ impl 项目描述 {
     }
 
     /// 切换项目名并落盘。
+    ///
+    /// 原生 Cargo 工程的名称来自 `Cargo.toml`，改名要改的是那份清单 ——
+    /// 微风不会替用户改，因此这里会返回 [`项目错误::原生工程只读`]。
     pub fn 设名称(&mut self, 名称: impl Into<String>) -> 项目结果<()> {
+        if !self.类型.清单可写() {
+            return Err(项目错误::原生工程只读(self.根目录.clone()));
+        }
         self.清单.名称 = 名称.into();
         self.保存清单()
     }
@@ -449,6 +638,62 @@ impl 项目描述 {
     /// 扫描资源目录，返回所有资源条目（按路径排序）。
     pub fn 资源列表(&self) -> Vec<资源条目> {
         self.扫描目录(目录名::资源)
+    }
+
+    /// 项目里的 Rust 源文件（项目相对路径，按路径排序）。
+    ///
+    /// # 为什么单独一个方法，而不是塞进资源列表
+    ///
+    /// `assets/` 与 `src/` 是**两种不同的东西**：前者进资源浏览器与导入清单，
+    /// 后者进代码编辑器。混成一个列表，资源浏览器里会冒出 `.rs` 文件
+    /// （类别只能标成"其他"），导入清单也会试图"导入"源码。
+    ///
+    /// 原生 Cargo 工程的源码可能分布在多个成员包里，因此这里同时扫描
+    /// 根目录的 `src/` 与每个成员包的 `src/`（按项目相对路径去重）。
+    pub fn 源文件列表(&self) -> Vec<项目相对路径> {
+        let mut 起点: Vec<PathBuf> = vec![self.根目录.join(目录名::源码)];
+        if let Some(工程) = &self.cargo {
+            for 包 in &工程.包 {
+                let 源码目录 = 包.根目录.join(目录名::源码);
+                if !起点.contains(&源码目录) {
+                    起点.push(源码目录);
+                }
+            }
+        }
+
+        let mut 结果: Vec<项目相对路径> = Vec::new();
+        for 目录 in 起点 {
+            if !目录.is_dir() {
+                continue;
+            }
+            let mut 栈 = vec![目录];
+            while let Some(当前) = 栈.pop() {
+                let Ok(读取) = std::fs::read_dir(&当前) else {
+                    continue;
+                };
+                for 项 in 读取.flatten() {
+                    let 路径 = 项.path();
+                    let Ok(元数据) = 项.metadata() else {
+                        continue;
+                    };
+                    if 元数据.is_dir() {
+                        栈.push(路径);
+                        continue;
+                    }
+                    if 路径.extension().is_none_or(|扩展| 扩展 != "rs") {
+                        continue;
+                    }
+                    let Some(相对) = self.相对路径(&路径) else {
+                        continue;
+                    };
+                    if !结果.contains(&相对) {
+                        结果.push(相对);
+                    }
+                }
+            }
+        }
+        结果.sort();
+        结果
     }
 
     /// 递归扫描项目内某个分区目录。
@@ -793,6 +1038,13 @@ impl 项目描述 {
     /// * 运行程序若是**含分隔符的相对路径**，必须在项目内存在。
     ///   裸名字（如 `cargo`）按 PATH 查找，无法在保存时校验，放行。
     pub fn 应用设置(&mut self, 设置: &项目设置) -> 项目结果<()> {
+        // 原生工程的可编辑设置来自 `Cargo.toml`。这里的校验即使全过，
+        // 也**没有地方落盘**（不允许写 project.ron），所以必须在改动内存
+        // 清单之前就拒绝，否则用户会看到一个"保存成功过一帧又变回去"的
+        // 编辑体验。
+        if !self.类型.清单可写() {
+            return Err(项目错误::原生工程只读(self.根目录.clone()));
+        }
         let 名称 = 设置.名称.trim();
         if 名称.is_empty() {
             return Err(项目错误::设置非法("项目名不能为空".to_string()));
@@ -1141,6 +1393,21 @@ pub struct 资源移动结果 {
     pub 旧路径: 项目相对路径,
     /// 移动后的路径。
     pub 新路径: 项目相对路径,
+}
+
+/// 把用户选的目录变成**绝对路径**（保留符号链接，不解析它）。
+///
+/// # 为什么不用 `canonicalize`
+///
+/// Windows 上 `canonicalize` 返回 `\\?\C:\...` 的 verbatim 前缀：它不能直接
+/// 显示给用户，也不能直接交给某些子进程当工作目录。`std::path::absolute`
+/// 只做"补全 + 归一化 `..`"，得到的仍是普通绝对路径，正好是
+/// "项目路径与构建工作目录一致"需要的东西。
+///
+/// 已经是绝对路径时原样返回（失败时也不 panic —— 打开项目不该因为
+/// 拿不到当前目录而整体失败）。
+fn 绝对化(路径: &Path) -> PathBuf {
+    std::path::absolute(路径).unwrap_or_else(|_| 路径.to_path_buf())
 }
 
 /// 在不完整解析 RON 的前提下探测清单的 `格式版本`。

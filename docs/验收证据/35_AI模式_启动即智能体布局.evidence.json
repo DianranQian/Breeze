@@ -1,0 +1,264 @@
+{
+  "schema": 1,
+  "app_version": "0.1.0",
+  "bevy_version": "0.20.0",
+  "language": "zh-CN",
+  "language_label": "简体中文",
+  "ui_scale": 1.0,
+  "pixels_per_point": 1.5,
+  "window": {
+    "width": 2400,
+    "height": 1425
+  },
+  "mode": {
+    "id": "agent",
+    "name": "AI Agent"
+  },
+  "workspace": {
+    "id": "general",
+    "name": "通用",
+    "builtin": true,
+    "count": 4
+  },
+  "theme": {
+    "id": "dark",
+    "name": "深色",
+    "scheme": "dark",
+    "panel_bg": "#1E1F22",
+    "text": "#DEE2E6",
+    "accent": "#569CD6"
+  },
+  "regions": [
+    {
+      "id": "menubar",
+      "x": 12,
+      "y": 3,
+      "w": 2376,
+      "h": 29
+    },
+    {
+      "id": "modebar",
+      "x": 12,
+      "y": 39,
+      "w": 2376,
+      "h": 38
+    },
+    {
+      "id": "mode_2d",
+      "x": 66,
+      "y": 41,
+      "w": 79,
+      "h": 33
+    },
+    {
+      "id": "mode_3d",
+      "x": 151,
+      "y": 41,
+      "w": 79,
+      "h": 33
+    },
+    {
+      "id": "mode_script",
+      "x": 236,
+      "y": 41,
+      "w": 94,
+      "h": 33
+    },
+    {
+      "id": "mode_agent",
+      "x": 336,
+      "y": 41,
+      "w": 136,
+      "h": 34
+    },
+    {
+      "id": "workspacebar",
+      "x": 12,
+      "y": 84,
+      "w": 2376,
+      "h": 32
+    },
+    {
+      "id": "ws_general",
+      "x": 110,
+      "y": 85,
+      "w": 60,
+      "h": 30
+    },
+    {
+      "id": "ws_scene",
+      "x": 174,
+      "y": 85,
+      "w": 57,
+      "h": 30
+    },
+    {
+      "id": "ws_assets",
+      "x": 236,
+      "y": 85,
+      "w": 57,
+      "h": 30
+    },
+    {
+      "id": "ws_debug",
+      "x": 297,
+      "y": 85,
+      "w": 57,
+      "h": 30
+    },
+    {
+      "id": "toolbar",
+      "x": 12,
+      "y": 123,
+      "w": 2376,
+      "h": 35
+    },
+    {
+      "id": "btn_preview_scene",
+      "x": 336,
+      "y": 123,
+      "w": 90,
+      "h": 33
+    },
+    {
+      "id": "btn_pause_preview",
+      "x": 432,
+      "y": 123,
+      "w": 48,
+      "h": 33
+    },
+    {
+      "id": "btn_step_preview",
+      "x": 486,
+      "y": 123,
+      "w": 48,
+      "h": 33
+    },
+    {
+      "id": "btn_stop_preview",
+      "x": 540,
+      "y": 123,
+      "w": 48,
+      "h": 33
+    },
+    {
+      "id": "btn_run_project",
+      "x": 665,
+      "y": 123,
+      "w": 126,
+      "h": 33
+    },
+    {
+      "id": "btn_rerun_project",
+      "x": 797,
+      "y": 123,
+      "w": 48,
+      "h": 33
+    },
+    {
+      "id": "btn_stop_project",
+      "x": 851,
+      "y": 123,
+      "w": 48,
+      "h": 33
+    },
+    {
+      "id": "statusbar",
+      "x": 12,
+      "y": 1397,
+      "w": 2376,
+      "h": 26
+    },
+    {
+      "id": "agent_chat",
+      "x": 10,
+      "y": 208,
+      "w": 1372,
+      "h": 857
+    },
+    {
+      "id": "console",
+      "x": 10,
+      "y": 1122,
+      "w": 1372,
+      "h": 265
+    },
+    {
+      "id": "agent_sessions",
+      "x": 1403,
+      "y": 208,
+      "w": 987,
+      "h": 412
+    },
+    {
+      "id": "agent_review",
+      "x": 1403,
+      "y": 677,
+      "w": 987,
+      "h": 710
+    }
+  ],
+  "status_left": [
+    "✓ 已保存",
+    "实体 0",
+    "已选 0",
+    "（尚未保存到文件）"
+  ],
+  "status_right": [
+    "100%"
+  ],
+  "panel_titles": [
+    "AI 对话",
+    "控制台",
+    "AI 会话",
+    "AI 审查"
+  ],
+  "panel_keys": [
+    "agent_chat",
+    "console",
+    "agent_sessions",
+    "agent_review"
+  ],
+  "viewport_scale_percent": 100.0,
+  "icon_count": 0,
+  "scene_rows": [],
+  "project_run": {
+    "status": "空闲",
+    "running": false,
+    "pid": null,
+    "summary": "空闲",
+    "command": null,
+    "last_error": null,
+    "log_tail": [],
+    "target_kind": "preview-process"
+  },
+  "physics": {
+    "active": false,
+    "bodies": 0,
+    "colliders": 0,
+    "problems": 0
+  },
+  "scene_view": null,
+  "collapsed_count": 0,
+  "selection": {
+    "primary": null,
+    "count": 0,
+    "ids": []
+  },
+  "context_menu": null,
+  "scene_blank": null,
+  "transform_tool": "select",
+  "gizmo_hover": null,
+  "gizmo_drag": null,
+  "gizmo_parts": [],
+  "selection_transform": null,
+  "undo_steps": 0,
+  "undo_bytes": 0,
+  "undo_top": [],
+  "document_dirty": false,
+  "console_log_tail": [
+    "微风已启动。请新建或打开一个项目。",
+    "已切换到 AI Agent 模式"
+  ],
+  "console_log_count": 2
+}

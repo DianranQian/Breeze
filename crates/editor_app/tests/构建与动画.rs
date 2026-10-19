@@ -478,3 +478,163 @@ fn 动画播放覆盖预览变换而不改文档() {
         .0;
     assert_eq!(文档平移, 10.0, "播放动画绝不能修改场景文档");
 }
+
+/// 三次曲线的切线：走真实动作 → 落盘 → 重新打开 → 撤销/重做。
+///
+/// # 为什么这条测试必须走动作层
+///
+/// 切线编辑是"界面推动作、动作改文档"的链路。只测 `动画文档` 的求值发现不了
+/// "动作没接上"或"历史没记一步"这类问题，而这两件事正是用户能感知的：
+/// 前者是点了没反应，后者是撤销一次把全部调整都丢了。
+#[test]
+fn 切线编辑可保存加载并可撤销重做() {
+    use bevy::ecs::system::RunSystemOnce;
+    use bevy::prelude::*;
+    use editor_core::animation::{切线, 插值模式};
+    use editor_ui::state::UiAction;
+
+    let 目录 = tempfile::tempdir().unwrap();
+    let 根 = 目录.path().join("切线动画");
+    let mut 世界 = World::new();
+    世界.insert_resource(EditorStateHolder::default());
+    世界.insert_resource(UiStateHolder::新建());
+    世界.insert_resource(editor_app::scene_bridge::运行时宿主::default());
+    世界.insert_resource(editor_app::physics_runtime::物理运行时状态::default());
+    世界.insert_resource(editor_app::plugin::文件对话框通道::default());
+    世界.insert_resource(editor_app::plugin::诊断资源::default());
+    世界.insert_resource(editor_app::plugin::缩略图缓存::default());
+    世界.insert_resource(editor_app::config::布局待保存::default());
+    世界.insert_resource(editor_app::run::项目运行管理器::default());
+    世界.insert_resource(构建宿主::新建());
+    世界.insert_resource(editor_app::config::编辑器配置资源::default());
+    世界.insert_resource(editor_app::plugin::导入快照资源::default());
+
+    let (实体, 轨道属性, 时间) = {
+        let mut 编辑器 = 世界.resource_mut::<EditorStateHolder>();
+        编辑器.状态.创建项目(&根, "切线动画").expect("建项目");
+        let 实体 = 编辑器.状态.新建实体("甲", None).expect("建实体");
+        编辑器.状态.选择.单选(实体);
+        编辑器.状态.动画 = Some(editor_core::animation::动画会话::新建("切线"));
+        // 直接构造轨道：两条关键帧 + 三次插值。
+        let mut 轨道 = editor_core::animation::动画轨道::新建(
+            实体,
+            editor_core::animation::动画属性::平移,
+        );
+        轨道.插值 = 插值模式::三次;
+        轨道.插入(editor_core::animation::关键帧::新建(
+            0.0,
+            editor_core::animation::关键帧值::向量3([0.0, 0.0, 0.0]),
+        ));
+        轨道.插入(editor_core::animation::关键帧::新建(
+            1.0,
+            editor_core::animation::关键帧值::向量3([10.0, 0.0, 0.0]),
+        ));
+        编辑器.状态.动画.as_mut().unwrap().文档.轨道.push(轨道);
+        (实体, editor_core::animation::动画属性::平移, 0.0)
+    };
+
+    // 通过动作设置出切线。
+    let 动作列表 = vec![
+        UiAction::设置关键帧切线 {
+            实体,
+            属性: 轨道属性,
+            时间,
+            出: Some(切线::向量3([3.0, 0.0, 0.0])),
+            入: None,
+        },
+        UiAction::设置关键帧切线 {
+            实体,
+            属性: 轨道属性,
+            时间,
+            出: Some(切线::向量3([7.0, 0.0, 0.0])),
+            入: None,
+        },
+    ];
+    {
+        let mut 界面 = 世界.resource_mut::<UiStateHolder>();
+        for 动作 in 动作列表 {
+            界面.动作.推(动作);
+        }
+    }
+    世界.run_system_once(actions::执行动作队列).unwrap();
+    {
+        let 编辑器 = 世界.resource::<EditorStateHolder>();
+        let 轨道 = 编辑器
+            .状态
+            .动画
+            .as_ref()
+            .unwrap()
+            .文档
+            .查找轨道(实体, 轨道属性)
+            .unwrap();
+        assert_eq!(轨道.关键帧[0].出切线, Some(切线::向量3([7.0, 0.0, 0.0])));
+    }
+
+    // 撤销一次 → 回到 3.0；再撤销 → 回到自动（None）。
+    for 动作 in [UiAction::撤销动画, UiAction::撤销动画] {
+        let mut 界面 = 世界.resource_mut::<UiStateHolder>();
+        界面.动作.推(动作);
+    }
+    世界.run_system_once(actions::执行动作队列).unwrap();
+    {
+        let 编辑器 = 世界.resource::<EditorStateHolder>();
+        let 轨道 = 编辑器
+            .状态
+            .动画
+            .as_ref()
+            .unwrap()
+            .文档
+            .查找轨道(实体, 轨道属性)
+            .unwrap();
+        assert_eq!(
+            轨道.关键帧[0].出切线, None,
+            "两次撤销应当回到自动切线（没有留下空步骤）"
+        );
+    }
+    // 重做两次回到 7.0。
+    for 动作 in [UiAction::重做动画, UiAction::重做动画] {
+        let mut 界面 = 世界.resource_mut::<UiStateHolder>();
+        界面.动作.推(动作);
+    }
+    世界.run_system_once(actions::执行动作队列).unwrap();
+    {
+        let 编辑器 = 世界.resource::<EditorStateHolder>();
+        let 轨道 = 编辑器
+            .状态
+            .动画
+            .as_ref()
+            .unwrap()
+            .文档
+            .查找轨道(实体, 轨道属性)
+            .unwrap();
+        assert_eq!(轨道.关键帧[0].出切线, Some(切线::向量3([7.0, 0.0, 0.0])));
+    }
+
+    // 落盘 → 重新打开：切线必须完整保留。
+    {
+        let mut 编辑器 = 世界.resource_mut::<EditorStateHolder>();
+        编辑器.状态.动画.as_mut().unwrap().路径 =
+            Some(scene_doc::path::项目相对路径::解析("anims/切线.anim.ron").unwrap());
+        编辑器.状态.保存动画().expect("应当能保存动画");
+        编辑器.状态.动画 = None;
+        编辑器
+            .状态
+            .打开动画(&scene_doc::path::项目相对路径::解析("anims/切线.anim.ron").unwrap())
+            .expect("应当能重新打开");
+    }
+    let 编辑器 = 世界.resource::<EditorStateHolder>();
+    let 轨道 = 编辑器
+        .状态
+        .动画
+        .as_ref()
+        .unwrap()
+        .文档
+        .查找轨道(实体, 轨道属性)
+        .unwrap();
+    assert_eq!(轨道.插值, 插值模式::三次);
+    assert_eq!(
+        轨道.关键帧[0].出切线,
+        Some(切线::向量3([7.0, 0.0, 0.0])),
+        "切线必须被保存并原样读回"
+    );
+}

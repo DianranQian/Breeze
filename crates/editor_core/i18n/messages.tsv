@@ -758,3 +758,14 @@ log_source_build	构建	Build
 log_source_runtime	运行	Runtime
 log_source_assets	资源	Assets
 log_source	来源	Source
+interp_cubic	三次	Cubic
+anim_undo	撤销动画	Undo Animation
+anim_undo_hint	撤销一步动画改动（动画有独立历史，Ctrl+Z 只管场景）	Undo one animation change (animation has its own history)
+anim_redo	重做动画	Redo Animation
+anim_redo_hint	重做一步动画改动	Redo one animation change
+anim_tangent_in	入切线	In tangent
+anim_tangent_out	出切线	Out tangent
+anim_tangent_auto	自动	Auto
+anim_tangent_flat	静止	Flat
+anim_tangent_auto_label	（自动）	(auto)
+anim_cubic_rotation_fallback	旋转轨道在三次模式下会降级为平滑（四元数不做标量三次）	Rotation tracks fall back to smooth in Cubic mode

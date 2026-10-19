@@ -150,6 +150,30 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         {
             上下文.动作.推(UiAction::关闭动画);
         }
+
+        // 动画有自己的撤销历史（不共用场景撤销栈），入口也放在时间轴里，
+        // 避免用户以为 Ctrl+Z 能撤销关键帧改动。
+        竖分隔(ui, 配色.分割线);
+        let (可撤销, 可重做) = 上下文
+            .编辑器
+            .动画
+            .as_ref()
+            .map(|会话| (会话.可撤销步数(), 会话.可重做步数()))
+            .unwrap_or((0, 0));
+        if ui
+            .add_enabled(可撤销 > 0, egui::Button::new(语言.取("anim_undo")))
+            .on_hover_text(语言.取("anim_undo_hint"))
+            .clicked()
+        {
+            上下文.动作.推(UiAction::撤销动画);
+        }
+        if ui
+            .add_enabled(可重做 > 0, egui::Button::new(语言.取("anim_redo")))
+            .on_hover_text(语言.取("anim_redo_hint"))
+            .clicked()
+        {
+            上下文.动作.推(UiAction::重做动画);
+        }
     });
 
     if !有动画 {
@@ -525,6 +549,114 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 .monospace()
                 .color(配色.次要文字),
             );
+        });
+
+        // 三次曲线才需要切线；其它插值下切线不参与求值，但会被保存
+        // （用户切到三次时不必重填），因此这里只在三次时提供编辑入口。
+        if 轨道.插值 == editor_core::animation::插值模式::三次 {
+            if matches!(帧.值, editor_core::animation::关键帧值::向量3(_)) {
+                绘制切线编辑(ui, 上下文, 选中, 帧);
+            } else {
+                ui.label(
+                    egui::RichText::new(语言.取("anim_cubic_rotation_fallback"))
+                        .small()
+                        .color(配色.警告),
+                );
+            }
+        }
+    }
+}
+
+/// 绘制选中关键帧的入/出切线编辑器。
+///
+/// # 交互设计
+///
+/// * 每侧三个 `DragValue`（x/y/z 的速度），缺失切线时按 0 显示；
+/// * "自动"按钮把该侧切线清空 —— 交给 Catmull-Rom 推算；
+/// * "静止"按钮把该侧切线设为 0 —— 等价于 smoothstep 的端点行为。
+///
+/// 每次拖动都会推一条 `设置关键帧切线`，动作层会先记一步历史，
+/// 因此拖动后按「撤销」能回到上一步，而不是一次性丢掉全部调整。
+fn 绘制切线编辑(
+    ui: &mut egui::Ui,
+    上下文: &mut 绘制上下文<'_>,
+    选中: crate::state::动画关键帧引用,
+    帧: &editor_core::animation::关键帧,
+) {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    for (标题键, 当前, 是入) in [
+        ("anim_tangent_in", 帧.入切线, true),
+        ("anim_tangent_out", 帧.出切线, false),
+    ] {
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new(语言.取(标题键))
+                    .small()
+                    .color(配色.次要文字),
+            );
+            let mut 值 = 当前.and_then(|切线| 切线.取向量3()).unwrap_or([0.0; 3]);
+            let mut 改动 = false;
+            for 分量 in &mut 值 {
+                改动 |= ui
+                    .add(
+                        egui::DragValue::new(分量)
+                            .speed(0.1)
+                            .max_decimals(3)
+                            .prefix(""),
+                    )
+                    .changed();
+            }
+            if 改动 {
+                上下文.动作.推(UiAction::设置关键帧切线 {
+                    实体: 选中.实体,
+                    属性: 选中.属性,
+                    时间: 选中.时间,
+                    出: if 是入 {
+                        帧.出切线
+                    } else {
+                        Some(editor_core::animation::切线::向量3(值))
+                    },
+                    入: if 是入 {
+                        Some(editor_core::animation::切线::向量3(值))
+                    } else {
+                        帧.入切线
+                    },
+                });
+            }
+            if ui.small_button(语言.取("anim_tangent_auto")).clicked() {
+                上下文.动作.推(UiAction::设置关键帧切线 {
+                    实体: 选中.实体,
+                    属性: 选中.属性,
+                    时间: 选中.时间,
+                    出: if 是入 { 帧.出切线 } else { None },
+                    入: if 是入 { None } else { 帧.入切线 },
+                });
+            }
+            if ui.small_button(语言.取("anim_tangent_flat")).clicked() {
+                上下文.动作.推(UiAction::设置关键帧切线 {
+                    实体: 选中.实体,
+                    属性: 选中.属性,
+                    时间: 选中.时间,
+                    出: if 是入 {
+                        帧.出切线
+                    } else {
+                        Some(editor_core::animation::切线::静止())
+                    },
+                    入: if 是入 {
+                        Some(editor_core::animation::切线::静止())
+                    } else {
+                        帧.入切线
+                    },
+                });
+            }
+            if 当前.is_none() {
+                ui.label(
+                    egui::RichText::new(语言.取("anim_tangent_auto_label"))
+                        .small()
+                        .color(配色.次要文字),
+                );
+            }
         });
     }
 }

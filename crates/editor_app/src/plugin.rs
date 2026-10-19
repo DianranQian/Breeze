@@ -400,6 +400,7 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<运行时宿主>()
             // 物理运行时状态：只在运行态有内容，停止后置空。
             .init_resource::<crate::physics_runtime::物理运行时状态>()
+            .init_resource::<crate::agent_runtime::智能体运行>()
             .init_resource::<crate::run::项目运行管理器>()
             // 构建任务：真实 cargo 子进程 + 界面读的快照。
             .init_resource::<crate::build::构建宿主>()
@@ -517,6 +518,8 @@ impl Plugin for BevyStudio插件 {
                         // 音频试听是事件驱动的（用户点按钮），不需要按修订号重建。
                         crate::audio_preview::处理试听请求,
                         preview::同步预览相机,
+                        // AI Agent：探测/启动/收事件/取消，全部非阻塞。
+                        crate::agent_runtime::推进智能体,
                         preview::同步渲染尺寸,
                         preview::模型诊断,
                         crate::run::轮询项目运行,
@@ -1315,6 +1318,22 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::导出子场景 { 路径, .. } => format!("导出子场景({})", 路径.文本()),
         UiAction::设置关键帧切线 { 时间, .. } => format!("设置关键帧切线({时间:.2}s)"),
         UiAction::撤销动画 => "撤销动画".to_string(),
+        // AI Agent 的动作都在 `执行单个动作` 里逐个处理；这里的摘要只用于调试
+        // 输出与动作可达性守卫，因此如实给出动作名即可。
+        UiAction::智能体新建会话 => "AI 新建会话".to_string(),
+        UiAction::智能体选择会话(下标) => format!("AI 选择会话({下标})"),
+        UiAction::智能体开始重命名 => "AI 开始重命名".to_string(),
+        UiAction::智能体确认重命名(名称) => format!("AI 重命名({名称})"),
+        UiAction::智能体取消重命名 => "AI 取消重命名".to_string(),
+        UiAction::智能体删除会话 => "AI 删除会话".to_string(),
+        UiAction::智能体发送 => "AI 发送".to_string(),
+        UiAction::智能体取消 => "AI 取消任务".to_string(),
+        UiAction::智能体探测Dsh => "AI 探测 DSH".to_string(),
+        UiAction::智能体附加实体上下文 => "AI 附加实体".to_string(),
+        UiAction::智能体附加场景上下文 => "AI 附加场景".to_string(),
+        UiAction::智能体附加项目上下文 => "AI 附加项目".to_string(),
+        UiAction::智能体移除上下文(下标) => format!("AI 移除上下文({下标})"),
+        UiAction::智能体刷新变更 => "AI 刷新变更".to_string(),
         UiAction::重做动画 => "重做动画".to_string(),
         UiAction::设置轨道插值 { 插值, .. } => format!("设置轨道插值({})", 插值.变体名()),
         UiAction::保存动画 => "保存动画".to_string(),

@@ -1747,6 +1747,157 @@ fn 执行单个动作(
             }
         }
 
+        // -----------------------------------------------------------
+        // AI Agent（界面状态部分；进程执行由 plugin 的 `推进智能体任务` 负责）
+        // -----------------------------------------------------------
+        UiAction::智能体新建会话 => {
+            let 项目路径 = 编辑器
+                .项目
+                .as_ref()
+                .map(|项目| editor_ui::agent::规范化项目路径(项目.根目录()))
+                .unwrap_or_default();
+            if 项目路径.is_empty() {
+                编辑器.警告("请先打开项目：AI 会话必须绑定到具体项目".to_string());
+            } else {
+                let 标识 = format!("local-{}", editor_ui::agent::现在秒());
+                界面状态.智能体.新建会话(&项目路径, 标识);
+                界面状态.聚焦面板(editor_ui::Tab::智能体对话);
+            }
+        }
+
+        UiAction::智能体选择会话(下标) => {
+            if 下标 < 界面状态.智能体.会话列表.len() {
+                界面状态.智能体.当前会话 = Some(下标);
+            }
+        }
+
+        UiAction::智能体开始重命名 => {
+            if let Some(会话) = 界面状态.智能体.当前() {
+                界面状态.智能体.重命名草稿 = Some(会话.标题.clone());
+            }
+        }
+
+        UiAction::智能体确认重命名(名称) => {
+            let 名称 = 名称.trim().to_string();
+            if !名称.is_empty()
+                && let Some(会话) = 界面状态.智能体.当前可变()
+            {
+                会话.标题 = 名称;
+            }
+            界面状态.智能体.重命名草稿 = None;
+        }
+
+        UiAction::智能体取消重命名 => {
+            界面状态.智能体.重命名草稿 = None;
+        }
+
+        UiAction::智能体删除会话 => {
+            if 界面状态.智能体.删除当前会话() {
+                编辑器.信息("已删除 AI 会话");
+            }
+        }
+
+        UiAction::智能体发送 => {
+            let 输入 = 界面状态.智能体.输入.trim().to_string();
+            if 输入.is_empty() {
+                return;
+            }
+            if 界面状态.智能体.当前().is_none() {
+                编辑器.警告("没有可用会话：请先新建 AI 会话".to_string());
+                return;
+            }
+            if !界面状态.智能体.连接.可用() {
+                编辑器.警告(界面状态.智能体.连接.摘要().to_string());
+                return;
+            }
+            let 上下文提示 = 界面状态.智能体.上下文提示();
+            let 完整指令 = if 上下文提示.is_empty() {
+                输入.clone()
+            } else {
+                format!("{上下文提示}\n\n## 任务\n{输入}")
+            };
+            界面状态
+                .智能体
+                .追加消息(editor_ui::agent::消息角色::用户, 输入);
+            界面状态.智能体.输入.clear();
+            {
+                let 会话 = 界面状态.智能体.当前可变().expect("上面已判空");
+                会话.任务.insert(
+                    0,
+                    editor_ui::agent::智能体任务 {
+                        标识: format!("task-{}", editor_ui::agent::现在秒()),
+                        指令: 完整指令.clone(),
+                        状态: editor_ui::agent::任务状态::等待执行,
+                        开始时间: editor_ui::agent::现在秒(),
+                        ..Default::default()
+                    },
+                );
+            }
+            界面状态.智能体.运行中 = true;
+            界面状态.智能体.待执行 = Some(完整指令);
+            界面状态.智能体.提示 = None;
+        }
+
+        UiAction::智能体取消 => {
+            界面状态.智能体.待取消 = true;
+        }
+
+        UiAction::智能体探测Dsh => {
+            界面状态.智能体.待探测 = true;
+        }
+
+        UiAction::智能体附加实体上下文 => {
+            if let Some(实体) = 编辑器
+                .选择
+                .主选中()
+                .and_then(|标识| 编辑器.会话.文档.取(标识))
+            {
+                let 正文 = crate::agent_context::实体摘要(实体);
+                界面状态.智能体.附加上下文(editor_ui::agent::上下文项 {
+                    种类: editor_ui::agent::上下文种类::实体,
+                    名称: 实体.名称.clone(),
+                    正文,
+                });
+            } else {
+                编辑器.警告("没有选中实体".to_string());
+            }
+        }
+
+        UiAction::智能体附加场景上下文 => {
+            let 正文 = crate::agent_context::场景摘要(&编辑器.会话);
+            let 名称 = 编辑器.会话.文档.元数据.场景名.clone();
+            界面状态.智能体.附加上下文(editor_ui::agent::上下文项 {
+                种类: editor_ui::agent::上下文种类::场景,
+                名称,
+                正文,
+            });
+        }
+
+        UiAction::智能体附加项目上下文 => {
+            match crate::agent_context::项目摘要(编辑器.项目.as_ref()) {
+                Ok(正文) => {
+                    let 名称 = 编辑器
+                        .项目
+                        .as_ref()
+                        .map(|项目| 项目.名称().to_string())
+                        .unwrap_or_else(|| "项目".to_string());
+                    界面状态.智能体.附加上下文(editor_ui::agent::上下文项 {
+                        种类: editor_ui::agent::上下文种类::项目,
+                        名称,
+                        正文,
+                    });
+                }
+                Err(错误) => 编辑器.警告(错误),
+            }
+        }
+
+        UiAction::智能体移除上下文(下标) => {
+            界面状态.智能体.移除上下文(下标);
+        }
+
+        UiAction::智能体刷新变更 => {
+            界面状态.智能体.待刷新变更 = true;
+        }
         UiAction::撤销动画 => {
             if let Some(会话) = 编辑器.动画.as_mut() {
                 if 会话.撤销() {

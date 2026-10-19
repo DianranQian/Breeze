@@ -11,6 +11,8 @@
 //! 面板里的纯逻辑（场景树摊平、资源树构建、菜单可用性、历史列表排序）
 //! 都可以直接用单元测试验证。
 
+pub mod agent;
+pub mod agent_panel;
 pub mod assets_panel;
 pub mod build_panel;
 pub mod collision_overlay;
@@ -1084,6 +1086,9 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             Tab::脚本 => script::绘制(ui, &mut 上下文),
             Tab::构建 => build_panel::绘制(ui, &mut 上下文),
             Tab::时间轴 => timeline_panel::绘制(ui, &mut 上下文),
+            Tab::智能体对话 => agent_panel::绘制对话(ui, &mut 上下文),
+            Tab::智能体会话 => agent_panel::绘制会话(ui, &mut 上下文),
+            Tab::智能体审查 => agent_panel::绘制审查(ui, &mut 上下文),
         }
     }
 

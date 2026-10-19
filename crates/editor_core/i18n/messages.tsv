@@ -769,3 +769,48 @@ anim_tangent_auto	自动	Auto
 anim_tangent_flat	静止	Flat
 anim_tangent_auto_label	（自动）	(auto)
 anim_cubic_rotation_fallback	旋转轨道在三次模式下会降级为平滑（四元数不做标量三次）	Rotation tracks fall back to smooth in Cubic mode
+mode_agent	AI Agent	AI Agent
+mode_agent_hint	与 DSH 对话、执行开发任务、审查文件变更	Chat with DSH, run development tasks, review file changes
+agent_chat	AI 对话	AI Chat
+agent_sessions	AI 会话	AI Sessions
+agent_review	AI 审查	AI Review
+agent_no_session	还没有 AI 会话：先在右侧「AI 会话」里新建一个	No AI session yet: create one in the AI Sessions panel
+agent_new_session	新建会话	New session
+agent_no_sessions_for_project	当前项目还没有会话	No sessions for this project yet
+agent_session_title_hint	会话标题	Session title
+agent_session_has_changes	这个会话产生了文件变更	This session produced file changes
+agent_task_pending	等待执行	Pending
+agent_task_running	执行中	Running
+agent_task_ok	成功完成	Completed
+agent_task_failed	失败	Failed
+agent_task_canceled	已取消	Canceled
+agent_task_unknown	状态未知（进程中断）	Unknown (process interrupted)
+agent_task_idle	空闲	Idle
+agent_cancel	取消任务	Cancel task
+agent_send	发送	Send
+agent_input_hint	描述要做的开发任务（Enter 发送，Shift+Enter 换行）	Describe the task (Enter to send, Shift+Enter for newline)
+agent_role_user	我	You
+agent_role_agent	Agent	Agent
+agent_role_system	系统	System
+agent_tool_calls	工具调用	Tool calls
+agent_dsh_status	DSH	DSH
+agent_dsh_detect	检测	Detect
+agent_dsh_missing	未安装	Not installed
+agent_dsh_failed	不可用	Unavailable
+agent_dsh_unknown	未探测	Not detected
+agent_dsh_unavailable	DSH 不可用：无法发送任务	DSH unavailable: cannot send tasks
+agent_dsh_install_hint	请安装 DeepSeek Harness（dsh）并确认 `dsh --version` 可用；模型凭证由 DSH 自己管理	Install DeepSeek Harness (dsh) and make `dsh --version` work; credentials are managed by DSH
+agent_context	上下文	Context
+agent_context_empty	尚未附加上下文（场景/实体/项目）	No context attached yet (scene/entity/project)
+agent_attach_entity	附加选中实体	Attach selected entity
+agent_attach_scene	附加场景	Attach scene
+agent_attach_project	附加项目	Attach project
+agent_changes	文件变更	File changes
+agent_changes_empty	还没有检测到变更（点「刷新」用 git 真实状态更新）	No changes detected yet (use Refresh to read real git status)
+agent_refresh_changes	刷新变更	Refresh changes
+agent_change_verified	已验证	verified
+agent_change_unverified	未验证	unverified
+agent_session_rename	重命名	Rename
+agent_session_delete	删除	Delete
+confirm	确定	Confirm
+remove	移除	Remove

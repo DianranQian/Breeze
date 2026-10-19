@@ -49,12 +49,25 @@ pub enum 开发模式 {
     三维,
     /// 脚本编辑：代码文件、查找、诊断。
     脚本,
+    /// AI Agent：与 DSH 对话、执行开发任务、审查文件变更。
+    ///
+    /// # 为什么它是一级模式
+    ///
+    /// AI Agent 需要整块工作区（会话、对话、上下文、变更审查），
+    /// 塞进 2D/3D/代码任何模式里都会挤压原本的编辑体验。
+    /// 它与其它模式平级，因此共用同一套模式注册、布局隔离与状态恢复机制。
+    智能体,
 }
 
 impl 开发模式 {
     /// 全部模式（顺序即顶部导航顺序）。
     pub fn 全部() -> &'static [开发模式] {
-        &[开发模式::二维, 开发模式::三维, 开发模式::脚本]
+        &[
+            开发模式::二维,
+            开发模式::三维,
+            开发模式::脚本,
+            开发模式::智能体,
+        ]
     }
 
     /// 稳定 id。**进配置文件，永不随语言变化。**
@@ -63,6 +76,7 @@ impl 开发模式 {
             Self::二维 => "2d",
             Self::三维 => "3d",
             Self::脚本 => "script",
+            Self::智能体 => "agent",
         }
     }
 
@@ -72,6 +86,7 @@ impl 开发模式 {
             Self::二维 => "mode_2d",
             Self::三维 => "mode_3d",
             Self::脚本 => "mode_script",
+            Self::智能体 => "mode_agent",
         }
     }
 
@@ -81,6 +96,7 @@ impl 开发模式 {
             Self::二维 => "mode_2d_hint",
             Self::三维 => "mode_3d_hint",
             Self::脚本 => "mode_script_hint",
+            Self::智能体 => "mode_agent_hint",
         }
     }
 
@@ -90,6 +106,9 @@ impl 开发模式 {
             Self::二维 => 图标::网格,
             Self::三维 => 图标::世界,
             Self::脚本 => 图标::代码,
+            // 复用代码图标：模式栏只有三个图标，新增一个会稀释语义；
+            // 「AI」的辨识度来自文字标题，不靠图标。
+            Self::智能体 => 图标::代码,
         }
     }
 
@@ -127,6 +146,7 @@ impl 开发模式 {
         match self {
             Self::二维 | Self::三维 => Tab::视口,
             Self::脚本 => Tab::脚本,
+            Self::智能体 => Tab::智能体对话,
         }
     }
 
@@ -152,6 +172,7 @@ impl 开发模式 {
             Self::二维 => crate::docks::默认布局(),
             Self::三维 => 三维预设(),
             Self::脚本 => 脚本预设(),
+            Self::智能体 => 智能体预设(),
         }
     }
 }
@@ -170,6 +191,30 @@ pub enum 旧模式迁移 {
     },
     /// 完全无法识别的 id。
     未知,
+}
+
+/// AI Agent 模式预设：对话为主，右侧会话与审查，底部保留控制台。
+///
+/// ```text
+/// Horizontal(左列 58% | 右列 42%)
+///   左列 └ Vertical(对话 74% | 控制台 26%)
+///   右列 └ Vertical(会话 38% | 审查 62%)
+/// ```
+///
+/// 控制台必须留着：Agent 跑构建/测试时，它的真实输出就是"有没有成功"的依据，
+/// 而这些输出在对话面板里只会显示摘要。
+fn 智能体预设() -> egui_dock::DockState<Tab> {
+    let mut 布局 = egui_dock::DockState::new(vec![Tab::智能体对话]);
+    let 主 = 布局.main_surface_mut();
+    let [左, 右] = 主.split_right(
+        egui_dock::NodeIndex::root(),
+        0.58,
+        vec![Tab::智能体会话, Tab::智能体审查],
+    );
+    let [对话区, _控制台] = 主.split_below(左, 0.74, vec![Tab::控制台]);
+    let [会话区, _审查] = 主.split_below(右, 0.38, vec![Tab::智能体会话]);
+    let _ = (对话区, 会话区);
+    布局
 }
 
 /// 3D 模式预设：视口优先，右列检查器/历史，底部控制台/运行时。
@@ -460,11 +505,11 @@ mod 测试 {
 
     #[test]
     fn 三个编辑模式齐全且id唯一() {
-        assert_eq!(开发模式::全部().len(), 3);
+        assert_eq!(开发模式::全部().len(), 4);
         let mut ids: Vec<&str> = 开发模式::全部().iter().map(|模式| 模式.id()).collect();
         ids.sort_unstable();
         ids.dedup();
-        assert_eq!(ids.len(), 3);
+        assert_eq!(ids.len(), 4);
         for 模式 in 开发模式::全部() {
             assert_eq!(开发模式::从id(模式.id()), Some(*模式));
             assert!(模式.默认布局().find_tab(&模式.默认面板()).is_some());
@@ -478,7 +523,7 @@ mod 测试 {
     #[test]
     fn 模式栏不再包含与工作区重叠的运行与资源() {
         let ids: Vec<&str> = 开发模式::全部().iter().map(|模式| 模式.id()).collect();
-        assert_eq!(ids, vec!["2d", "3d", "script"]);
+        assert_eq!(ids, vec!["2d", "3d", "script", "agent"]);
         for 已移除 in ["run", "assets"] {
             assert!(
                 开发模式::从id(已移除).is_none(),
@@ -511,8 +556,9 @@ mod 测试 {
         let mut 文本: Vec<String> = Vec::new();
         for 模式 in 开发模式::全部() {
             let 布局 = 模式.默认布局();
-            // 视口是编辑器主体，除脚本模式外都应当有。
-            if *模式 != 开发模式::脚本 {
+            // 视口是编辑器主体，除脚本与 AI Agent 模式外都应当有：
+            // AI Agent 不需要场景视口（它的工作区是对话 + 会话 + 审查）。
+            if *模式 != 开发模式::脚本 && *模式 != 开发模式::智能体 {
                 assert!(
                     布局.find_tab(&Tab::视口).is_some(),
                     "模式 {} 的默认布局缺少视口",
@@ -583,7 +629,7 @@ mod 测试 {
         let 文本 = 写出布局存档(开发模式::脚本, &表, 语言).expect("序列化应当成功");
         let (当前, 读回, 备注) = 读取布局存档(&文本, 语言).expect("读取应当成功");
         assert_eq!(当前, 开发模式::脚本);
-        assert_eq!(读回.len(), 3);
+        assert_eq!(读回.len(), 4);
         assert!(备注.is_empty(), "正常存档不应产生修复备注：{备注:?}");
         assert!(读回[&开发模式::脚本].面板可见(Tab::脚本));
     }
@@ -595,7 +641,7 @@ mod 测试 {
         let 旧文本 = 集.序列化为文本().unwrap();
         let (当前, 表, 备注) = 读取布局存档(&旧文本, 语言).expect("版本 2 应当能迁移");
         assert_eq!(当前, 开发模式::二维);
-        assert_eq!(表.len(), 3, "其余模式应当补齐出厂布局");
+        assert_eq!(表.len(), 4, "其余模式应当补齐出厂布局");
         assert!(备注.iter().any(|说明| 说明.contains("2D")), "{备注:?}");
     }
 
@@ -615,7 +661,7 @@ mod 测试 {
         );
         let (当前, 表, 备注) = 读取布局存档(&文本, 语言).expect("单条损坏不应整体失败");
         assert_eq!(当前, 开发模式::二维);
-        assert_eq!(表.len(), 3);
+        assert_eq!(表.len(), 4);
         assert!(
             备注.iter().any(|说明| 说明.contains("3d")),
             "必须记录哪一条坏了：{备注:?}"
@@ -645,7 +691,7 @@ mod 测试 {
         );
         let (当前, 表, 备注) = 读取布局存档(&文本, 语言).expect("旧存档必须仍可读取");
         assert_eq!(当前, 开发模式::二维, "已移除的当前模式应回退 2D");
-        assert_eq!(表.len(), 3, "三个现存模式都应在表里");
+        assert_eq!(表.len(), 4, "四个现存模式都应在表里");
         assert!(
             备注
                 .iter()
@@ -673,7 +719,7 @@ mod 测试 {
         let 文本 = r#"(格式版本: 3, 当前模式: "voxel", 模式: [])"#;
         let (当前, 表, 备注) = 读取布局存档(文本, 语言).unwrap();
         assert_eq!(当前, 开发模式::二维);
-        assert_eq!(表.len(), 3);
+        assert_eq!(表.len(), 4);
         assert!(备注.iter().any(|说明| 说明.contains("voxel")));
     }
 }

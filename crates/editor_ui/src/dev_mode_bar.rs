@@ -179,6 +179,27 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
     let 模式 = 上下文.界面.模式;
 
     match 模式 {
+        // AI Agent 模式：工具栏只放真实动作，不摆视口工具（这里没有视口）。
+        开发模式::智能体 => {
+            if ui.button(语言.取("agent_new_session")).clicked() {
+                上下文.动作.推(crate::state::UiAction::智能体新建会话);
+            }
+            if ui
+                .add_enabled(
+                    上下文.界面.智能体.当前().is_some(),
+                    egui::Button::new(语言.取("agent_refresh_changes")),
+                )
+                .clicked()
+            {
+                上下文.动作.推(crate::state::UiAction::智能体刷新变更);
+            }
+            if ui.button(语言.取("agent_attach_scene")).clicked() {
+                上下文.动作.推(crate::state::UiAction::智能体附加场景上下文);
+            }
+            // 这个 match 每个分支返回 bool（"工具栏是否消费了输入"）。
+            // AI Agent 的按钮都在工具区里，不消费全局输入。
+            false
+        }
         开发模式::二维 => {
             // 变换工具组：选择 / 移动 / 旋转 / 缩放。
             //
@@ -383,6 +404,7 @@ fn 模式快照标识(模式: 开发模式) -> &'static str {
         开发模式::二维 => "mode_2d",
         开发模式::三维 => "mode_3d",
         开发模式::脚本 => "mode_script",
+        开发模式::智能体 => "mode_agent",
     }
 }
 
@@ -393,7 +415,7 @@ mod 测试 {
     #[test]
     fn 模式导航顺序稳定() {
         let ids: Vec<&str> = 开发模式::全部().iter().map(|模式| 模式.id()).collect();
-        assert_eq!(ids, vec!["2d", "3d", "script"]);
+        assert_eq!(ids, vec!["2d", "3d", "script", "agent"]);
     }
 
     #[test]

@@ -530,8 +530,27 @@ pub fn 同步渲染尺寸(
     mut 图片资源: ResMut<Assets<Image>>,
     mut egui纹理表: ResMut<EguiUserTextures>,
     界面: Res<crate::plugin::UiStateHolder>,
+    编辑器: Res<crate::plugin::EditorStateHolder>,
 ) {
-    let 期望 = 收敛渲染尺寸(界面.状态.视口尺寸.x, 界面.状态.视口尺寸.y);
+    // 渲染目标的**宽高比必须等于项目的设计分辨率**，尺寸则贴合面板（受上限约束）。
+    //
+    // 早先这里直接用面板像素尺寸：面板 910×531、设计稿 1920×1080 时，
+    // 投影与纹理都按面板比例，"看起来没拉伸"；但设计稿比例一旦与面板不同，
+    // 界面就会被拉变形。现在把"设计比例"作为唯一真相：面板只决定渲染多少
+    // 像素（清晰度），显示时再按比例 letterbox。
+    let (设计宽, 设计高) = 编辑器
+        .状态
+        .项目
+        .as_ref()
+        .map(|项目| 项目.清单().设计分辨率)
+        .unwrap_or(editor_core::project::默认设计分辨率());
+    let 期望 = editor_core::ui_layout::适配渲染尺寸(
+        设计宽 as f32,
+        设计高 as f32,
+        界面.状态.视口尺寸.x,
+        界面.状态.视口尺寸.y,
+        预览尺寸上限,
+    );
     if 期望 == 渲染目标.尺寸 {
         return;
     }

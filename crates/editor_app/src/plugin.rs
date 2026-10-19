@@ -398,6 +398,8 @@ impl Plugin for BevyStudio插件 {
             .init_resource::<图标资源>()
             .init_resource::<诊断资源>()
             .init_resource::<运行时宿主>()
+            // 物理运行时状态：只在运行态有内容，停止后置空。
+            .init_resource::<crate::physics_runtime::物理运行时状态>()
             .init_resource::<crate::run::项目运行管理器>()
             // 构建任务：真实 cargo 子进程 + 界面读的快照。
             .init_resource::<crate::build::构建宿主>()
@@ -437,6 +439,7 @@ impl Plugin for BevyStudio插件 {
                     preview::初始化预览资源,
                     按环境变量打开项目,
                     按环境变量设置设计分辨率,
+                    按环境变量自动运行,
                     // 恢复布局必须在"聚焦面板"**之前**：恢复会用磁盘上的
                     // 布局整体替换当前布局，若顺序反了，环境变量让某个面板
                     // 前台化、紧接着又被旧布局覆盖 —— 表现是"面板明明在，
@@ -742,6 +745,26 @@ fn 按环境变量显示碰撞(mut 界面: ResMut<UiStateHolder>) {
     }
     界面.状态.相机.显示碰撞 = true;
     info!("已按环境变量显示碰撞轮廓");
+}
+
+/// 启动后自动开始运行（`1` = 是）。仅供自动验收使用。
+///
+/// 物理只在**运行态**步进，而"运行"是一个图形界面动作。没有这个入口时，
+/// 自动验收无法证明"点了运行之后真的在算物理"，只能证明单元测试通过了。
+pub const 自动运行环境变量: &str = "BEVY_STUDIO_AUTORUN";
+
+/// 按环境变量自动开始运行场景。
+fn 按环境变量自动运行(
+    mut 界面: ResMut<UiStateHolder>, 编辑器: Res<EditorStateHolder>
+) {
+    let Ok(值) = std::env::var(自动运行环境变量) else {
+        return;
+    };
+    if 值 != "1" || 编辑器.状态.项目.is_none() {
+        return;
+    }
+    界面.动作.推(UiAction::运行场景);
+    info!("已按环境变量自动开始运行");
 }
 
 /// 指定启动时的设计分辨率（`1280x720` 形式）。

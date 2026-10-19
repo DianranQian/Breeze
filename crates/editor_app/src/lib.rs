@@ -32,6 +32,7 @@ pub mod components3d;
 pub mod config;
 pub mod light_preview;
 pub mod physics_components;
+pub mod physics_runtime;
 pub mod plugin;
 pub mod preview;
 pub mod run;

@@ -316,6 +316,22 @@ struct 场景行记录 {
     blank: Option<矩形记录>,
 }
 
+/// 物理运行时证据。
+///
+/// 物理是"真在跑还是只有数据"最容易说不清的一块：控制台说"开始了"
+/// 不代表真的在算。把刚体/碰撞体数与问题数暴露出来，验收才有据可查。
+#[derive(Debug, Clone, Serialize)]
+struct 物理记录 {
+    /// 当前是否持有物理世界。
+    active: bool,
+    /// 刚体数。
+    bodies: usize,
+    /// 碰撞体数。
+    colliders: usize,
+    /// 最近一次构建的问题数。
+    problems: usize,
+}
+
 /// 项目运行状态证据。
 ///
 /// 让验收工具能断言"点了运行之后确实起了子进程、确实有 stdout 行进了控制台、
@@ -468,6 +484,8 @@ struct 采集证据 {
     scene_rows: Vec<场景行记录>,
     /// 项目运行状态（独立进程）。
     project_run: 运行记录,
+    /// 2D 物理运行时状态（运行态才有内容）。
+    physics: 物理记录,
     /// 场景树滚动视口的矩形（物理像素）。目标落在这里面才可能被点中。
     scene_view: Option<矩形记录>,
     /// 场景树折叠集合里的实体数（判断"折叠了但没有可见效果"用）。
@@ -533,6 +551,8 @@ pub fn 采集一帧(
     诊断: Res<诊断资源>,
     运行时: Res<运行时宿主>,
     项目运行: Res<crate::run::项目运行管理器>,
+    // 物理证据：运行态才有内容，编辑态是 `active=false`。
+    物理状态: Res<crate::physics_runtime::物理运行时状态>,
 ) {
     if !采集.已启用() {
         return;
@@ -556,6 +576,7 @@ pub fn 采集一帧(
             &诊断,
             &运行时,
             &项目运行,
+            &物理状态,
             图片.as_deref(),
             报告.as_deref(),
             帧号,
@@ -582,6 +603,7 @@ pub fn 采集一帧(
             &诊断,
             &运行时,
             &项目运行,
+            &物理状态,
             图片.as_deref(),
             报告.as_deref(),
             帧号,
@@ -607,6 +629,7 @@ pub fn 采集一帧(
             &诊断,
             &运行时,
             &项目运行,
+            &物理状态,
             图片.as_deref(),
             报告.as_deref(),
             帧号,
@@ -631,6 +654,7 @@ fn 发起一次采集(
     诊断: &诊断资源,
     运行时: &运行时宿主,
     项目运行: &crate::run::项目运行管理器,
+    物理状态: &crate::physics_runtime::物理运行时状态,
     图片: Option<&Path>,
     报告: Option<&Path>,
     帧号: u32,
@@ -754,6 +778,12 @@ fn 发起一次采集(
         scene_view: 界面.状态.场景视口矩形.map(转矩形),
         scene_rows: 场景行,
         project_run: 运行记录,
+        physics: 物理记录 {
+            active: 物理状态.当前.is_some(),
+            bodies: 物理状态.上次诊断.刚体数,
+            colliders: 物理状态.上次诊断.碰撞体数,
+            problems: 物理状态.上次诊断.问题.len(),
+        },
         collapsed_count: 界面.状态.折叠集合().len(),
         selection: 选择记录 {
             primary: 编辑器.状态.选择.主选中().map(|标识| format!("{标识:?}")),

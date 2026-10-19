@@ -35,6 +35,7 @@ fn 建测试世界() -> World {
     世界.insert_resource(EditorStateHolder::default());
     世界.insert_resource(UiStateHolder::新建());
     世界.insert_resource(运行时宿主::default());
+    世界.insert_resource(editor_app::physics_runtime::物理运行时状态::default());
     世界.insert_resource(文件对话框通道::default());
     世界.insert_resource(诊断资源::default());
     世界.insert_resource(缩略图缓存::default());

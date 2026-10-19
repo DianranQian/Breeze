@@ -21,6 +21,10 @@ editor_core.workspace = true
 editor_ui.workspace = true
 
 bevy.workspace = true
+# 2D 物理引擎选型记录（见 physics_runtime.rs 的模块文档）：
+# - Avian 2D 0.7 依赖 Bevy ^0.19，不支持本项目使用的 Bevy 0.20，排除；
+# - bevy_rapier2d 0.37 依赖 Bevy ^0.20，Apache-2.0，集成由官方维护 —— 采用。
+rapier2d = { version = "0.36", default-features = false, features = ["dim2", "f32", "std", "block-solver", "simd8"] }
 bevy_egui.workspace = true
 egui.workspace = true
 serde.workspace = true

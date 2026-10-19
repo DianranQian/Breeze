@@ -331,6 +331,7 @@ fn 动作队列能驱动动画录制与播放() {
     世界.insert_resource(EditorStateHolder::default());
     世界.insert_resource(UiStateHolder::新建());
     世界.insert_resource(editor_app::scene_bridge::运行时宿主::default());
+    世界.insert_resource(editor_app::physics_runtime::物理运行时状态::default());
     世界.insert_resource(editor_app::plugin::文件对话框通道::default());
     世界.insert_resource(editor_app::plugin::诊断资源::default());
     世界.insert_resource(editor_app::plugin::缩略图缓存::default());

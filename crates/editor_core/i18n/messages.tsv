@@ -749,3 +749,7 @@ audio_audition	试听实体音频	Audition Entity Audio
 recent_project_remove_hint	从最近项目里移除这一条	Remove this entry from the recent projects
 log_recent_removed	已从最近项目移除：{}	Removed from recent projects: {}
 build_artifact_size	产物大小：{}	Artifact size: {}
+log_physics_started	物理世界已建立：{} 个刚体、{} 个碰撞体	Physics world built: {} rigid bodies, {} colliders
+log_physics_sensor_entered	触发器进入：{} ↔ {}	Trigger entered: {} <-> {}
+log_physics_collision_started	碰撞开始：{} ↔ {}	Collision started: {} <-> {}
+log_physics_collision_stopped	碰撞结束：{} ↔ {}	Collision ended: {} <-> {}

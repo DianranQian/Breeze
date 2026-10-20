@@ -17,43 +17,127 @@
 //!
 //! [`任务状态`] 只允许由真实进程事件推进：`等待执行 → 执行中 → 成功/失败/已取消`。
 //! 绝不根据模型回复的文字去猜"是不是成功了"。
+//!
+//! # 持久化
+//!
+//! 会话模型是可序列化的（见 `agent_store`）。这里只定义**允许落盘**的字段：
+//! 不放进程句柄、不放环境变量、不放任何凭证。新增字段一律带
+//! `#[serde(default)]`，旧存档才能继续读。
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
+use crate::agent_permission::{审批请求, 权限策略};
+use crate::agent_repair::修复循环;
+
 /// 一个 AI 会话。
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct 智能体会话 {
     /// 会话标识（DSH 的 Session ID；未连接 DSH 时是本地生成的 id）。
+    #[serde(default)]
     pub 标识: String,
     /// 标题（用户可重命名；默认取第一条消息的摘要）。
+    #[serde(default)]
     pub 标题: String,
-    /// 所属项目的绝对路径。会话**按项目隔离**，切换项目不会混入。
+    /// 规范化后的所属项目路径。会话**按项目隔离**，切换项目不会混入。
+    #[serde(default)]
     pub 项目路径: String,
+    /// 项目根目录的原始文本（保留大小写，用于真实文件访问）。
+    ///
+    /// `项目路径` 是规范化后的隔离键（Windows 上会小写），不能用于拼路径；
+    /// 两者分开存，缺一不可。
+    #[serde(default)]
+    pub 项目根: String,
     /// 对话消息。
+    #[serde(default)]
     pub 消息: Vec<智能体消息>,
     /// 历史任务（最新在前）。
+    #[serde(default)]
     pub 任务: Vec<智能体任务>,
     /// 附加的上下文项。
+    #[serde(default)]
     pub 上下文: Vec<上下文项>,
     /// 文件变更（来自真实 `git status`/`git diff`）。
+    #[serde(default)]
     pub 变更: Vec<文件变更>,
+    /// 最近一次任务开始前采集的文件基线（用于变更归属）。
+    #[serde(default)]
+    pub 基线: Option<任务基线>,
+    /// 创建时间（UNIX 秒）。
+    #[serde(default)]
+    pub 创建时间: u64,
     /// 最后更新时间（UNIX 秒，用于排序与显示）。
+    #[serde(default)]
     pub 更新时间: u64,
+    /// 载入时会话所属项目是否仍然存在。
+    ///
+    /// 为 `false` 时界面只显示历史，**绝不**自动访问失效路径。
+    #[serde(default = "默认真")]
+    pub 项目可用: bool,
+    /// 项目不可用时的真实原因（目录不存在 / 不是项目）。
+    #[serde(default)]
+    pub 项目状态说明: Option<String>,
+}
+
+/// serde 默认值：历史存档没有这个字段时按"可用"处理。
+fn 默认真() -> bool {
+    true
+}
+
+impl Default for 智能体会话 {
+    fn default() -> Self {
+        Self {
+            标识: String::new(),
+            标题: "新会话".to_string(),
+            项目路径: String::new(),
+            项目根: String::new(),
+            消息: Vec::new(),
+            任务: Vec::new(),
+            上下文: Vec::new(),
+            变更: Vec::new(),
+            基线: None,
+            创建时间: 0,
+            更新时间: 0,
+            项目可用: true,
+            项目状态说明: None,
+        }
+    }
 }
 
 impl 智能体会话 {
     /// 新建一个属于指定项目的会话。
     pub fn 新建(标识: impl Into<String>, 项目路径: impl Into<String>) -> Self {
+        let 项目路径 = 项目路径.into();
+        let 现在 = 现在秒();
         Self {
             标识: 标识.into(),
             标题: "新会话".to_string(),
-            项目路径: 项目路径.into(),
+            项目根: 项目路径.clone(),
+            项目路径,
             消息: Vec::new(),
             任务: Vec::new(),
             上下文: Vec::new(),
             变更: Vec::new(),
-            更新时间: 现在秒(),
+            基线: None,
+            创建时间: 现在,
+            更新时间: 现在,
+            项目可用: true,
+            项目状态说明: None,
         }
+    }
+
+    /// 设置项目根（原始大小写文本）。隔离键由调用方一并给出。
+    pub fn 设置项目根(&mut self, 根: &std::path::Path) {
+        self.项目根 = 根.to_string_lossy().to_string();
+        self.项目路径 = 规范化项目路径(根);
+        self.项目可用 = 根.is_dir();
+        self.项目状态说明 = if self.项目可用 {
+            None
+        } else {
+            Some(format!("项目目录不存在：{}", 根.display()))
+        };
     }
 
     /// 追加一条消息。
@@ -61,6 +145,7 @@ impl 智能体会话 {
         self.消息.push(智能体消息 {
             角色,
             内容: 内容.into(),
+            时间: 现在秒(),
         });
         self.更新时间 = 现在秒();
         // 标题留空或是默认值时，用第一条用户消息做标题：用户一眼能认出会话。
@@ -76,19 +161,39 @@ impl 智能体会话 {
     pub fn 有变更(&self) -> bool {
         !self.变更.is_empty()
     }
+
+    /// 是否存在需要用户处理的审查项。
+    pub fn 有未审查变更(&self) -> bool {
+        self.变更
+            .iter()
+            .any(|项| 项.审查 == 审查状态::待审查 && 项.来源 != 变更来源::任务前已有)
+    }
+
+    /// 当前任务（最新一条）。
+    pub fn 当前任务(&self) -> Option<&智能体任务> {
+        self.任务.first()
+    }
+
+    /// 当前任务（可变）。
+    pub fn 当前任务可变(&mut self) -> Option<&mut 智能体任务> {
+        self.任务.first_mut()
+    }
 }
 
 /// 一条对话消息。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct 智能体消息 {
     /// 谁说的。
     pub 角色: 消息角色,
     /// 正文。
     pub 内容: String,
+    /// 时间（UNIX 秒）。旧存档没有该字段时按 0 处理。
+    #[serde(default)]
+    pub 时间: u64,
 }
 
 /// 消息角色。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum 消息角色 {
     /// 用户。
     用户,
@@ -99,7 +204,7 @@ pub enum 消息角色 {
 }
 
 /// 任务状态。只能由真实执行结果推进。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum 任务状态 {
     /// 已排队，尚未开始。
     #[default]
@@ -135,29 +240,106 @@ impl 任务状态 {
     }
 }
 
+/// 任务种类。决定执行结束后由谁接管（普通对话 / 自动修复 / 单次验证）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum 任务种类 {
+    /// 普通对话任务。
+    #[default]
+    对话,
+    /// 自动修复闭环中的一轮 Agent 修改。
+    自动修复,
+    /// 只做真实构建/测试验证。
+    构建验证,
+}
+
 /// 一次任务执行（对应一次 DSH 进程）。
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct 智能体任务 {
     /// 任务标识。
+    #[serde(default)]
     pub 标识: String,
     /// 用户输入的任务原文。
+    #[serde(default)]
     pub 指令: String,
     /// 状态。
+    #[serde(default)]
     pub 状态: 任务状态,
     /// DSH 报的 Session ID（有则可继续该会话）。
+    #[serde(default)]
     pub 会话标识: Option<String>,
     /// 工具调用记录。
+    #[serde(default)]
     pub 工具调用: Vec<工具调用>,
     /// 输出摘要 / 错误信息（真实 stderr 或退出原因）。
+    #[serde(default)]
     pub 摘要: String,
     /// 开始时间（UNIX 秒）。
+    #[serde(default)]
     pub 开始时间: u64,
+    /// 结束时间（UNIX 秒）。
+    #[serde(default)]
+    pub 结束时间: Option<u64>,
     /// 结束时是否已运行过构建或测试（用于"已验证/未验证"标记）。
+    #[serde(default)]
     pub 已运行验证: bool,
+    /// 任务种类。
+    #[serde(default)]
+    pub 种类: 任务种类,
+    /// 真实退出码（拿到才有）。
+    #[serde(default)]
+    pub 退出码: Option<i32>,
+    /// 自动修复轮数（第几轮；普通任务为 0）。
+    #[serde(default)]
+    pub 轮数: u32,
+    /// 从工具调用里能可靠看到的写操作路径（相对项目根）。
+    #[serde(default)]
+    pub 修改文件: Vec<String>,
+    /// 输入给 Agent 的诊断摘要（自动修复用）。
+    #[serde(default)]
+    pub 诊断输入: String,
+}
+
+impl Default for 智能体任务 {
+    fn default() -> Self {
+        Self {
+            标识: String::new(),
+            指令: String::new(),
+            状态: 任务状态::等待执行,
+            会话标识: None,
+            工具调用: Vec::new(),
+            摘要: String::new(),
+            开始时间: 0,
+            结束时间: None,
+            已运行验证: false,
+            种类: 任务种类::对话,
+            退出码: None,
+            轮数: 0,
+            修改文件: Vec::new(),
+            诊断输入: String::new(),
+        }
+    }
+}
+
+impl 智能体任务 {
+    /// 记录一次写操作路径（去重）。只接受项目相对路径。
+    pub fn 记录写路径(&mut self, 路径: &str) {
+        let 路径 = 路径.trim().trim_start_matches("./").replace('\\', "/");
+        if 路径.is_empty() || 路径.starts_with("..") || 路径.len() > 400 {
+            return;
+        }
+        // 拒绝 URL 编码的斜杠/空字节：它们可能绕过"相对路径"的直觉判断。
+        let 小写 = 路径.to_ascii_lowercase();
+        if 小写.contains("%2f") || 小写.contains("%5c") || 小写.contains("%00") {
+            return;
+        }
+        if !self.修改文件.iter().any(|已有| 已有 == &路径) {
+            self.修改文件.push(路径);
+        }
+    }
 }
 
 /// 一次工具调用。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct 工具调用 {
     /// 工具名（如 `read_file` / `shell`）。
     pub 名称: String,
@@ -170,7 +352,7 @@ pub struct 工具调用 {
 }
 
 /// 附加到会话的上下文项。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct 上下文项 {
     /// 种类（场景/实体/代码/诊断/资源/项目）。
     pub 种类: 上下文种类,
@@ -188,7 +370,7 @@ impl 上下文项 {
 }
 
 /// 上下文种类。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum 上下文种类 {
     /// 项目结构摘要。
     项目,
@@ -200,6 +382,8 @@ pub enum 上下文种类 {
     代码,
     /// 构建/运行诊断。
     诊断,
+    /// 原生 Cargo/Bevy 工程结构（workspace、crate、入口）。
+    Cargo工程,
 }
 
 impl 上下文种类 {
@@ -212,21 +396,217 @@ impl 上下文种类 {
             上下文种类::实体 => "entity",
             上下文种类::代码 => "script",
             上下文种类::诊断 => "diagnostics",
+            上下文种类::Cargo工程 => "agent_context_cargo",
         }
     }
 }
 
+/// 变更的文件类型（来自 git 状态码）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum 变更种类 {
+    /// 新增（未跟踪或已暂存新增）。
+    新增,
+    /// 修改。
+    修改,
+    /// 删除。
+    删除,
+    /// 重命名。
+    重命名,
+    /// 类型变化（文件 ↔ 符号链接等）。
+    类型变更,
+    /// 无法判断。
+    #[default]
+    未知,
+}
+
+impl 变更种类 {
+    /// 词条键。
+    pub fn 词条键(&self) -> &'static str {
+        match self {
+            变更种类::新增 => "agent_change_added",
+            变更种类::修改 => "agent_change_modified",
+            变更种类::删除 => "agent_change_deleted",
+            变更种类::重命名 => "agent_change_renamed",
+            变更种类::类型变更 => "agent_change_type",
+            变更种类::未知 => "agent_change_unknown",
+        }
+    }
+}
+
+/// 变更归属。
+///
+/// 判断依据是**任务开始前的基线 + 工具写操作记录**，不是"整份 git diff"。
+/// 无法可靠归属的一律是 [`变更来源::来源未知`]，绝不冒认成 Agent 的成果。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum 变更来源 {
+    /// 任务开始前就已经存在（用户或其它工作线的旧改动）。
+    任务前已有,
+    /// 本任务期间出现，且有写工具记录指向该文件。
+    本任务,
+    /// 任务期间出现，但没有写工具记录 —— 可能是用户手动或其他工作线。
+    任务期间非本任务,
+    /// 无法判断。
+    #[default]
+    来源未知,
+}
+
+impl 变更来源 {
+    /// 词条键。
+    pub fn 词条键(&self) -> &'static str {
+        match self {
+            变更来源::任务前已有 => "agent_source_preexisting",
+            变更来源::本任务 => "agent_source_task",
+            变更来源::任务期间非本任务 => "agent_source_concurrent",
+            变更来源::来源未知 => "agent_source_unknown",
+        }
+    }
+
+    /// 是否可以按"本任务成果"处理（只有它才允许回退）。
+    pub fn 可回退(&self) -> bool {
+        matches!(self, 变更来源::本任务)
+    }
+}
+
+/// 审查状态。批准/拒绝都是**真实动作**，不是标签。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum 审查状态 {
+    /// 还没审查。
+    #[default]
+    待审查,
+    /// 已批准：保留工作区现状，并记录批准时的指纹。
+    已批准,
+    /// 已拒绝：已按基线恢复（或已删除新增文件）。
+    已拒绝,
+    /// 冲突：文件在记录之后又被改动，拒绝操作被拒绝。
+    冲突,
+    /// 无法撤销：缺少可安全恢复的基线（例如任务前已修改）。
+    无法撤销,
+}
+
+impl 审查状态 {
+    /// 词条键。
+    pub fn 词条键(&self) -> &'static str {
+        match self {
+            审查状态::待审查 => "agent_review_pending",
+            审查状态::已批准 => "agent_review_approved",
+            审查状态::已拒绝 => "agent_review_rejected",
+            审查状态::冲突 => "agent_review_conflict",
+            审查状态::无法撤销 => "agent_review_unrevertable",
+        }
+    }
+}
+
+/// 验证状态：只由真实构建/测试退出码写入。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum 验证状态 {
+    /// 尚未验证。
+    #[default]
+    未验证,
+    /// 修改之后真实构建通过。
+    构建通过,
+    /// 修改之后真实构建失败。
+    构建失败,
+    /// 修改之后真实测试通过。
+    测试通过,
+    /// 修改之后真实测试失败。
+    测试失败,
+}
+
+impl 验证状态 {
+    /// 词条键。
+    pub fn 词条键(&self) -> &'static str {
+        match self {
+            验证状态::未验证 => "agent_change_unverified",
+            验证状态::构建通过 => "agent_verify_build_ok",
+            验证状态::构建失败 => "agent_verify_build_failed",
+            验证状态::测试通过 => "agent_verify_test_ok",
+            验证状态::测试失败 => "agent_verify_test_failed",
+        }
+    }
+
+    /// 是否是一个"通过"的结果。
+    pub fn 通过(&self) -> bool {
+        matches!(self, 验证状态::构建通过 | 验证状态::测试通过)
+    }
+}
+
 /// 一个被修改的文件（来自真实 git 状态与差异）。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct 文件变更 {
     /// 项目相对路径。
     pub 路径: String,
+    /// 重命名时的原路径。
+    #[serde(default)]
+    pub 原路径: Option<String>,
     /// `git status --porcelain` 里的两字符状态（如 ` M`、`??`、`A `）。
     pub 状态: String,
-    /// 差异文本（`git diff`；未跟踪文件用文件头部摘要代替）。
+    /// 变更种类。
+    #[serde(default)]
+    pub 种类: 变更种类,
+    /// 差异文本（真实 `git diff` 或按真实内容生成的 unified diff）。
     pub 差异: String,
-    /// 是否在改动之后运行过构建/测试（真实执行记录，不是猜测）。
-    pub 已验证: bool,
+    /// 归属。
+    #[serde(default)]
+    pub 来源: 变更来源,
+    /// 关联任务标识。
+    #[serde(default)]
+    pub 任务标识: Option<String>,
+    /// 审查状态。
+    #[serde(default)]
+    pub 审查: 审查状态,
+    /// 验证状态。
+    #[serde(default)]
+    pub 验证: 验证状态,
+    /// 任务基线里该文件的指纹（没有基线时为 `None`）。
+    #[serde(default)]
+    pub 基线指纹: Option<String>,
+    /// 记录时的文件指纹（用于检测之后是否又被改动）。
+    #[serde(default)]
+    pub 当前指纹: Option<String>,
+    /// 是否具备安全回退条件（基线干净 + 有基线指纹）。
+    #[serde(default)]
+    pub 可回退: bool,
+    /// 变更记录时间（UNIX 秒）。
+    #[serde(default)]
+    pub 记录时间: u64,
+    /// 验证时间（UNIX 秒）。
+    #[serde(default)]
+    pub 验证时间: Option<u64>,
+    /// 验证时的文件指纹。之后文件再变，就退回"未验证"。
+    #[serde(default)]
+    pub 已验证指纹: Option<String>,
+    /// 备注（冲突原因、不可回退原因等真实文本）。
+    #[serde(default)]
+    pub 备注: Option<String>,
+}
+
+/// 任务开始前的文件基线。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct 任务基线 {
+    /// 对应的任务标识。
+    pub 任务标识: String,
+    /// 采集时间（UNIX 秒）。
+    pub 采集时间: u64,
+    /// 采集时的 `HEAD` 提交（不是仓库时为空）。
+    pub 头提交: String,
+    /// 采集时已经处于修改状态的文件（含未跟踪）。
+    pub 文件: BTreeMap<String, 基线文件>,
+}
+
+/// 基线里的单个文件。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct 基线文件 {
+    /// `git status --porcelain` 的状态码。
+    pub 状态: String,
+    /// 内容指纹。
+    pub 指纹: String,
+}
+
+impl 任务基线 {
+    /// 该文件在任务开始时是否是干净的（不在基线脏文件集合里）。
+    pub fn 任务前干净(&self, 路径: &str) -> bool {
+        !self.文件.contains_key(路径)
+    }
 }
 
 /// DSH 连接状态。
@@ -302,6 +682,24 @@ pub struct 智能体状态 {
     pub 待刷新变更: bool,
     /// 请求探测 DSH。
     pub 待探测: bool,
+    /// 请求保存会话存档（有任何变更就置位；落盘在应用层）。
+    pub 待保存: bool,
+    /// 请求自动修复（用户要求构建/测试并在失败后修复）。
+    pub 待修复: Option<crate::agent_repair::修复请求>,
+    /// 自动修复闭环状态。
+    pub 修复: 修复循环,
+    /// 操作权限策略。
+    pub 权限: 权限策略,
+    /// 等待用户批准的请求。
+    pub 审批: Vec<审批请求>,
+    /// 请求"批准某个文件变更"（路径）。
+    pub 待批准变更: Option<String>,
+    /// 请求"拒绝某个文件变更"（路径）。
+    pub 待拒绝变更: Option<String>,
+    /// 最近一次会话载入的真实结果（供界面显示，不是占位）。
+    pub 载入提示: Option<String>,
+    /// 审查面板里正在查看文件内容的路径（不持久化）。
+    pub 查看内容: Option<String>,
 }
 
 impl 智能体状态 {
@@ -338,6 +736,7 @@ impl 智能体状态 {
         self.会话列表.push(会话);
         let 下标 = self.会话列表.len() - 1;
         self.当前会话 = Some(下标);
+        self.待保存 = true;
         下标
     }
 
@@ -356,6 +755,16 @@ impl 智能体状态 {
         } else {
             Some(下标.min(self.会话列表.len() - 1))
         };
+        self.待保存 = true;
+        true
+    }
+
+    /// 选择会话。
+    pub fn 选择会话(&mut self, 下标: usize) -> bool {
+        if 下标 >= self.会话列表.len() {
+            return false;
+        }
+        self.当前会话 = Some(下标);
         true
     }
 
@@ -364,6 +773,7 @@ impl 智能体状态 {
         match self.当前可变() {
             Some(会话) => {
                 会话.追加消息(角色, 内容);
+                self.待保存 = true;
                 true
             }
             None => false,
@@ -383,6 +793,7 @@ impl 智能体状态 {
             Some(已有) => *已有 = 项,
             None => 会话.上下文.push(项),
         }
+        self.待保存 = true;
         true
     }
 
@@ -395,6 +806,7 @@ impl 智能体状态 {
             return false;
         }
         会话.上下文.remove(下标);
+        self.待保存 = true;
         true
     }
 
@@ -410,12 +822,10 @@ impl 智能体状态 {
         }
         let mut 结果 = String::from("以下是当前编辑器里的上下文（真实数据）：\n");
         for 项 in &会话.上下文 {
-            结果.push_str(&format!(
-                "\n## {} · {}\n{}\n",
-                项.种类键(),
-                项.名称,
-                项.正文
-            ));
+            // 上下文可能来自源码/日志，先做一次凭证脱敏，避免把明显的密钥
+            // 直接送进模型上下文。这里不改变编辑器里的原文。
+            let (正文, _) = crate::agent_store::脱敏文本(&项.正文);
+            结果.push_str(&format!("\n## {} · {}\n{}\n", 项.种类键(), 项.名称, 正文));
         }
         结果
     }
@@ -429,6 +839,7 @@ impl 智能体状态 {
         {
             任务.状态 = 状态;
             任务.摘要 = 摘要.clone();
+            任务.结束时间 = Some(现在秒());
             // 只有真实失败/取消/未知才作为系统消息显示，成功的结果走 Agent 回复。
             if matches!(状态, 任务状态::失败 | 任务状态::已取消 | 任务状态::状态未知)
             {
@@ -438,6 +849,38 @@ impl 智能体状态 {
         if !摘要.is_empty() {
             self.提示 = Some(摘要);
         }
+        self.待保存 = true;
+    }
+
+    /// 载入后修正：把上次退出时仍在运行的任务标成"状态未知"，
+    /// 并清空一次性请求标记。
+    pub fn 修正中断任务(&mut self) -> usize {
+        let mut 数量 = 0;
+        for 会话 in &mut self.会话列表 {
+            for 任务 in &mut 会话.任务 {
+                if !任务.状态.已结束() {
+                    任务.状态 = 任务状态::状态未知;
+                    任务.结束时间 = Some(现在秒());
+                    let 原摘要 = 任务.摘要.trim().to_string();
+                    任务.摘要 = if 原摘要.is_empty() {
+                        "上次退出时任务仍在运行：已标记为中断（副作用需核对）".to_string()
+                    } else {
+                        format!("{原摘要}\n上次退出时任务仍在运行：已标记为中断（副作用需核对）")
+                    };
+                    数量 += 1;
+                }
+            }
+        }
+        self.运行中 = false;
+        self.待执行 = None;
+        self.待取消 = false;
+        self.待刷新变更 = false;
+        self.待探测 = false;
+        self.待修复 = None;
+        self.待批准变更 = None;
+        self.待拒绝变更 = None;
+        self.修复 = 修复循环::default();
+        数量
     }
 }
 
@@ -494,6 +937,7 @@ mod 测试 {
         // 标题为空时才用首条消息补齐。
         assert_eq!(当前.标题, "会话 1");
         assert_eq!(当前.消息.len(), 1);
+        assert_eq!(当前.创建时间, 当前.更新时间);
     }
 
     #[test]
@@ -544,6 +988,22 @@ mod 测试 {
     }
 
     #[test]
+    fn 上下文提示会脱敏明显凭证() {
+        let mut 状态 = 状态();
+        状态.附加上下文(上下文项 {
+            种类: 上下文种类::代码,
+            名称: "config.rs".to_string(),
+            正文: "const KEY: &str = \"sk-abcdefghijklmnopqrstuvwx\";".to_string(),
+        });
+        let 提示 = 状态.上下文提示();
+        assert!(
+            !提示.contains("sk-abcdefghijklmnopqrstuvwx"),
+            "模型上下文里不能出现明文凭证：{提示}"
+        );
+        assert!(提示.contains("已脱敏"));
+    }
+
+    #[test]
     fn 任务结束会写回状态并结束运行标记() {
         let mut 状态 = 状态();
         状态.运行中 = true;
@@ -561,8 +1021,10 @@ mod 测试 {
         let 会话 = 状态.当前().unwrap();
         assert_eq!(会话.任务[0].状态, 任务状态::失败);
         assert_eq!(会话.任务[0].摘要, "退出码 101");
+        assert!(会话.任务[0].结束时间.is_some());
         assert_eq!(会话.消息.len(), 1, "失败应当留下一条系统消息");
         assert_eq!(会话.消息[0].角色, 消息角色::系统);
+        assert!(状态.待保存, "任务结束必须触发存档");
     }
 
     #[test]
@@ -605,5 +1067,37 @@ mod 测试 {
             }
             .可用()
         );
+    }
+
+    #[test]
+    fn 载入修正把运行中任务标成状态未知() {
+        let mut 状态 = 状态();
+        {
+            let 会话 = 状态.当前可变().unwrap();
+            会话.任务.push(智能体任务 {
+                状态: 任务状态::执行中,
+                摘要: "退出码未知".to_string(),
+                ..Default::default()
+            });
+        }
+        状态.运行中 = true;
+        状态.待执行 = Some("旧任务".to_string());
+        assert_eq!(状态.修正中断任务(), 1);
+        assert!(!状态.运行中);
+        assert!(状态.待执行.is_none());
+        let 任务 = 状态.当前().unwrap().当前任务().unwrap();
+        assert_eq!(任务.状态, 任务状态::状态未知);
+        assert!(任务.摘要.contains("中断"), "必须说明是中断而不是成功");
+        assert_eq!(状态.修正中断任务(), 0, "第二次修正不应再改状态");
+    }
+
+    #[test]
+    fn 写路径记录只接受项目相对路径() {
+        let mut 任务 = 智能体任务::default();
+        任务.记录写路径("./src\\main.rs");
+        任务.记录写路径("src/main.rs");
+        任务.记录写路径("%2Fetc%2Fpasswd");
+        任务.记录写路径("../outside.rs");
+        assert_eq!(任务.修改文件, vec!["src/main.rs".to_string()]);
     }
 }

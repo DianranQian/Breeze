@@ -59,6 +59,8 @@ pub struct 构建宿主 {
     stderr尾部: Vec<String>,
     /// cargo 是否报告成功（`build-finished`）。
     cargo报告成功: Option<bool>,
+    /// 子进程真实退出码（拿到才有；被杀时为 `None`）。
+    退出码: Option<i32>,
     /// 报告修订号：每次报告内容变化就 +1。
     ///
     /// 界面每帧要读报告。没有修订号就只能每帧克隆整份诊断列表 ——
@@ -85,6 +87,7 @@ impl 构建宿主 {
             取消标记: Arc::new(AtomicBool::new(false)),
             stderr尾部: Vec::new(),
             cargo报告成功: None,
+            退出码: None,
             修订: 0,
         }
     }
@@ -102,6 +105,16 @@ impl 构建宿主 {
     /// 最近一次构建报告。
     pub fn 报告(&self) -> &构建报告 {
         &self.报告
+    }
+
+    /// 最近一次真实退出码。**没有被杀/没有拿到退出码时是 `None`**。
+    pub fn 退出码(&self) -> Option<i32> {
+        self.退出码
+    }
+
+    /// 保留的 stderr 尾部（自动修复把它当作"没有结构化诊断时"的真实原因）。
+    pub fn 标准错误尾部(&self) -> String {
+        self.stderr尾部.join("\n")
     }
 
     /// 清空构建报告（换项目时调用）。
@@ -151,6 +164,7 @@ impl 构建宿主 {
         self.开始时刻 = Some(Instant::now());
         self.stderr尾部.clear();
         self.cargo报告成功 = None;
+        self.退出码 = None;
         self.取消标记 = Arc::new(AtomicBool::new(false));
 
         let mut 命令 = Command::new("cargo");
@@ -207,8 +221,12 @@ impl 构建宿主 {
     pub fn 停止(&mut self) {
         self.取消标记.store(true, Ordering::SeqCst);
         if let Some(mut 子进程) = self.子进程.take() {
-            let _ = 子进程.kill();
+            // cargo 会再起 rustc / 链接器：Windows 上整棵树一起结束，
+            // 否则被"取消"的构建仍可能在后台写 target/。
+            crate::process_tree::终止进程树(&mut 子进程);
             let _ = 子进程.wait();
+            // 被杀的子进程没有可信退出码：必须留空，不能伪造成 0 或 1。
+            self.退出码 = None;
             let 耗时 = self
                 .开始时刻
                 .take()
@@ -331,6 +349,7 @@ impl 构建宿主 {
             && let Ok(状态) = 子进程.wait()
         {
             // 退出码是最终裁决：`build-finished` 缺失时也据此判断。
+            self.退出码 = 状态.code();
             成功 = 状态.success();
         }
         if self.取消标记.load(Ordering::SeqCst) {
@@ -427,5 +446,52 @@ mod 测试 {
         let mut 宿主 = 构建宿主::新建();
         宿主.停止();
         assert!(!宿主.在运行());
+    }
+
+    #[test]
+    fn 空闲时没有退出码() {
+        let 宿主 = 构建宿主::新建();
+        assert_eq!(宿主.退出码(), None, "没跑过就不能编造退出码");
+        assert!(宿主.标准错误尾部().is_empty());
+    }
+
+    #[test]
+    fn 测试子命令真的使用cargo_test() {
+        let 配置 = 构建配置 {
+            子命令: editor_core::build::构建子命令::测试,
+            ..Default::default()
+        };
+        assert_eq!(配置.命令行()[0], "test");
+        assert!(配置.可读命令行().starts_with("cargo test"));
+    }
+
+    #[test]
+    fn 真实构建给出真实退出码() {
+        // 无依赖的最小 crate：构建成功时退出码必须是 0，而不是"默认值"。
+        let 目录 = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(目录.path().join("src")).unwrap();
+        std::fs::write(
+            目录.path().join("Cargo.toml"),
+            "[package]\nname = \"exit_code_probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(目录.path().join("src/main.rs"), "fn main() {}\n").unwrap();
+        let mut 宿主 = 构建宿主::新建();
+        宿主
+            .启动(目录.path(), &构建配置::default())
+            .expect("构建应当能启动");
+        let 限时 = std::time::Instant::now();
+        loop {
+            宿主.轮询();
+            if !宿主.在运行() {
+                break;
+            }
+            assert!(
+                限时.elapsed() < std::time::Duration::from_secs(180),
+                "真实构建超时"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert_eq!(宿主.退出码(), Some(0), "成功构建必须留下真实退出码 0");
     }
 }

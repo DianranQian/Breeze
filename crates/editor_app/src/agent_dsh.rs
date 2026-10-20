@@ -35,7 +35,7 @@
 //! 不假装撤销了副作用）。
 
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
@@ -122,19 +122,35 @@ pub fn 解析事件(行: &str) -> Option<Dsh事件> {
                     阶段
                 }
             };
-            let 摘要 = {
+            // 真实 DSH 的 `tool_call` 形如
+            // `{"type":"tool_call","tool":"edit","input":{"file_path":"C:\\…"}}`；
+            // 路径在 `input.file_path` 里，不在 `summary`。`tool_result` 的
+            // `result` 是文件内容/命令输出，不能当成路径证据。
+            let 摘要 = if 类型 == "tool_result" {
+                取串("status")
+            } else {
                 let 摘要 = 取串("summary");
-                if 摘要.is_empty() {
-                    取串("input")
-                } else {
+                if !摘要.is_empty() {
                     摘要
+                } else if let Some(输入) = 值.get("input") {
+                    let 字段 = ["file_path", "path", "command", "pattern", "url"]
+                        .iter()
+                        .find_map(|键| 输入.get(键).and_then(|值| 值.as_str()));
+                    match 字段 {
+                        Some(字段) => 字段.to_string(),
+                        None => 截断(&输入.to_string(), 200),
+                    }
+                } else {
+                    取串("input")
                 }
             };
             let 写操作 = 取串("writes").contains("true")
                 || 取串("write").contains("true")
-                || 名称.contains("write")
-                || 名称.contains("edit")
-                || 名称.contains("apply");
+                || [
+                    "write", "edit", "apply", "patch", "create", "delete", "rename", "move",
+                ]
+                .iter()
+                .any(|关键字| 名称.to_ascii_lowercase().contains(关键字));
             Dsh事件::工具 {
                 名称,
                 阶段,
@@ -146,6 +162,106 @@ pub fn 解析事件(行: &str) -> Option<Dsh事件> {
             原文: 截断(行, 400),
         },
     })
+}
+
+/// 从写工具的事件摘要里提取项目相对路径。
+///
+/// DSH 的摘要格式不固定：真实 `tool_call` 把绝对路径放在 `input.file_path`，
+/// 也有工具直接给裸相对路径。这里只接受能落到**当前项目内**的片段：
+///
+/// * 绝对路径必须位于 `项目根` 下（`strip_prefix` 失败就拒绝）；
+/// * 拒绝 `..`、URL、以 `-` 开头的参数、无法识别的噪声；
+/// * 接受 `src/main.rs`、`crates/game/Cargo.toml` 这类带分隔符或扩展名的路径。
+///
+/// 提取不到就返回 `None` —— 审查层会把这类改动标成"来源未知"，而不是猜。
+pub fn 提取写路径(摘要: &str, 项目根: Option<&Path>) -> Option<String> {
+    let 文本 = 摘要.trim();
+    if 文本.is_empty() {
+        return None;
+    }
+    // 优先解析 JSON 的 `"path": "..."` / `"file_path": "..."`。
+    for 键 in ["\"file_path\"", "\"path\""] {
+        if let Some(索引) = 文本.find(键) {
+            let 剩余 = &文本[索引 + 键.len()..];
+            if let Some(冒号) = 剩余.find(':') {
+                let 值 = 剩余[冒号 + 1..].trim_start();
+                if let Some(引号) = 值.find('"')
+                    && let Some(结束) = 值[引号 + 1..].find('"')
+                    && let Some(路径) = 规范化写路径(&值[引号 + 1..引号 + 1 + 结束], 项目根)
+                {
+                    return Some(路径);
+                }
+            }
+        }
+    }
+    for 片段 in 文本.split(|字符: char| {
+        字符.is_whitespace()
+            || matches!(
+                字符,
+                ',' | ';' | '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}'
+            )
+    }) {
+        if let Some(路径) = 规范化写路径(片段, 项目根) {
+            return Some(路径);
+        }
+    }
+    None
+}
+
+fn 规范化写路径(原始: &str, 项目根: Option<&Path>) -> Option<String> {
+    let 去键值 = match 原始.find('=') {
+        Some(位置) => &原始[位置 + 1..],
+        None => 原始,
+    };
+    let 原文 = 去键值
+        .trim()
+        .trim_matches(|字符: char| matches!(字符, '"' | '\'' | '`' | ':' | ',' | ';'));
+    let 原文路径 = Path::new(原文);
+    let 字节 = 原文.as_bytes();
+    if 原文路径.is_absolute() || (字节.len() >= 2 && 字节[1] == b':') {
+        // 真实 DSH 给的是绝对路径：只有落在当前项目内才算证据。
+        let 根 = 项目根?;
+        let 相对 = 原文路径.strip_prefix(根).ok()?;
+        let 文本 = 相对.to_string_lossy().replace('\\', "/");
+        return 校验相对路径(&文本);
+    }
+    let 文本 = 原文.trim_start_matches("./").replace('\\', "/");
+    // 连续分隔符归一化：JSON 里的 `src\\main.rs` 会变成 `src//main.rs`。
+    let 文本 = 文本
+        .split('/')
+        .filter(|段| !段.is_empty())
+        .collect::<Vec<_>>()
+        .join("/");
+    校验相对路径(&文本)
+}
+
+fn 校验相对路径(文本: &str) -> Option<String> {
+    if 文本.is_empty() || 文本.len() > 400 {
+        return None;
+    }
+    let 字节 = 文本.as_bytes();
+    if 文本.starts_with('/') || (字节.len() >= 2 && 字节[1] == b':') {
+        return None;
+    }
+    if 文本.contains("..") || 文本.starts_with('-') {
+        return None;
+    }
+    if 文本.starts_with("http:") || 文本.starts_with("https:") {
+        return None;
+    }
+    let 有扩展 = 文本
+        .rsplit('/')
+        .next()
+        .and_then(|名| 名.rsplit_once('.'))
+        .is_some_and(|(_, 扩展)| {
+            !扩展.is_empty()
+                && 扩展.len() <= 8
+                && 扩展.chars().all(|字符| 字符.is_ascii_alphanumeric())
+        });
+    if !文本.contains('/') && !有扩展 {
+        return None;
+    }
+    Some(文本.to_string())
 }
 
 /// 按字符截断（避免把多字节字符切断）。
@@ -178,6 +294,86 @@ pub fn 解析版本(输出: &str) -> Option<String> {
         .map(|行| 行.to_string())
 }
 
+/// 启动一个可执行文件所需的真实程序与前置参数。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 启动规格 {
+    /// 真正交给 `CreateProcess` 的程序。
+    pub 程序: String,
+    /// 前置参数（`.cmd`/`.bat` 需要 `cmd /C`）。
+    pub 前置参数: Vec<String>,
+    /// 供界面/错误信息展示的真实路径。
+    pub 展示: String,
+}
+
+/// 解析可执行文件，处理 Windows 上 `.cmd` / `.bat` 包装器。
+///
+/// # 为什么必须有这一层
+///
+/// 本机 DSH 安装成 `dsh.cmd`（Electron 的启动垫片）。Rust 的
+/// `Command::new("dsh")` 只按 `.exe` 找，不会应用 `PATHEXT`，实测报
+/// `program not found`；而直接 `Command::new("dsh.cmd")` 也不是合法
+/// Win32 可执行文件。正确做法是找到 `.cmd` 后用 `cmd /C` 启动它。
+pub fn 解析启动规格(输入: &str) -> 启动规格 {
+    let 输入 = 输入.trim().trim_matches('"');
+    if 输入.is_empty() {
+        return 启动规格 {
+            程序: "dsh".to_string(),
+            前置参数: Vec::new(),
+            展示: "dsh".to_string(),
+        };
+    }
+    #[cfg(windows)]
+    {
+        let 有分隔符 = 输入.contains('\\') || 输入.contains('/');
+        let 扩展 = std::path::Path::new(输入)
+            .extension()
+            .and_then(|扩展| 扩展.to_str())
+            .map(|扩展| 扩展.to_ascii_lowercase());
+        let 路径 = if 有分隔符 || 扩展.is_some() {
+            Some(PathBuf::from(输入))
+        } else {
+            ["exe", "cmd", "bat"]
+                .iter()
+                .find_map(|扩展| 在路径中查找(输入, 扩展))
+        };
+        if let Some(路径) = 路径 {
+            let 展示 = 路径.to_string_lossy().to_string();
+            let 扩展 = 路径
+                .extension()
+                .and_then(|扩展| 扩展.to_str())
+                .map(|扩展| 扩展.to_ascii_lowercase());
+            if matches!(扩展.as_deref(), Some("cmd") | Some("bat")) {
+                return 启动规格 {
+                    程序: "cmd".to_string(),
+                    前置参数: vec!["/C".to_string(), "call".to_string(), 展示.clone()],
+                    展示,
+                };
+            }
+            return 启动规格 {
+                程序: 展示.clone(),
+                前置参数: Vec::new(),
+                展示,
+            };
+        }
+    }
+    启动规格 {
+        程序: 输入.to_string(),
+        前置参数: Vec::new(),
+        展示: 输入.to_string(),
+    }
+}
+
+fn 在路径中查找(名: &str, 扩展: &str) -> Option<PathBuf> {
+    let 路径变量 = std::env::var_os("PATH")?;
+    for 目录 in std::env::split_paths(&路径变量) {
+        let 候选 = 目录.join(format!("{名}.{扩展}"));
+        if 候选.is_file() {
+            return Some(候选);
+        }
+    }
+    None
+}
+
 /// 探测 DSH 是否可用。
 ///
 /// 在**独立线程**里执行并带超时：`--version` 正常是毫秒级，但可执行文件损坏
@@ -188,15 +384,16 @@ pub fn 探测(可执行文件: &str, 超时: std::time::Duration) -> 探测结�
     } else {
         可执行文件.trim().to_string()
     };
+    let 规格 = 解析启动规格(&可执行文件);
     let (发送, 接收) = channel();
-    let 待探测 = 可执行文件.clone();
+    let 待探测 = 规格.clone();
     std::thread::spawn(move || {
-        let 结果 = Command::new(&待探测)
-            .arg("--version")
-            .stdin(Stdio::null())
-            .output();
+        let mut 命令 = Command::new(&待探测.程序);
+        命令.args(&待探测.前置参数).arg("--version");
+        let 结果 = 命令.stdin(Stdio::null()).output();
         let _ = 发送.send(结果);
     });
+    let 展示路径 = 规格.展示.clone();
     match 接收.recv_timeout(超时) {
         Ok(Ok(输出)) => {
             let 标准输出 = String::from_utf8_lossy(&输出.stdout).to_string();
@@ -206,7 +403,7 @@ pub fn 探测(可执行文件: &str, 超时: std::time::Duration) -> 探测结�
                     Some(版本) => 探测结果 {
                         连接: Dsh连接::就绪 {
                             版本,
-                            路径: 可执行文件,
+                            路径: 展示路径.clone(),
                         },
                         诊断: 标准错误,
                     },
@@ -280,7 +477,9 @@ impl 任务运行器 {
         } else {
             可执行文件.trim().to_string()
         };
-        let mut 命令 = Command::new(&可执行文件);
+        let 规格 = 解析启动规格(&可执行文件);
+        let mut 命令 = Command::new(&规格.程序);
+        命令.args(&规格.前置参数);
         命令.arg("headless").arg("--json");
         if let Some(标识) = 会话标识.map(str::trim).filter(|值| !值.is_empty()) {
             命令.arg("--session-id").arg(标识);
@@ -294,7 +493,7 @@ impl 任务运行器 {
 
         let mut 子进程 = 命令
             .spawn()
-            .map_err(|错误| format!("启动 {可执行文件} 失败：{错误}"))?;
+            .map_err(|错误| format!("启动 {} 失败：{错误}", 规格.展示))?;
 
         let (发送, 接收) = channel();
         if let Some(标准输出) = 子进程.stdout.take() {
@@ -394,11 +593,12 @@ impl 任务运行器 {
         if self.已结束 {
             return false;
         }
-        let 结果 = self.子进程.kill().is_ok();
+        // Windows 上连同进程树一起结束：DSH 可能已经起了工具子进程。
+        crate::process_tree::终止进程树(&mut self.子进程);
         let _ = self.子进程.wait();
         self.已结束 = true;
         self.退出码 = None;
-        结果
+        true
     }
 }
 
@@ -463,7 +663,7 @@ mod 测试 {
     ];
 
     #[test]
-    fn 能解析真实抓取的DSH事件() {
+    fn 能解析真实抓取的会话事件() {
         let 事件: Vec<Dsh事件> = 真实事件.iter().filter_map(|行| 解析事件(行)).collect();
         assert_eq!(事件.len(), 8, "8 行真实输出都应当被识别");
         assert_eq!(
@@ -490,7 +690,7 @@ mod 测试 {
     }
 
     #[test]
-    fn 空行与非JSON行被忽略() {
+    fn 空行与非结构化行被忽略() {
         assert!(解析事件("").is_none());
         assert!(解析事件("   ").is_none());
         assert!(解析事件("not json").is_none());
@@ -546,5 +746,88 @@ mod 测试 {
             std::time::Duration::from_secs(5),
         );
         assert!(matches!(结果.连接, Dsh连接::未安装 { .. }));
+    }
+
+    #[test]
+    fn 写路径能从常见摘要里提取() {
+        assert_eq!(
+            提取写路径("src/main.rs", None).as_deref(),
+            Some("src/main.rs")
+        );
+        assert_eq!(
+            提取写路径("write_file: crates/game/src/lib.rs", None).as_deref(),
+            Some("crates/game/src/lib.rs")
+        );
+        assert_eq!(
+            提取写路径(r#"{"path":"src\\main.rs","writes":true}"#, None).as_deref(),
+            Some("src/main.rs")
+        );
+        assert_eq!(
+            提取写路径("./Cargo.toml", None).as_deref(),
+            Some("Cargo.toml")
+        );
+    }
+
+    #[test]
+    fn 写路径拒绝越界与噪声() {
+        assert_eq!(提取写路径("../outside.rs", None), None);
+        assert_eq!(提取写路径("C:\\Windows\\system32\\x.rs", None), None);
+        assert_eq!(提取写路径("https://example.com/a.rs", None), None);
+        assert_eq!(提取写路径("writes=true", None), None);
+        assert_eq!(提取写路径("", None), None);
+        assert_eq!(提取写路径("edit", None), None);
+    }
+
+    #[test]
+    fn cmd包装器会通过命令解释器启动() {
+        let 目录 = tempfile::tempdir().unwrap();
+        let 垫片 = 目录.path().join("probe.cmd");
+        std::fs::write(&垫片, "@echo off\r\n").unwrap();
+        let 规格 = 解析启动规格(垫片.to_str().unwrap());
+        if cfg!(windows) {
+            assert_eq!(规格.程序, "cmd", "必须用 cmd /C 启动 .cmd 垫片");
+            assert_eq!(规格.前置参数.first().map(String::as_str), Some("/C"));
+            assert!(规格.展示.ends_with("probe.cmd"));
+        } else {
+            assert_eq!(规格.程序, 垫片.to_string_lossy());
+        }
+    }
+
+    #[test]
+    fn 裸命令名会解析成可用的启动规格() {
+        let 规格 = 解析启动规格("dsh");
+        assert!(!规格.展示.is_empty());
+        // 这台机器上 DSH 是 .cmd 垫片；解析后程序应是 cmd，而不是裸 "dsh"。
+        if cfg!(windows) && 规格.展示.to_ascii_lowercase().ends_with(".cmd") {
+            assert_eq!(规格.程序, "cmd");
+        }
+    }
+
+    #[test]
+    fn 真实tool_call的绝对路径能落到项目内() {
+        // 实跑抓取的真实事件（路径换成示例根目录）。
+        let 行 = r#"{"type":"tool_call","callId":"call_00_x","tool":"edit","input":{"file_path":"C:\\proj\\src\\main.rs","old_string":"a","new_string":"b"}}"#;
+        let 事件 = 解析事件(行).expect("应解析 tool_call");
+        let 调用 = 记录工具调用(&事件).expect("应转成工具调用");
+        assert_eq!(调用.名称, "edit");
+        assert!(调用.写操作, "edit 必须标记为写操作");
+        assert_eq!(
+            提取写路径(&调用.摘要, Some(std::path::Path::new("C:\\proj"))).as_deref(),
+            Some("src/main.rs")
+        );
+        assert_eq!(
+            提取写路径(&调用.摘要, Some(std::path::Path::new("C:\\other"))),
+            None,
+            "项目外的绝对路径不能算成本项目证据"
+        );
+    }
+
+    #[test]
+    fn tool_result不会把文件内容当成路径() {
+        let 行 = r#"{"type":"tool_result","callId":"call_00_x","status":"completed","result":"The file C:\\proj\\src\\main.rs has been updated"}"#;
+        let 事件 = 解析事件(行).expect("应解析 tool_result");
+        let 调用 = 记录工具调用(&事件).expect("应转成工具调用");
+        assert_eq!(调用.摘要, "completed");
+        assert!(!调用.写操作, "tool_result 本身不是写操作");
     }
 }

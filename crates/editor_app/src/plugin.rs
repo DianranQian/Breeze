@@ -401,6 +401,8 @@ impl Plugin for BevyStudio插件 {
             // 物理运行时状态：只在运行态有内容，停止后置空。
             .init_resource::<crate::physics_runtime::物理运行时状态>()
             .init_resource::<crate::agent_runtime::智能体运行>()
+            // AI 会话存档：启动载入、运行期防抖保存、退出前强制保存。
+            .init_resource::<crate::agent_persistence::会话存档状态>()
             .init_resource::<crate::run::项目运行管理器>()
             // 构建任务：真实 cargo 子进程 + 界面读的快照。
             .init_resource::<crate::build::构建宿主>()
@@ -439,6 +441,9 @@ impl Plugin for BevyStudio插件 {
                     安装扩展组件,
                     preview::初始化预览资源,
                     按环境变量打开项目,
+                    // 会话存档必须在项目打开之后载入：只有那时才能选中
+                    // "当前项目最近的会话"，也才能校验项目是否仍可用。
+                    crate::agent_persistence::载入会话存档,
                     按环境变量设置设计分辨率,
                     按环境变量自动运行,
                     // 恢复布局必须在"聚焦面板"**之前**：恢复会用磁盘上的
@@ -472,6 +477,9 @@ impl Plugin for BevyStudio插件 {
                 Last,
                 (
                     actions::退出时保存配置,
+                    // 先强制保存 AI 会话，再保存窗口布局：两者互不依赖，
+                    // 但会话是用户资产，退出路径上要给足机会落盘。
+                    crate::agent_persistence::退出时保存会话,
                     crate::run::退出时停止项目运行,
                     crate::build::退出时停止构建,
                 ),
@@ -496,6 +504,8 @@ impl Plugin for BevyStudio插件 {
                     // 采集收尾：等截图落盘后退出。放在这一链的末尾，
                     // 保证"本帧的日志先转发出去"再决定退出。
                     crate::capture::采集收尾,
+                    // 会话存档防抖保存：任务结束时立即写，运行中最多每 600ms。
+                    crate::agent_persistence::保存会话存档,
                 )
                     .chain(),
             )
@@ -1382,6 +1392,15 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::智能体附加项目上下文 => "AI 附加项目".to_string(),
         UiAction::智能体移除上下文(下标) => format!("AI 移除上下文({下标})"),
         UiAction::智能体刷新变更 => "AI 刷新变更".to_string(),
+        UiAction::智能体重试 => "AI 重新执行".to_string(),
+        UiAction::智能体继续 => "AI 继续任务".to_string(),
+        UiAction::智能体附加原生工程上下文 => "AI 附加原生工程".to_string(),
+        UiAction::智能体自动修复构建 => "AI 构建并修复".to_string(),
+        UiAction::智能体自动修复测试 => "AI 测试并修复".to_string(),
+        UiAction::智能体批准变更(路径) => format!("AI 批准变更({路径})"),
+        UiAction::智能体拒绝变更(路径) => format!("AI 拒绝变更({路径})"),
+        UiAction::智能体批准审批(标识) => format!("AI 批准审批({标识})"),
+        UiAction::智能体拒绝审批(标识) => format!("AI 拒绝审批({标识})"),
         UiAction::重做动画 => "重做动画".to_string(),
         UiAction::设置轨道插值 { 插值, .. } => format!("设置轨道插值({})", 插值.变体名()),
         UiAction::保存动画 => "保存动画".to_string(),

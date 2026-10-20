@@ -13,6 +13,10 @@
 
 pub mod agent;
 pub mod agent_panel;
+pub mod agent_permission;
+pub mod agent_repair;
+pub mod agent_review;
+pub mod agent_store;
 pub mod assets_panel;
 pub mod build_panel;
 pub mod collision_overlay;

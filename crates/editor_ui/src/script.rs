@@ -216,6 +216,10 @@ pub struct 脚本文档 {
     pub 已保存文本: String,
     /// 语言。
     pub 语言: 脚本语言,
+    /// 最近一次编辑光标所在行（1 起）。没有编辑过时为 `None`。
+    ///
+    /// AI 上下文用它告诉 Agent"用户正看着哪一行"，而不是猜。
+    pub 光标行: Option<usize>,
 }
 
 impl 脚本文档 {
@@ -231,6 +235,7 @@ impl 脚本文档 {
             已保存文本: 文本.clone(),
             文本,
             语言,
+            光标行: None,
         }
     }
 
@@ -587,7 +592,13 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     .desired_rows(30)
                     .code_editor()
                     .layouter(&mut 布局任务);
-                ui.add(编辑器);
+                let 输出 = 编辑器.show(ui);
+                if let Some(范围) = 输出.cursor_range {
+                    // `CCursor::index` 是字符下标；用它数换行得到真实行号。
+                    let 字符下标: usize = 范围.primary.index.into();
+                    let 前缀: String = 文本.chars().take(字符下标).collect();
+                    文档.光标行 = Some(前缀.matches('\n').count() + 1);
+                }
             });
     });
 

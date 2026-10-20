@@ -23,6 +23,11 @@
 //! 而只有 `editor_app` 需要拉起真正的 Bevy 应用。
 
 pub mod actions;
+pub mod agent_context;
+pub mod agent_dsh;
+pub mod agent_persistence;
+pub mod agent_runtime;
+pub mod agent_worktree;
 pub mod audio_components;
 pub mod audio_preview;
 pub mod bsn_templates;
@@ -35,8 +40,10 @@ pub mod physics_components;
 pub mod physics_runtime;
 pub mod plugin;
 pub mod preview;
+pub mod process_tree;
 pub mod run;
 pub mod scene_bridge;
+pub mod tile_terrain;
 pub mod ui_components;
 pub mod ui_preview;
 

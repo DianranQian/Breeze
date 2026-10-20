@@ -78,12 +78,42 @@ impl 构建配置类型 {
     }
 }
 
+/// 构建任务实际执行的 Cargo 子命令。
+///
+/// 构建与测试共用同一套诊断解析：两者都通过 `--message-format=json` 输出
+/// `compiler-message`；测试失败本身不是编译器诊断，因此还要看真实退出码与
+/// stderr 尾部（见 [`crate::build::构建报告`]）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum 构建子命令 {
+    /// `cargo build`。
+    #[default]
+    构建,
+    /// `cargo test`。
+    测试,
+    /// `cargo check`（只要诊断，不产出二进制）。
+    检查,
+}
+
+impl 构建子命令 {
+    /// 传给 cargo 的子命令名。
+    pub fn 命令名(self) -> &'static str {
+        match self {
+            构建子命令::构建 => "build",
+            构建子命令::测试 => "test",
+            构建子命令::检查 => "check",
+        }
+    }
+}
+
 /// 一次构建的配置。
 ///
 /// 它直接存进项目清单（`project.ron` 的可选 `构建` 段），
 /// 因此**删字段必须保留 serde 默认值**，否则旧项目会打不开。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct 构建配置 {
+    /// 执行哪个 Cargo 子命令。
+    #[serde(default)]
+    pub 子命令: 构建子命令,
     /// profile。
     #[serde(default)]
     pub 配置类型: 构建配置类型,
@@ -107,6 +137,7 @@ pub struct 构建配置 {
 impl Default for 构建配置 {
     fn default() -> Self {
         Self {
+            子命令: 构建子命令::构建,
             配置类型: 构建配置类型::Debug,
             目标平台: None,
             包名: None,
@@ -124,7 +155,7 @@ impl 构建配置 {
     /// 最后才是用户额外参数 —— 用户参数放最后才能覆盖前面的同名项。
     pub fn 命令行(&self) -> Vec<String> {
         let mut 参数 = vec![
-            "build".to_string(),
+            self.子命令.命令名().to_string(),
             // # 为什么是 `json` 而不是 `json-render-diagnostics`
             //
             // 这是一个**实测踩出来的坑**：`json-render-diagnostics` 的行为是
@@ -599,6 +630,7 @@ mod 测试 {
     #[test]
     fn 配置参数按固定顺序组装() {
         let 配置 = 构建配置 {
+            子命令: 构建子命令::构建,
             配置类型: 构建配置类型::Release,
             目标平台: Some("x86_64-pc-windows-msvc".into()),
             包名: Some("my_game".into()),

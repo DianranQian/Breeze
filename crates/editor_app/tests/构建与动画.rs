@@ -295,6 +295,7 @@ fn 打开诊断会把源码装进脚本面板并定位到行() {
 fn 构建配置写进项目清单并往返() {
     let (_目录, mut 编辑器) = 建项目();
     let 配置 = 构建配置 {
+        子命令: editor_core::build::构建子命令::构建,
         配置类型: editor_core::build::构建配置类型::Release,
         目标平台: Some("x86_64-pc-windows-msvc".into()),
         包名: Some("mini_game".into()),

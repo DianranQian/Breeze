@@ -823,3 +823,88 @@ agent_session_rename	重命名	Rename
 agent_session_delete	删除	Delete
 confirm	确定	Confirm
 remove	移除	Remove
+agent_attach_native	附加原生工程上下文	Attach native project context
+agent_context_cargo	Cargo 工程	Cargo project
+agent_permission	操作权限	Permissions
+agent_permission_policy_auto	自动执行上限	Auto-execute up to
+agent_permission_note	构建/测试、删除覆盖、工作区外与破坏性命令需要显式批准；DSH 内部工具执行仍受 DSH 自身配置约束	Build/test, delete/overwrite, outside-workspace and destructive commands require explicit approval; DSH tools still follow DSH's own configuration
+agent_approvals	待批准操作	Pending approvals
+agent_approval_allow	允许	Allow
+agent_approval_deny	拒绝执行	Deny
+agent_approval_evidence	命中模式	Matched patterns
+agent_no_approvals	没有待批准的高风险操作	No high-risk operations awaiting approval
+agent_repair	自动修复	Auto repair
+agent_repair_build	构建并修复	Build and repair
+agent_repair_test	测试并修复	Test and repair
+agent_repair_rounds	真实修复轮次	Real repair rounds
+agent_repair_idle	未在自动修复	Not repairing
+agent_repair_verifying	等待真实构建/测试	Waiting for real build/test
+agent_repair_agent	等待 Agent 修改	Waiting for agent edits
+agent_repair_ok	修复成功（退出码 0）	Repair succeeded (exit code 0)
+agent_repair_failed	修复失败	Repair failed
+agent_repair_env	环境阻塞	Blocked by environment
+agent_repair_canceled	自动修复已取消	Auto repair canceled
+agent_repair_round_line	第 {} 轮 · 退出码 {} · {} · 变更 {} 个文件	Round {} · exit {} · {} · {} files changed
+agent_risk_readonly	只读检索	Read-only
+agent_risk_project_write	项目内修改	Project write
+agent_risk_build	构建与测试	Build and test
+agent_risk_delete	删除或覆盖	Delete or overwrite
+agent_risk_outside	工作区外访问	Outside workspace
+agent_risk_destructive	破坏性命令	Destructive command
+agent_source_preexisting	任务前已有	Pre-existing
+agent_source_task	本任务	This task
+agent_source_concurrent	任务期间非本任务	Concurrent during task
+agent_source_unknown	来源未知	Unknown source
+agent_review_pending	待审查	Pending review
+agent_review_approved	已批准	Approved
+agent_review_rejected	已拒绝	Rejected
+agent_review_conflict	冲突（文件又被改动）	Conflict (file changed again)
+agent_review_unrevertable	无法安全撤销	Cannot safely revert
+agent_change_added	新增	Added
+agent_change_modified	修改	Modified
+agent_change_deleted	删除	Deleted
+agent_change_renamed	重命名	Renamed
+agent_change_type	类型变更	Type changed
+agent_change_unknown	种类未知	Unknown kind
+agent_verify_build	构建	Build
+agent_verify_test	测试	Test
+agent_verify_build_ok	构建通过	Build passed
+agent_verify_build_failed	构建失败	Build failed
+agent_verify_test_ok	测试通过	Tests passed
+agent_verify_test_failed	测试失败	Tests failed
+agent_error_none	无错误	No error
+agent_error_compile	编译错误	Compile error
+agent_error_test	测试失败	Test failure
+agent_error_toolchain	工具链缺失	Missing toolchain
+agent_error_download	依赖下载失败	Dependency download failed
+agent_error_env	其他环境问题	Other environment issue
+agent_error_unknown	无法分类	Unclassified
+agent_approve	批准	Approve
+agent_reject	拒绝并回退	Reject and revert
+agent_reject_unavailable	缺少可安全恢复的基线：只能批准或保留现状	No safe baseline: approve or keep as-is
+agent_diff	真实差异	Real diff
+agent_view_content	查看文件内容	View file content
+agent_hide_content	收起文件内容	Hide file content
+agent_content_truncated	内容较长，只显示前 400 行	Large file: first 400 lines only
+agent_changes_stats	变更统计	Change stats
+agent_stat_added	新增 {}	added {}
+agent_stat_modified	修改 {}	modified {}
+agent_stat_deleted	删除 {}	deleted {}
+agent_stat_pending	待审查 {}	pending review {}
+agent_stat_verified	已验证 {}	verified {}
+agent_task_exit_code	退出码 {}	exit code {}
+agent_retry	重新执行	Run again
+agent_continue	继续	Continue
+agent_loaded	已恢复 {} 个历史会话	Restored {} historical sessions
+agent_project_unavailable	项目不可用（历史保留）	Project unavailable (history kept)
+agent_baseline_fingerprint	基线指纹	Baseline fingerprint
+agent_current_fingerprint	当前指纹	Current fingerprint
+agent_note	备注	Note
+agent_repair_progress	第 {} / {} 轮	Round {} / {}
+agent_no_rounds	还没有真实验证记录	No real verification yet
+agent_verification_after_change	修改后的真实验证	Verification after changes
+agent_approval_pending	等待你的决定（未执行）	Waiting for your decision (not executed)
+agent_review_unverified_hint	尚未验证：运行构建或测试后才会写入真实结果	Not verified yet: run a real build or test
+agent_read_failed	读取文件失败：{}	Failed to read file: {}
+agent_repair_need_dsh	构建失败后需要 DSH 才能让 Agent 修改；环境问题不会重试	A failed build needs DSH for agent edits; environment issues are not retried
+agent_related_task	关联任务	Related task

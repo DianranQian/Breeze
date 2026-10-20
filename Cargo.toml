@@ -38,7 +38,26 @@ repository = ""
 # （`UnrecognizedFormat`），实测表现为"点一下试听，编辑器直接崩"。
 # 只开这两种格式，编辑器里也就只接受这两种（见 `audio_preview::可试听`）：
 # 宁可明确拒绝一个没编进来的格式，也不要为它崩掉整个进程。
-bevy = { version = "0.20.0", default-features = true, features = ["wav", "vorbis"] }
+#
+# `complex_script_segmentation` 必须打开：它把 `bevy_text` 的
+# `parley/complex-scripts` 特性打开，让 parley 用
+# `icu_segmenter::LineSegmenter::new_dictionary`（带中日文词典）而不是
+# `new_for_non_complex_scripts`（不带任何复杂文字词典）。不打开时，
+# **每一次**中文/日文文本重排都会吐出
+# `ICU4X data error: No segmentation model for complex script: Chinese/Japanese`，
+# 而且中文长句失去按词断行的能力。
+#
+# 这行警告还特别难缠：`icu_provider` 没启用自己的 `logging` 特性，
+# 于是它的 `log::warn!` 实际被替换成了 `std::eprintln!`
+# （见 `icu_provider` 的 `pub use std::eprintln as warn`），
+# 因此它没有时间戳、没有级别，Bevy 的 `RUST_LOG` 过滤器和 tracing 层都拦不住。
+# 唯一正当的修法就是让词典真的在（即这个特性），不是去过滤日志。
+# 回归测试见 `crates/editor_app/tests/中文分段不告警.rs`。
+bevy = { version = "0.20.0", default-features = true, features = [
+    "wav",
+    "vorbis",
+    "complex_script_segmentation",
+] }
 bevy_egui = "0.43.1"
 # `serde` 特性用于把颜色主题持久化成 RON（Color32 的序列化实现）。
 # 它与 egui_dock 的 `serde` 特性所启用的是同一个特性，不会引入第二个 egui 版本。

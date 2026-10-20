@@ -49,3 +49,11 @@ tempfile = "3.13"
 # （例如验证"不含视口的布局会被拒绝"），
 # 因此测试里需要直接使用 egui_dock。
 egui_dock.workspace = true
+# 中文/日文分段回归测试（tests/中文分段不告警.rs）直接调用 `bevy_text`
+# 底层用到的同一个 parley 排版入口，复现"每次文本重排都会问 ICU4X 要
+# 中日文分段模型"的调用路径。
+#
+# 这里**故意不启用** `complex-scripts`：该特性必须由 Bevy 的
+# `complex_script_segmentation` 打开（见根 Cargo.toml 的 workspace.dependencies）。
+# 如果哪天那个特性被删掉，这份测试就会立刻重新看到 ICU4X 警告并失败。
+parley = { version = "0.11.1", default-features = false, features = ["std"] }

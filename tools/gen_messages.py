@@ -63,6 +63,7 @@ import sys
     "crates/editor_ui/src/viewport_panel.rs",
     "crates/editor_ui/src/console_panel.rs",
     "crates/editor_ui/src/build_panel.rs",
+    "crates/editor_ui/src/workbench_panel.rs",
     "crates/editor_ui/src/timeline_panel.rs",
     "crates/editor_ui/src/lib.rs",
     "crates/editor_ui/src/docks.rs",

@@ -1,0 +1,24 @@
+2026-10-20T18:25:02.927973Z  INFO bevy_diagnostic::system_information_diagnostics_plugin::internal: SystemInfo { os: "Windows 11 Pro", kernel: "26200", cpu: "Intel(R) Core(TM) Ultra 7 265K", core_count: "20", memory: "31.7 GiB" }
+2026-10-20T18:25:04.589874Z  INFO bevy_render::renderer: AdapterInfo { name: "NVIDIA GeForce RTX 4060 Ti", vendor: 4318, device: 10245, device_type: DiscreteGpu, device_pci_bus_id: "0000:02:00.0", driver: "NVIDIA", driver_info: "610.88", backend: Vulkan, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: Some(false), limit_bucket: None }
+2026-10-20T18:25:05.110419Z  INFO bevy_pbr::cluster: GPU clustering is supported on this device.
+2026-10-20T18:25:05.110554Z  INFO bevy_render::batching::gpu_preprocessing: GPU preprocessing is fully supported on this device.
+2026-10-20T18:25:05.111051Z  INFO bevy_egui::render: Using bindless_mode_array_size 16 (Device maximum 1048576)
+2026-10-20T18:25:05.111249Z  INFO bevy_winit::system: Creating new window 微风 (Breeze) (67v0)
+2026-10-20T18:25:05.176584Z  INFO editor_app::plugin: 已安装扩展组件，注册表中共 14 个组件
+2026-10-20T18:25:05.176884Z  INFO editor_app::preview: 预览视口已初始化：512×512 渲染目标 + 预览相机 + 界面相机
+2026-10-20T18:25:05.243613Z  INFO editor_app::plugin: 已按环境变量打开项目：C:\Spaces\Share\10_Code\10_Bevy\开发bevyIDE\crates\editor_app\tests\fixtures\原生Bevy工程
+2026-10-20T18:25:05.243769Z  INFO editor_app::plugin: 已按环境变量切换到主题 `dark`
+2026-10-20T18:25:05.244147Z  INFO editor_app::plugin: 已按环境变量把 `run` 面板切到前台
+2026-10-20T18:25:05.244166Z  INFO editor_app::plugin: 已按环境变量设置界面语言：简体中文
+2026-10-20T18:25:05.244234Z  INFO editor_app::plugin: Bevy Studio 0.1.0 启动：Bevy 0.20 / egui 界面已就绪
+2026-10-20T18:25:05.248270Z  INFO 编辑器控制台: 微风已启动。请新建或打开一个项目。
+2026-10-20T18:25:05.248308Z  INFO 编辑器控制台: 已打开项目 `breeze_native_fixture`：0 个场景，0 个资源
+2026-10-20T18:25:05.248317Z  INFO 编辑器控制台: 已从 Cargo.toml 识别工程：Cargo 工作区：1 个成员包，1 个可执行目标
+2026-10-20T18:25:05.248326Z  INFO 编辑器控制台: 已新建场景 `主场景`
+2026-10-20T18:25:05.248333Z  INFO 编辑器控制台: 该项目没有微风场景文件：场景编辑暂不适用（Bevy 场景由 Rust 代码构建），代码、资源与构建工作区可正常使用。
+2026-10-20T18:25:05.402442Z  INFO editor_app::plugin: 已安装中文字体（内置子集 2.2 MB）
+2026-10-20T18:25:06.249192Z  INFO editor_app::preview: [地形] 文件监视已建立基线：0 个地形实体
+2026-10-20T18:25:08.968841Z  INFO editor_app::capture: 已请求窗口截图：.verify_v4/acceptance/run_panel_final\run_panel_final.png（第 200 帧，1600×950 逻辑点）
+2026-10-20T18:25:09.053554Z  INFO bevy_render::view::window::screenshot: Screenshot saved to .verify_v4/acceptance/run_panel_final\run_panel_final.png
+2026-10-20T18:25:09.054920Z  INFO editor_app::capture: 截图已落盘（等待 4 帧）：.verify_v4/acceptance/run_panel_final\run_panel_final.png
+2026-10-20T18:25:09.058847Z  INFO editor_app::actions: 已在退出前保存编辑器配置

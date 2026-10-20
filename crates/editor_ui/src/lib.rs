@@ -42,6 +42,7 @@ pub mod theme_editor;
 pub mod timeline_panel;
 pub mod viewport3d;
 pub mod viewport_panel;
+pub mod workbench_panel;
 pub mod workspace_bar;
 pub mod workspaces;
 
@@ -960,6 +961,8 @@ impl 面板查看器<'_, '_> {
             已暂停: self.上下文.已暂停,
             运行时信息: self.上下文.运行时信息,
             构建: self.上下文.构建,
+            运行: self.上下文.运行,
+            统一诊断: self.上下文.统一诊断,
             导入状态: self.上下文.导入状态,
             配置目录: self.上下文.配置目录,
         }
@@ -1089,6 +1092,7 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             Tab::性能 => history_panel::绘制性能(ui, &mut 上下文),
             Tab::脚本 => script::绘制(ui, &mut 上下文),
             Tab::构建 => build_panel::绘制(ui, &mut 上下文),
+            Tab::运行 => workbench_panel::绘制(ui, &mut 上下文),
             Tab::时间轴 => timeline_panel::绘制(ui, &mut 上下文),
             Tab::智能体对话 => agent_panel::绘制对话(ui, &mut 上下文),
             Tab::智能体会话 => agent_panel::绘制会话(ui, &mut 上下文),

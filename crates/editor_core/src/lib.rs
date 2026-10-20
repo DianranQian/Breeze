@@ -24,15 +24,18 @@
 
 pub mod animation;
 pub mod build;
+pub mod cargo_metadata;
 pub mod cargo_project;
 pub mod collision;
 pub mod command;
 pub mod delta;
+pub mod diagnostics;
 pub mod i18n;
 pub mod instance;
 pub mod log_source;
 pub mod package;
 pub mod project;
+pub mod run_entry;
 pub mod selection;
 pub mod state;
 pub mod ui_layout;
@@ -44,6 +47,12 @@ pub mod undo;
 #[path = "模板.rs"]
 pub mod 模板;
 
+// P1 预留能力（代码↔场景关联、运行时检查器可行性）。
+// 单独成模块是为了让"哪些是**已验证**的能力、哪些只是数据模型"
+// 在文件边界上就分得清；见模块头部说明。
+#[path = "架构预留.rs"]
+pub mod 架构预留;
+
 pub use animation::{
     关键帧, 关键帧值, 动画会话, 动画属性, 动画播放状态, 动画文档, 动画格式版本, 动画轨道, 时间容差,
 };
@@ -51,11 +60,19 @@ pub use build::{
     代码位置, 构建快照, 构建报告, 构建状态, 构建诊断, 构建配置, 构建配置类型, 编译事件,
     解析编译事件, 诊断级别,
 };
+pub use cargo_metadata::{
+    Cargo元数据错误, Cargo识别结论, Cargo识别缓存, 清除工程缓存, 计算指纹, 识别工程,
+    识别工程不带缓存, 识别来源,
+};
 pub use cargo_project::{
     Cargo包, Cargo可执行目标, Cargo工程, Cargo识别错误, 原生清单文件名
 };
 pub use command::{命令结果, 编辑器命令};
 pub use delta::文档差量;
+pub use diagnostics::{
+    从构建诊断, 任务标识, 任务类别, 保留构建记录, 构建记录, 筛选条件, 解析运行日志, 诊断严重级别,
+    诊断条目, 诊断来源, 诊断集合, 默认诊断上限,
+};
 pub use i18n::{词条, 词表, 语言};
 pub use instance::{实例化为, 实例化结果, 实例来源, 实例标记组件, 来源属性};
 pub use package::{
@@ -64,6 +81,9 @@ pub use package::{
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
     项目类型, 项目结果, 项目设置, 项目错误,
+};
+pub use run_entry::{
+    入口失效原因, 结束原因, 运行入口, 运行历史, 运行记录, 默认运行历史上限
 };
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};

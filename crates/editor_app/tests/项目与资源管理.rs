@@ -34,6 +34,8 @@ fn 建测试世界() -> World {
     世界.insert_resource(editor_app::config::布局待保存::default());
     世界.insert_resource(editor_app::run::项目运行管理器::default());
     世界.insert_resource(构建宿主::新建());
+    // 统一诊断中心：`执行动作队列` 会采集构建/运行诊断，需要它存在。
+    世界.insert_resource(editor_app::diagnostics::诊断中心::default());
     世界.insert_resource(编辑器配置资源::default());
     世界.insert_resource(导入快照资源::default());
     世界

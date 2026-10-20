@@ -62,6 +62,8 @@ fn 建测试世界() -> World {
     // 测试里不会真的触发构建，但系统参数必须能解析 ——
     // 缺资源的表现是**所有**动作一起失效，而不是只有构建动作失效。
     世界.insert_resource(editor_app::build::构建宿主::新建());
+    // 统一诊断中心：`执行动作队列` 会采集构建/运行诊断，需要它存在。
+    世界.insert_resource(editor_app::diagnostics::诊断中心::default());
     世界.insert_resource(editor_app::config::编辑器配置资源::default());
     世界.insert_resource(editor_app::plugin::导入快照资源::default());
     世界

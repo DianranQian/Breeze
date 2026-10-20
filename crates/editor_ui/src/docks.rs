@@ -33,6 +33,8 @@ pub enum Tab {
     脚本,
     /// 构建与诊断。
     构建,
+    /// 运行与诊断（开发工作台）：入口选择、构建/运行/停止、日志与诊断。
+    运行,
     /// 动画时间轴。
     时间轴,
     /// AI Agent 对话与任务执行（一级模式的主工作区）。
@@ -68,6 +70,7 @@ impl Tab {
             Tab::性能 => "performance",
             Tab::脚本 => "script",
             Tab::构建 => "build",
+            Tab::运行 => "run",
             Tab::时间轴 => "timeline",
             Tab::智能体对话 => "agent_chat",
             Tab::智能体会话 => "agent_sessions",
@@ -92,6 +95,7 @@ impl Tab {
             // 显示名：代码（内部键仍是 `script`，保持存档兼容）。
             Tab::脚本 => "代码",
             Tab::构建 => "构建",
+            Tab::运行 => "▶ 运行",
             Tab::时间轴 => "时间轴",
             Tab::智能体对话 => "AI 对话",
             Tab::智能体会话 => "AI 会话",
@@ -115,6 +119,7 @@ impl Tab {
             Tab::性能 => "performance",
             Tab::脚本 => "script",
             Tab::构建 => "build",
+            Tab::运行 => "run",
             Tab::时间轴 => "timeline",
             Tab::智能体对话 => "agent_chat",
             Tab::智能体会话 => "agent_sessions",
@@ -151,6 +156,7 @@ impl Tab {
             Tab::性能,
             Tab::脚本,
             Tab::构建,
+            Tab::运行,
             Tab::时间轴,
         ]
     }
@@ -168,6 +174,7 @@ impl Tab {
             Tab::性能,
             Tab::脚本,
             Tab::构建,
+            Tab::运行,
             Tab::时间轴,
             Tab::智能体对话,
             Tab::智能体会话,
@@ -244,6 +251,8 @@ pub fn 默认布局() -> DockState<Tab> {
             Tab::控制台,
             // 构建与诊断紧挨控制台：两者都是"输出的地方"。
             Tab::构建,
+            // 运行与诊断同一个区域：看完构建错误接着就要跑一次。
+            Tab::运行,
             Tab::脚本,
         ],
     );

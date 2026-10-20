@@ -1,0 +1,7 @@
+已启动（PID 18612，目标：Cargo 可执行目标（cargo run -p breeze_native_fixture --bin breeze_native_fixture））：C:\Users\DianRan\.cargo\bin\cargo.exe run -p breeze_native_fixture --bin breeze_native_fixture
+[stderr]     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
+[stderr]      Running `C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\breeze_native_fixture.exe`
+fixture-log-ok 启动：panic=false
+fixture-log-ok 已生成 1 个实体
+fixture-log-ok 完成 5 帧，正常退出
+进程已退出：退出码 0

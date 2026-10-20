@@ -908,3 +908,105 @@ agent_review_unverified_hint	尚未验证：运行构建或测试后才会写入
 agent_read_failed	读取文件失败：{}	Failed to read file: {}
 agent_repair_need_dsh	构建失败后需要 DSH 才能让 Agent 修改；环境问题不会重试	A failed build needs DSH for agent edits; environment issues are not retried
 agent_related_task	关联任务	Related task
+workbench_project	项目	Project
+workbench_no_project	未打开项目	No project open
+workbench_reidentify	重新识别	Re-detect
+workbench_reidentify_hint	重新读取 Cargo.toml 与 cargo metadata	Re-read Cargo.toml and cargo metadata
+workbench_entry	运行入口	Run target
+workbench_no_runnable_target	该工程没有可执行目标（只有库）：无法直接运行，但可以构建与测试	This project has no runnable target (library only): it cannot be launched, but it can be built and tested
+workbench_entry_only_cargo	只有原生 Cargo 工程才能选择运行入口	Only native Cargo projects have run targets
+workbench_build	构建	Build
+workbench_run	构建并运行	Build & Run
+workbench_run_hint	先真实构建，成功后再启动游戏	Build first, then launch only if the build really succeeds
+workbench_stop	停止	Stop
+workbench_rebuild	重新构建	Rebuild
+workbench_command	命令	Command
+workbench_copy	复制	Copy
+workbench_running_hint	运行目标：{}	Run target: {}
+workbench_duration	用时 {} 秒	{} s
+workbench_exit_code	退出码 {}	exit code {}
+workbench_exit_code_none	无退出码	no exit code
+workbench_run_history	最近运行记录（{}）	Run history ({})
+workbench_log	运行日志	Run log
+workbench_log_filter_hint	过滤日志	Filter log
+workbench_autoscroll	自动滚动	Auto-scroll
+workbench_copy_all	复制全部	Copy all
+workbench_copy_all_hint	把本次运行的日志全部复制到剪贴板	Copy the whole log of this run to the clipboard
+workbench_clear_log	清空	Clear
+workbench_send_log	发给 AI 分析	Send to AI
+workbench_log_empty	还没有运行日志：点「构建并运行」后，游戏的 stdout/stderr 会出现在这里	No run log yet: after Build & Run, the game's stdout/stderr appears here
+workbench_log_no_match	没有匹配的日志行	No matching log lines
+workbench_log_copy_hint	点击复制这一行	Click to copy this line
+workbench_diagnostics	诊断	Diagnostics
+workbench_diag_counts	错误 {} · 警告 {}	{} errors · {} warnings
+workbench_show_history	显示历史任务	Show history
+workbench_diag_filter_hint	搜索诊断	Search diagnostics
+workbench_diag_send_all	全部发给 AI	Send all to AI
+workbench_diag_send_all_hint	把当前构建与运行的全部诊断附进 AI 对话上下文	Attach all current build and run diagnostics to the AI chat context
+workbench_diag_clear	清空	Clear
+workbench_diag_empty	当前任务没有诊断	Current task has no diagnostics
+workbench_diag_no_match	没有匹配的诊断	No matching diagnostics
+workbench_diag_send_one	这条发给 AI	Send this to AI
+diag_level_error	错误	Error
+diag_level_warning	警告	Warning
+diag_level_info	信息	Info
+diag_source_build	构建	Build
+diag_source_check	检查	Check
+diag_source_test	测试	Test
+diag_source_run	运行	Run
+diag_source_asset	资源	Resource
+diag_source_agent	智能体	Agent
+diag_open_source	打开源码	Open source
+diag_no_source_location	这条诊断没有源码位置（可能来自链接器或运行时）	This diagnostic has no source location (it may come from the linker or runtime)
+diag_not_found	找不到这条诊断（可能已被清空）	Diagnostic not found (it may have been cleared)
+diag_nothing_to_send	当前没有可发送的诊断	No diagnostics to send
+run_state_idle	空闲	Idle
+run_state_starting	启动中	Starting
+run_state_running	运行中	Running
+run_state_failed	失败	Failed
+run_end_running	运行中	Running
+run_end_ok	正常退出	Exited normally
+run_end_failed	异常退出	Exited with error
+run_end_stopped	用户停止	Stopped by user
+run_end_spawn_failed	启动失败	Failed to launch
+run_end_terminated	被系统终止	Terminated by system
+cargo_source_metadata	cargo metadata	cargo metadata
+cargo_source_static	静态解析（元数据不可用）	static parsing (metadata unavailable)
+cargo_meta_toolchain	工具链缺失	toolchain missing
+cargo_meta_download	依赖下载失败	dependency download failed
+cargo_meta_manifest	清单错误	manifest error
+cargo_meta_other	其他失败	other failure
+run_entry_only_cargo	只有原生 Cargo 工程才能选择运行入口	Only native Cargo projects have run targets
+run_entry_invalid	运行入口不可用	Run target unavailable
+run_reidentify_failed	重新识别工程失败	Failed to re-detect project
+run_log_empty	还没有运行日志	No run log yet
+log_run_entry_selected	运行入口已切换为 {}	Run target changed to {}
+log_project_recognized_again	已重新识别工程 {}	Re-detected project {}
+log_run_log_cleared	已清空本次运行日志	Cleared the run log of this run
+log_diag_sent_to_agent	已把诊断附加到 AI 对话上下文	Attached diagnostics to the AI chat context
+log_run_log_sent_to_agent	已把运行日志附加到 AI 对话上下文	Attached the run log to the AI chat context
+log_diagnostics_cleared	已清空当前诊断结果	Cleared the current diagnostics
+log_run_entry_preference_corrupt	保存的运行入口无法解析，已回到默认入口	The saved run target could not be parsed; fell back to the default
+log_run_entry_restored	已恢复上次使用的运行入口 {}	Restored the last run target {}
+log_run_entry_expired	上次的运行入口已失效：{}	The last run target is no longer valid: {}
+log_cargo_recognized_source	Cargo 工程识别来源：{}	Cargo project detected via: {}
+log_cargo_metadata_fallback	cargo metadata 不可用，已回退静态解析：{}	cargo metadata unavailable; fell back to static parsing: {}
+log_run_after_build_failed	构建失败，未启动运行	Build failed; the game was not launched
+link_kind_rust	原生 Rust 源码	native Rust source
+link_kind_scene	微风场景文档	Breeze scene document
+link_kind_runtime	运行时对象	runtime object
+link_kind_unknown	未知	unknown
+link_confidence_unknown	未知	unknown
+link_confidence_scan	行级匹配	line-level match
+link_confidence_explicit	显式指定	explicitly set
+runtime_channel_none	无运行时通道	no runtime channel
+runtime_channel_plugin	调试插件	debug plugin
+runtime_channel_ipc	IPC 协议	IPC protocol
+runtime_snapshot_none	未采集	not collected
+runtime_snapshot_edit	编辑态	edit-time
+runtime_snapshot_live	运行态	live
+runtime_snapshot_last	上次运行	last run
+workbench_build_history	最近构建记录（{}）	Build history ({})
+workbench_runtime_inspect	运行时检查	Runtime inspection
+workbench_runtime_available	可用	available
+workbench_runtime_unavailable	不可用（没有运行时通道）	unavailable (no runtime channel)

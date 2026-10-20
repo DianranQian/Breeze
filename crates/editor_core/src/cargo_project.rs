@@ -20,12 +20,21 @@
 //! | `src/lib.rs` | 只有库目标（**不能**当成可运行游戏） |
 //! | `[dependencies].bevy`（含 `workspace = true`） | 是不是 Bevy 工程 |
 //!
-//! # 为什么静态解析而不是 `cargo metadata`
+//! # 为什么这里有一套静态解析，而**真正打开项目**走的是 `cargo metadata`
 //!
-//! `cargo metadata` 更权威，但它要启动子进程、依赖工具链、在大型工作区上要
-//! 几百毫秒甚至更久，而且**打开项目**是第一交互路径。静态解析只读几个
-//! `Cargo.toml`，成本可以忽略；识别错了也只是"默认目标选得不够好"，
-//! 用户仍可手动选择，不会阻塞打开。真正的构建/运行仍然交给 cargo 自己。
+//! 权威来源是 Cargo 自己（[`crate::cargo_metadata`]）：`cargo metadata`
+//! 直接给出 package、target 名、target 种类、manifest 路径、工作区根与依赖。
+//!
+//! 但 `cargo metadata` 要起子进程、依赖工具链。因此本模块保留一套
+//! **只读静态解析**作为兜底：
+//!
+//! * 工具链没装（或用户机器上 `cargo` 不在 PATH）时，工程仍然能被打开；
+//! * 依赖下载失败、离线时，不会因为元数据失败就完全打不开项目；
+//! * 单元测试可以脱离工具链验证解析规则。
+//!
+//! 两条路径的取舍写在 [`crate::cargo_metadata::识别工程`]：元数据优先，
+//! 失败时回退到这里，并把**真实的失败原因**留在识别结论里给用户看 ——
+//! 静默降级会让用户以为自己的 `Cargo.toml` 有问题。
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -67,6 +76,13 @@ pub enum Cargo识别错误 {
     /// 工作区没有解析出任何成员包。
     #[error("`{0}` 是 Cargo 工作区，但没有解析出任何成员包（检查 [workspace] members）")]
     无成员(PathBuf),
+
+    /// `cargo metadata` 与静态解析都没能识别这个工程。
+    ///
+    /// 两条原因都要带上：只报其中一条会让用户按错误的方向去修
+    /// （典型是工具链没装，却让人去改一个本来正确的 `Cargo.toml`）。
+    #[error("`{0}` 无法按 Cargo 工程识别：{1}")]
+    元数据与静态解析都失败(PathBuf, String),
 }
 
 /// Cargo 识别结果。
@@ -83,6 +99,11 @@ pub struct Cargo可执行目标 {
     pub 包根: PathBuf,
     /// 目标源文件的绝对路径（能确定时）。构建诊断可以据此关联到真实文件。
     pub 源文件: Option<PathBuf>,
+    /// Cargo 的 target 种类（`cargo metadata` 的 `kind`，例如 `["bin"]`）。
+    ///
+    /// 静态解析兜底时统一填 `["bin"]`：它列出来的本来就只是二进制目标。
+    /// 保留这个字段是为了让"这个目标到底是不是 bin"不靠命名猜。
+    pub 种类: Vec<String>,
 }
 
 impl Cargo可执行目标 {
@@ -349,6 +370,7 @@ fn 收集可执行目标(
             名称: 包名.to_string(),
             包根: 包根.to_path_buf(),
             源文件: Some(源文件),
+            种类: vec!["bin".to_string()],
         });
     }
 
@@ -378,6 +400,7 @@ fn 收集可执行目标(
                 名称,
                 包根: 包根.to_path_buf(),
                 源文件,
+                种类: vec!["bin".to_string()],
             });
         }
     }
@@ -407,6 +430,7 @@ fn 收集可执行目标(
                     名称,
                     包根: 包根.to_path_buf(),
                     源文件: Some(文件),
+                    种类: vec!["bin".to_string()],
                 });
             }
         }

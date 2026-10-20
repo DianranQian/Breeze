@@ -1,0 +1,20 @@
+[package]
+name = "breeze_native_fixture"
+version = "0.1.0"
+edition = "2024"
+
+# 这是一个**真实**的原生 Bevy 工程，用来做「打开 → 选择 target → 构建 →
+# 启动 → 查看日志 → 停止 → 查看诊断」的端到端验收。
+#
+# `[workspace]` 空表是刻意的：把它排除在微风自己的 workspace 之外，
+# 否则 `cargo test --workspace` 会把它当成一个成员一起编译。
+[workspace]
+
+[dependencies]
+# 与仓库根 `Cargo.toml` 的 bevy 特性**保持一致**：这样在共享 target 目录下
+# cargo 可以复用已编译好的 bevy 产物，验收不需要再等十分钟编译引擎。
+bevy = { version = "0.20", default-features = true, features = [
+    "wav",
+    "vorbis",
+    "complex_script_segmentation",
+] }

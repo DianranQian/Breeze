@@ -1,0 +1,10 @@
+{
+  "fixture": "C:\\Spaces\\Share\\10_Code\\10_Bevy\\开发bevyIDE\\crates\\editor_app\\tests/fixtures/原生Bevy工程",
+  "recognized_via": "cargo-metadata",
+  "targets": ["breeze_native_fixture::breeze_native_fixture"],
+  "entry": "breeze_native_fixture::breeze_native_fixture",
+  "build": { "exit_code": 0, "artifact": "C:/Spaces/Share/10_Code/10_Bevy/_build/target\\debug\\breeze_native_fixture.exe", "ms": 535 },
+  "run": { "exit_code": 0, "end": "exit-ok", "log_lines": 7, "stdout_ok": true },
+  "panic_run": { "exit_code": 101, "diagnostics": 2, "message": "thread 'Compute Task Pool (10)' (24080) panicked at src\\main.rs:54:9: fixture-panic-probe：第 5 帧崩溃", "file": "src\\main.rs", "line": 54, "col": 9 },
+  "stop": { "end": "stopped", "exit_code": null }
+}

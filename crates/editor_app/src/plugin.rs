@@ -404,6 +404,11 @@ impl Plugin for BevyStudio插件 {
             // AI 会话存档：启动载入、运行期防抖保存、退出前强制保存。
             .init_resource::<crate::agent_persistence::会话存档状态>()
             .init_resource::<crate::run::项目运行管理器>()
+            // 运行快照：界面读的运行时状态（不含 Child/线程等进程细节）。
+            .init_resource::<crate::run::运行快照资源>()
+            // 统一诊断中心：构建 / 运行 / Agent 三个来源汇到同一份数据。
+            .init_resource::<crate::diagnostics::诊断中心>()
+            .init_resource::<crate::diagnostics::诊断快照资源>()
             // 构建任务：真实 cargo 子进程 + 界面读的快照。
             .init_resource::<crate::build::构建宿主>()
             .init_resource::<构建快照资源>()
@@ -465,6 +470,9 @@ impl Plugin for BevyStudio插件 {
                     按环境变量设置变换工具,
                     按环境变量打开主题编辑器,
                     按环境变量打开脚本,
+                    // 放在最后：它需要一个已打开的项目与已恢复的布局，
+                    // 否则「构建并运行」会落在"没有项目"的分支上。
+                    按环境变量构建并运行,
                     打印启动信息,
                 )
                     .chain(),
@@ -534,6 +542,11 @@ impl Plugin for BevyStudio插件 {
                         preview::同步渲染尺寸,
                         preview::模型诊断,
                         crate::run::轮询项目运行,
+                        crate::run::同步运行快照,
+                        // 「构建并运行」的一次性意图在这里消费：
+                        // 只有真实构建成功（退出码 0）才启动游戏。
+                        actions::构建完成后启动运行,
+                        crate::diagnostics::同步诊断快照,
                         同步项目运行状态,
                         输入诊断,
                     )
@@ -791,7 +804,7 @@ fn 按环境变量打开帮助(mut 界面: ResMut<UiStateHolder>) {
     info!("已按环境变量打开帮助窗口");
 }
 
-/// 启动时显示碰撞体轮廓（自动验收用）。
+/// 启动时显示碰撞体轮廓（自动验收用).
 ///
 /// 与其它环境变量同理：视口工具栏的开关点不到，验收就只能拍一张
 /// "看不出碰撞体在哪"的图。
@@ -804,6 +817,29 @@ fn 按环境变量显示碰撞(mut 界面: ResMut<UiStateHolder>) {
     }
     界面.状态.相机.显示碰撞 = true;
     info!("已按环境变量显示碰撞轮廓");
+}
+
+/// 启动时自动执行一次「构建并运行」（自动验收用）。
+///
+/// # 为什么需要这个入口
+///
+/// 「构建并运行」是一个图形界面动作。没有它，自动验收只能证明
+/// "构建管理器与运行管理器各自能跑"（单元/集成测试已覆盖），
+/// 证明不了**面板上那条真实链路**：点按钮 → 真实 cargo build →
+/// 成功后启动游戏 → 日志进面板 → 退出码显示在状态区。
+///
+/// 它只推一条 `UiAction::构建并运行`，走的是与用户点击**完全相同**的路径，
+/// 不做任何"验收专用捷径"。
+pub const 构建并运行环境变量: &str = "BEVY_STUDIO_BUILD_AND_RUN";
+
+/// 按环境变量执行一次「构建并运行」。
+fn 按环境变量构建并运行(mut 界面: ResMut<UiStateHolder>) {
+    if std::env::var(构建并运行环境变量).is_err() {
+        return;
+    }
+    界面.状态.聚焦面板(editor_ui::Tab::运行);
+    界面.动作.推(UiAction::构建并运行);
+    info!("已按环境变量执行「构建并运行」");
 }
 
 /// 启动后自动开始运行（`1` = 是）。仅供自动验收使用。
@@ -940,7 +976,7 @@ fn 按环境变量聚焦面板(mut 界面: ResMut<UiStateHolder>) {
         None => warn!(
             "环境变量 {启动聚焦面板环境变量} 的值 `{名字}` 不是已知面板；\
              可用值：scene_tree / inspector / viewport / asset_browser / \
-             console / history / runtime_ecs / performance / script / build / timeline"
+             console / history / runtime_ecs / performance / script / build / run / timeline"
         ),
     }
 }
@@ -1190,6 +1226,10 @@ pub struct 绘制环境<'平台> {
     pub 诊断: &'平台 运行时诊断,
     /// 构建配置与最近一次构建报告。
     pub 构建: &'平台 editor_core::build::构建快照,
+    /// 运行状态、本次运行日志与最近运行记录。
+    pub 运行: &'平台 editor_core::run_entry::运行快照,
+    /// 统一诊断（当前结果视图）。
+    pub 统一诊断: &'平台 crate::diagnostics::诊断快照,
     /// 资源导入状态表（项目相对路径文本 → 状态）。
     pub 导入状态: &'平台 std::collections::BTreeMap<String, editor_core::project::导入状态>,
     /// 编辑器配置目录（帮助窗口显示路径、提供"打开配置目录"）。
@@ -1231,6 +1271,8 @@ pub fn 绘制一帧(
         已暂停: 环境.运行时.状态 == 运行状态::已暂停,
         运行时信息: 环境.诊断,
         构建: 环境.构建,
+        运行: 环境.运行,
+        统一诊断: 环境.统一诊断,
         导入状态: 环境.导入状态,
         配置目录: 环境.配置目录,
     };
@@ -1359,6 +1401,19 @@ pub fn 动作摘要(动作: &UiAction) -> String {
                 .map(|文件| 文件.display().to_string())
                 .unwrap_or_else(|| "?".to_string())
         ),
+
+        // ---- 运行与诊断（开发工作台） ----
+        UiAction::选择运行入口(入口) => format!("选择运行入口({})", 入口.标识()),
+        UiAction::重新识别工程 => "重新识别工程".to_string(),
+        UiAction::构建并运行 => "构建并运行".to_string(),
+        UiAction::清空运行日志 => "清空运行日志".to_string(),
+        UiAction::打开诊断位置 { 编号 } => format!("打开诊断位置(#{编号})"),
+        UiAction::把诊断发送给智能体 { 编号 } => match 编号 {
+            Some(编号) => format!("把诊断发送给智能体(#{编号})"),
+            None => "把当前诊断发送给智能体".to_string(),
+        },
+        UiAction::把运行日志发送给智能体 => "把运行日志发送给智能体".to_string(),
+        UiAction::清空诊断 => "清空诊断".to_string(),
 
         // ---- 动画与时间轴 ----
         UiAction::新建动画 => "新建动画".to_string(),

@@ -1,0 +1,57 @@
+================================================================================
+本轮验收记录：原生 Bevy 项目开发工作台 2.0
+生成时间：2026-10-21 02:23:02
+工作目录：C:\Spaces\Share\10_Code\10_Bevy\开发bevyIDE
+================================================================================
+
+[1] cargo test --workspace
+    （因并行链接在 32GB 机器上会 LNK1102 内存不足，本记录使用 CARGO_BUILD_JOBS=2）
+    结果：全部通过，0 失败。各 target 摘要：
+      editor_app lib            160 passed
+      editor_app 动作闭环         12 passed
+      editor_app 多面板工作区      12 passed
+      editor_app 原生工程构建与运行  4 passed
+      editor_app 原生工程运行工作台 10 passed（本轮新增）
+      editor_app 原生Bevy工程端到端验收 1 passed + 1 ignored（本轮新增，需 --ignored）
+      editor_app 构建与动画        9 passed
+      editor_app 项目与资源管理     23 passed
+      editor_app 物理模拟          1 passed
+      editor_core lib            190 passed
+      editor_core 原生Cargo工程    8 passed
+      editor_ui lib              303 passed
+      gui_probe                  34 passed
+      scene_doc                  23 + 19 passed
+
+[2] cargo fmt --all -- --check          → exit 0
+[3] python tools/gen_messages.py --check → exit 0
+[4] cargo clippy --workspace --all-targets
+    本轮新增警告：0 条
+    既有警告（不属于本轮改动，来自其它工作线的未提交修改）：
+      crates/bsn_bridge/src/capability.rs:246 解析锁定版本 is never used
+      crates/bsn_bridge/src/extract.rs:538    this impl can be derived
+      crates/editor_app/tests/BSN场景接入.rs 4 条 non_snake_case + 1 条 redundant reference
+
+[5] 真实原生 Bevy 工程端到端验收
+    命令：cargo test -p editor_app --test 原生Bevy工程端到端验收 -- --ignored --nocapture
+    夹具：crates/editor_app/tests/fixtures/原生Bevy工程（真实 bevy 依赖 + App/ECS + panic 分支）
+    结果：通过。机器可读结果见 42_原生Bevy工程端到端验收.json
+      recognized_via = cargo-metadata
+      build          exit_code=0  artifact=_build/target/debug/breeze_native_fixture.exe
+      run            exit_code=0  end=exit-ok  stdout_ok=true
+      panic_run      exit_code=101 message="... panicked at src\main.rs:54:9: fixture-panic-probe：第 5 帧崩溃"
+      stop           end=stopped  exit_code=null（用户停止不伪造退出码）
+
+[6] GUI 门禁（gui_probe）
+    a) .verify_v4/acceptance/general_zh_dark   → 判定通过（25 断言，含 required_panel run）
+    b) .verify_v4/acceptance/run_panel_final  → 判定通过（20 断言；打开真实原生 Bevy 工程并聚焦运行面板）
+       截图：41_运行与诊断面板_原生Bevy工程.png；日志：48_运行面板_GUI门禁日志.log
+    截图已归档：docs/验收证据/41_运行与诊断面板_原生Bevy工程.png
+                docs/验收证据/46_通用工作区_含运行面板.png
+
+[7] 环境限制（如实记录，不用模拟数据替代）
+    本次自动化运行所在会话里，应用从第 1 帧起持续收到 AppExit 消息（无任何 UI 交互时
+    6 秒内 286 条，属本机启动环境现象，与本次改动无关）。退出时停止构建 因此会在
+    构建进行中把它停掉，所以 GUI 截图里**没能**展示"构建完成后的运行日志与退出码"。
+    该链路已用真实子进程的端到端验收（第 5 项）证明；GUI 证据只覆盖
+    "面板渲染 + 真实工程识别 + 入口选择"。
+================================================================================

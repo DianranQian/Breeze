@@ -1,0 +1,11 @@
+已启动（PID 22336，目标：Cargo 可执行目标（cargo run -p breeze_native_fixture --bin breeze_native_fixture -- --panic））：C:\Users\DianRan\.cargo\bin\cargo.exe run -p breeze_native_fixture --bin breeze_native_fixture -- --panic
+[stderr]     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
+[stderr]      Running `C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\breeze_native_fixture.exe --panic`
+fixture-log-ok 启动：panic=true
+fixture-log-ok 已生成 1 个实体
+[stderr] 
+[stderr] thread 'Compute Task Pool (10)' (24080) panicked at src\main.rs:54:9:
+[stderr] fixture-panic-probe：第 5 帧崩溃
+[stderr] note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+[stderr] error: process didn't exit successfully: `C:/Spaces/Share/10_Code/10_Bevy/_build/target\debug\breeze_native_fixture.exe --panic` (exit code: 101)
+进程已退出：退出码 101

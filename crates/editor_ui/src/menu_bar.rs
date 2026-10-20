@@ -255,6 +255,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                         菜单项::常可用("performance", None),
                         菜单项::常可用("script", None),
                         菜单项::常可用("build", None),
+                        菜单项::常可用("run", None),
                         菜单项::常可用("timeline", None),
                     ],
                 },
@@ -342,6 +343,7 @@ pub fn 窗口菜单对应面板(文本: &str) -> Option<Tab> {
         "performance" => Some(Tab::性能),
         "script" => Some(Tab::脚本),
         "build" => Some(Tab::构建),
+        "run" => Some(Tab::运行),
         "timeline" => Some(Tab::时间轴),
         _ => None,
     }

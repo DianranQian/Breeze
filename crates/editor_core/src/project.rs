@@ -287,6 +287,10 @@ pub enum 项目错误 {
     /// 项目设置不合法（保存时被拒绝，清单未被修改）。
     #[error("项目设置不合法：{0}")]
     设置非法(String),
+
+    /// 运行入口失效（包/目标已不存在，或该包只有库目标）。
+    #[error("运行入口不可用：{0}")]
+    运行入口失效(#[from] crate::run_entry::入口失效原因),
 }
 
 impl 项目错误 {
@@ -313,6 +317,15 @@ pub struct 项目描述 {
     类型: 项目类型,
     /// 原生 Cargo 工程的识别结果（`类型 == 微风` 时为 `None`）。
     cargo: Option<Cargo工程>,
+    /// 原生工程的识别来源（元数据 / 静态兜底）。微风项目为 `None`。
+    识别来源: Option<crate::cargo_metadata::识别来源>,
+    /// 元数据失败、回退静态解析时的**真实原因**（必须显示给用户）。
+    识别提示: Option<String>,
+    /// 当前选中的运行入口（原生工程）。
+    ///
+    /// 对微风项目没有意义（那种项目的运行目标写在 `project.ron` 里，
+    /// 由 [`项目清单::运行`] 权威表达），因此恒为 `None`。
+    运行入口: Option<crate::run_entry::运行入口>,
 }
 
 impl 项目描述 {
@@ -348,6 +361,9 @@ impl 项目描述 {
             清单: 项目清单::新建(名称),
             类型: 项目类型::微风,
             cargo: None,
+            识别来源: None,
+            识别提示: None,
+            运行入口: None,
         };
 
         // 建目录
@@ -428,6 +444,9 @@ impl 项目描述 {
             清单,
             类型: 项目类型::微风,
             cargo: None,
+            识别来源: None,
+            识别提示: None,
+            运行入口: None,
         })
     }
 
@@ -448,7 +467,9 @@ impl 项目描述 {
     /// * 构建配置：固定包名，保证 workspace 里构建的是同一个包；
     /// * 启动场景：`None`（原生工程通常没有微风的场景文件）。
     fn 打开原生工程(根: PathBuf) -> 项目结果<Self> {
-        let 工程 = Cargo工程::读取(&根)?;
+        // 元数据优先、静态解析兜底；失败原因留在 `识别提示` 里。
+        let 结论 = crate::cargo_metadata::识别工程(&根)?;
+        let 工程 = 结论.工程;
         let 名称 = 工程
             .默认包()
             .map(|包| 包.名称.clone())
@@ -463,6 +484,7 @@ impl 项目描述 {
         let mut 清单 = 项目清单::新建(名称);
         清单.说明 = 工程.摘要();
 
+        let 运行入口 = crate::run_entry::运行入口::默认(&工程);
         if let Some(目标) = 工程.默认可执行目标() {
             // 用 `cargo run` 而不是直接指向 `target/debug/xxx.exe`：
             // 后者在"还没构建过"时必然不存在，而用户点「运行项目」的语义
@@ -491,7 +513,124 @@ impl 项目描述 {
             清单,
             类型: 项目类型::原生Cargo,
             cargo: Some(工程),
+            识别来源: Some(结论.来源),
+            识别提示: 结论
+                .回退原因
+                .as_ref()
+                .map(|错误| format!("{}：{}", 错误.代号(), 错误.说明())),
+            运行入口,
         })
+    }
+
+    /// 原生工程的识别来源（微风项目为 `None`）。
+    pub fn 识别来源(&self) -> Option<crate::cargo_metadata::识别来源> {
+        self.识别来源
+    }
+
+    /// 元数据失败、回退静态解析时的真实原因（没有回退时为 `None`）。
+    pub fn 识别提示(&self) -> Option<&str> {
+        self.识别提示.as_deref()
+    }
+
+    /// 当前运行入口（只有原生 Cargo 工程有）。
+    pub fn 运行入口(&self) -> Option<&crate::run_entry::运行入口> {
+        self.运行入口.as_ref()
+    }
+
+    /// 选择一个运行入口。
+    ///
+    /// # 校验在前，写入在后
+    ///
+    /// 传入的入口必须真的存在于当前 `Cargo.toml` 里，否则返回
+    /// [`项目错误::运行入口失效`]。这里**不做静默回退**：把 `server`
+    /// 悄悄换成 `my_game` 会让用户对着一个跑错的程序排查半天。
+    ///
+    /// 写入只改**内存里的清单快照**（`运行` + `构建` 两个段），
+    /// 原生工程的 `Cargo.toml` 一个字节都不动。
+    pub fn 设置运行入口(
+        &mut self, 入口: crate::run_entry::运行入口
+    ) -> 项目结果<()> {
+        if !self.类型.清单可写() {
+            let 工程 = self
+                .cargo
+                .as_ref()
+                .ok_or_else(|| 项目错误::原生工程只读(self.根目录.clone()))?;
+            入口.校验(工程)?;
+        }
+        self.清单.运行 = Some(运行目标清单 {
+            程序: "cargo".to_string(),
+            参数: 入口.命令行参数(),
+            环境: BTreeMap::new(),
+            工作目录: None,
+        });
+        let 原构建 = self.清单.构建.clone().unwrap_or_default();
+        self.清单.构建 = Some(crate::build::构建配置 {
+            包名: Some(入口.包名.clone()),
+            二进制名: Some(入口.目标名.clone()),
+            配置类型: 入口.配置类型,
+            子命令: 原构建.子命令,
+            目标平台: 原构建.目标平台,
+            特征: 原构建.特征,
+            额外参数: 原构建.额外参数,
+        });
+        self.运行入口 = Some(入口);
+        // 原生工程的清单只读：需要落盘时调用方必须先判断类型。
+        if self.类型.清单可写() {
+            self.保存清单()?;
+        }
+        Ok(())
+    }
+
+    /// 重新识别原生 Cargo 工程（`Cargo.toml` 变化后用）。
+    ///
+    /// 返回当前运行入口的失效原因（如果有）。失效时入口会回退到默认目标，
+    /// 但**必须**把原因告诉用户 —— 见 [`crate::run_entry::入口失效原因::说明`]。
+    pub fn 重新识别(&mut self) -> 项目结果<Option<crate::run_entry::入口失效原因>> {
+        if self.类型 != 项目类型::原生Cargo {
+            return Ok(None);
+        }
+        // 缓存由指纹驱动；显式失效一次，避免 mtime 精度导致读到旧结果。
+        crate::cargo_metadata::清除工程缓存();
+        let 结论 = crate::cargo_metadata::识别工程(&self.根目录)?;
+        self.cargo = Some(结论.工程);
+        self.识别来源 = Some(结论.来源);
+        self.识别提示 = 结论
+            .回退原因
+            .as_ref()
+            .map(|错误| format!("{}：{}", 错误.代号(), 错误.说明()));
+
+        let 工程 = self.cargo.as_ref().expect("刚刚写入");
+        let 失效 = match &self.运行入口 {
+            Some(入口) => 入口.校验(工程).err(),
+            None => None,
+        };
+        if 失效.is_some() || self.运行入口.is_none() {
+            let 新入口 = crate::run_entry::运行入口::默认(工程);
+            self.运行入口 = 新入口.clone();
+            match 新入口 {
+                Some(入口) => {
+                    self.清单.运行 = Some(运行目标清单 {
+                        程序: "cargo".to_string(),
+                        参数: 入口.命令行参数(),
+                        环境: BTreeMap::new(),
+                        工作目录: None,
+                    });
+                    let 原构建 = self.清单.构建.clone().unwrap_or_default();
+                    self.清单.构建 = Some(crate::build::构建配置 {
+                        包名: Some(入口.包名.clone()),
+                        二进制名: Some(入口.目标名.clone()),
+                        配置类型: 入口.配置类型,
+                        ..原构建
+                    });
+                }
+                None => {
+                    // 工程已经没有任何可运行目标（改成纯库了）：
+                    // 必须撤掉运行声明，而不是留一个必然失败的入口。
+                    self.清单.运行 = None;
+                }
+            }
+        }
+        Ok(失效)
     }
 
     /// 项目来源类型。

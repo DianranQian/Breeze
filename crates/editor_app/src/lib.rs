@@ -43,6 +43,7 @@ pub mod physics_components;
 pub mod physics_runtime;
 pub mod plugin;
 pub mod preview;
+pub mod recovery_autosave;
 pub mod process_tree;
 pub mod run;
 pub mod runtime_acceptance;

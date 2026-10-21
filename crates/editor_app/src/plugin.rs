@@ -401,6 +401,8 @@ impl Plugin for BevyStudio插件 {
             // 物理运行时状态：只在运行态有内容，停止后置空。
             .init_resource::<crate::physics_runtime::物理运行时状态>()
             .init_resource::<crate::agent_runtime::智能体运行>()
+            // 自动保存：只在有未保存修改时按间隔写恢复点。
+            .init_resource::<crate::recovery_autosave::自动保存状态>()
             // AI 会话存档：启动载入、运行期防抖保存、退出前强制保存。
             .init_resource::<crate::agent_persistence::会话存档状态>()
             .init_resource::<crate::run::项目运行管理器>()
@@ -487,6 +489,16 @@ impl Plugin for BevyStudio插件 {
                 Startup,
                 按环境变量打开资源对话框.after(按环境变量打开项目),
             )
+            // 恢复点扫描必须在项目打开之后：它要按项目根去找
+            // `.breeze/recovery/recovery.ron`。
+            .add_systems(
+                Startup,
+                crate::recovery_autosave::启动扫描恢复点.after(按环境变量打开项目),
+            )
+            .add_systems(
+                Startup,
+                按环境变量打开恢复对话框.after(按环境变量打开项目),
+            )
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
@@ -501,6 +513,13 @@ impl Plugin for BevyStudio插件 {
                     crate::run::退出时停止项目运行,
                     crate::build::退出时停止构建,
                 ),
+            )
+            // 自动保存必须排在动作执行之后：本帧的编辑要进入本次恢复点。
+            .add_systems(
+                Update,
+                crate::recovery_autosave::自动保存
+                    .after(actions::执行动作队列)
+                    .after(crate::capture::采集收尾),
             )
             .add_systems(
                 Update,
@@ -811,6 +830,12 @@ pub const 打开项目设置环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT_SETTI
 /// 它打开的是**真实的**对话框状态，引用列表也是真索引算出来的。
 pub const 资源对话框环境变量: &str = "BEVY_STUDIO_OPEN_ASSET_DIALOG";
 
+/// 启动时生成一条**真实**恢复点并打开恢复对话框（自动验收用）。
+///
+/// 只用于截图与回归：它用当前场景真实内容写恢复点，再走与启动扫描
+/// 完全相同的路径，不构造假数据。
+pub const 恢复对话框环境变量: &str = "BEVY_STUDIO_OPEN_RECOVERY";
+
 /// 启动时直接打开帮助窗口（自动验收用）。
 pub const 打开帮助环境变量: &str = "BEVY_STUDIO_OPEN_SHORTCUTS";
 
@@ -1044,6 +1069,36 @@ fn 按环境变量打开资源对话框(
         });
     }
     info!("已按环境变量打开资源对话框：{模式}");
+}
+
+/// 启动时按环境变量生成恢复点并打开恢复对话框。
+fn 按环境变量打开恢复对话框(
+    mut 界面: ResMut<UiStateHolder>,
+    编辑器: Res<EditorStateHolder>,
+) {
+    if std::env::var(恢复对话框环境变量).is_err() {
+        return;
+    }
+    let Some(项目) = 编辑器.状态.项目.as_ref() else {
+        warn!("环境变量要求打开恢复对话框，但当前没有打开项目");
+        return;
+    };
+    let 存储 = editor_core::recovery::恢复点存储::新建(项目.根目录());
+    let 时间 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|时长| 时长.as_secs())
+        .unwrap_or(0);
+    match 存储.写入(
+        编辑器.状态.会话.路径.as_ref(),
+        &编辑器.状态.会话.文档,
+        时间,
+    ) {
+        Ok(_) => {
+            crate::recovery_autosave::扫描项目恢复点(&mut 界面.状态, 项目);
+            info!("已按环境变量生成恢复点并打开恢复对话框");
+        }
+        Err(错误) => warn!("生成恢复点失败：{错误}"),
+    }
 }
 
 /// 启动时按环境变量把某个面板切到前台。
@@ -1455,6 +1510,24 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::请求删除资源(路径) => {
             format!("请求删除资源({})", 路径.文本())
         }
+        UiAction::确认重命名资源 {
+            旧路径, 新路径
+        } => {
+            format!("确认重命名资源({} → {})", 旧路径.文本(), 新路径.文本())
+        }
+        UiAction::关闭重命名资源 => "关闭重命名资源".to_string(),
+        UiAction::确认删除资源(路径) => {
+            format!("确认删除资源({})", 路径.文本())
+        }
+        UiAction::关闭删除资源 => "关闭删除资源".to_string(),
+        UiAction::检查资源使用 => "检查资源使用".to_string(),
+        UiAction::恢复自动保存(元数据) => {
+            format!("恢复自动保存({})", 元数据.场景名)
+        }
+        UiAction::丢弃自动保存(元数据) => {
+            format!("丢弃自动保存({})", 元数据.场景名)
+        }
+        UiAction::关闭恢复提示 => "关闭恢复提示".to_string(),
         UiAction::运行场景 => "运行场景".to_string(),
         UiAction::暂停运行 => "暂停运行".to_string(),
         UiAction::停止运行 => "停止运行".to_string(),

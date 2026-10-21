@@ -37,6 +37,7 @@ pub mod instance;
 pub mod log_source;
 pub mod package;
 pub mod project;
+pub mod recovery;
 pub mod run_entry;
 pub mod runtime_debug;
 pub mod selection;
@@ -83,6 +84,7 @@ pub use instance::{实例化为, 实例化结果, 实例来源, 实例标记组�
 pub use package::{
     人类可读字节, 打包报告, 打包条目, 打包计划, 打包配置, 执行打包, 生成打包计划, 默认输出目录,
 };
+pub use recovery::{恢复点元数据, 恢复点存储, 默认保留数量, 默认自动保存间隔秒};
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
     项目类型, 项目结果, 项目设置, 项目错误,

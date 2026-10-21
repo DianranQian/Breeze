@@ -1037,6 +1037,16 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+recovery_discard	丢弃	Discard
+recovery_intro	检测到上次异常退出时未保存的编辑。恢复只把内容装进编辑器，不会覆盖磁盘上的场景文件。	Unsaved edits from an abnormal exit were found. Restoring only loads them into the editor; it never overwrites scene files on disk.
+recovery_item_meta	{} 个实体 · 记录时间 {}	{} entities · recorded at {}
+recovery_later	稍后处理	Later
+recovery_note	恢复后请检查内容，并保存到目标场景。未恢复的恢复点不会被自动删除。	After restoring, review the content and save it to the target scene. Pending recovery points are not deleted automatically.
+recovery_restore	恢复	Restore
+recovery_title	恢复自动保存	Recover Autosave
+recovery_unnamed	（未命名场景）	(Unnamed scene)
+log_recovery_restored	已恢复自动保存内容：{}	Restored autosave content: {}
+log_recovery_discarded	已丢弃恢复点：{}	Discarded recovery point: {}
 runtime_debug_data_incompatible	协议不兼容	Incompatible protocol
 runtime_debug_data_last	最近快照（已过期，不是实时）	Last snapshot (stale, not live)
 runtime_debug_data_live	实时	Live

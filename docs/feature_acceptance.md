@@ -98,3 +98,7 @@
 | R1 集成 | `cargo test -p editor_app --test 资源标识重连` | 3 通过 |
 | R1 全量 | `cargo test --workspace` | 1064 通过 / 0 失败（`.verify/asset_ops/uid_tests.log`） |
 | R1 GUI | `.verify/asset_ops/uid_dialog/` | 真实打开示例副本，生成 `.breeze/asset_uids.ron`，删除对话框仍通过 14 条断言 |
+| R1.5 单元 | `cargo test -p editor_core --lib recovery` | 7 通过 |
+| R1.5 集成 | `cargo test -p editor_app --test 自动保存恢复` | 6 通过（含"保存后恢复点必须消失"） |
+| R1.5 全量 | `cargo test --workspace` | 1077 通过 / 0 失败（`.verify/recovery/all_tests.log`） |
+| R1.5 GUI | `.verify/recovery/dialog/` | 真实恢复点 + 对话框，probe 14 条断言通过 |

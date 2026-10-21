@@ -35,6 +35,7 @@ pub mod icons;
 pub mod inspector_panel;
 pub mod menu_bar;
 pub mod node_icons;
+pub mod recovery_panel;
 pub mod runtime_panel;
 pub mod script;
 pub mod state;
@@ -1213,6 +1214,15 @@ impl 面板查看器<'_, '_> {
             egui上下文,
             self.上下文.界面,
             self.上下文.编辑器.项目.as_ref().map(|项目| 项目.根目录()),
+            配色,
+            语言,
+        ) {
+            self.上下文.动作.推(动作);
+        }
+        // 恢复自动保存：启动时发现的恢复点，只有用户点"恢复"才读内容。
+        if let Some(动作) = recovery_panel::绘制(
+            egui上下文,
+            self.上下文.界面,
             配色,
             语言,
         ) {

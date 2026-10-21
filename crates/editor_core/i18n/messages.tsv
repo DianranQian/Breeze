@@ -1037,6 +1037,10 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+anim_event_edit	事件	Event
+anim_event_name_hint	音效填资源路径，逻辑填事件名	Asset path for audio, event name for logic
+anim_event_param	参数	Parameters
+anim_event_param_hint	可选，由游戏侧解释	Optional, interpreted by the game
 runtime_debug_asset_scale	资产规模	Asset scale
 runtime_debug_mesh_vertices	网格顶点	Mesh vertices
 runtime_debug_image_pixels	图片像素	Image pixels

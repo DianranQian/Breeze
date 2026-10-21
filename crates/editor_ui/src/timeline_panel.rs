@@ -337,6 +337,88 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         上下文.动作.推(UiAction::动画定位(反解时间(标尺左, 位置.x)));
     }
 
+    // ---- 底部：选中事件的编辑 ----
+    //
+    // 事件刚加出来时名称是占位（"未命名事件"或项目里第一个音频），
+    // 没有编辑入口就等于"能加不能改"。这里给最常用的三件事：
+    // 改名称、改类型、改参数；时间通过时间轴定位后重设。
+    let 选中事件 = 上下文.界面.时间轴选中事件;
+    if let Some(下标) = 选中事件 {
+        let 事件 = 上下文
+            .编辑器
+            .动画
+            .as_ref()
+            .and_then(|会话| 会话.文档.事件.get(下标).cloned());
+        match 事件 {
+            None => {
+                // 增删后下标可能失效：不要在下一帧继续显示一个不存在的编辑框。
+                上下文.界面.时间轴选中事件 = None;
+            }
+            Some(原事件) => {
+                ui.separator();
+                let mut 草稿 = 原事件.clone();
+                let mut 有改动 = false;
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(
+                        egui::RichText::new(语言.取("anim_event_edit"))
+                            .small()
+                            .color(配色.次要文字),
+                    );
+                    egui::ComboBox::from_id_salt("anim_event_type")
+                        .selected_text(语言.取(草稿.类型.词条键()))
+                        .width(70.0)
+                        .show_ui(ui, |ui| {
+                            for 类型 in editor_core::animation::事件类型::全部 {
+                                if ui
+                                    .selectable_label(草稿.类型 == 类型, 语言.取(类型.词条键()))
+                                    .clicked()
+                                {
+                                    草稿.类型 = 类型;
+                                    有改动 = true;
+                                }
+                            }
+                        });
+                    ui.label(语言.取("anim_event_name"));
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 草稿.名称)
+                                .desired_width(180.0)
+                                .hint_text(语言.取("anim_event_name_hint")),
+                        )
+                        .changed()
+                    {
+                        有改动 = true;
+                    }
+                    ui.label(语言.取("anim_event_param"));
+                    let mut 参数文本 = 草稿.参数.clone().unwrap_or_default();
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut 参数文本)
+                                .desired_width(140.0)
+                                .hint_text(语言.取("anim_event_param_hint")),
+                        )
+                        .changed()
+                    {
+                        草稿.参数 = Some(参数文本);
+                        有改动 = true;
+                    }
+                    ui.label(
+                        egui::RichText::new(format!("{:.3}s", 草稿.时间))
+                            .small()
+                            .monospace()
+                            .color(配色.次要文字),
+                    );
+                });
+                if 有改动 {
+                    上下文.动作.推(UiAction::更新动画事件 {
+                        下标,
+                        事件: 草稿,
+                    });
+                }
+            }
+        }
+    }
+
     // ---- 轨道列表 ----
     egui::ScrollArea::vertical()
         .id_salt("timeline_tracks")
@@ -369,8 +451,8 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 .as_ref()
                 .map(|会话| 会话.文档.事件.clone())
                 .unwrap_or_default();
-            let mut 命中事件: Option<f32> = None;
-            for 事件 in &事件列表 {
+            let mut 命中事件: Option<(usize, f32)> = None;
+            for (事件下标, 事件) in 事件列表.iter().enumerate() {
                 let x = 轨道x(事件左, 事件.时间);
                 let 中心 = egui::pos2(x, 事件轨道矩形.center().y);
                 // 事件用三角形，与关键帧的菱形区分开：一眼能看出这行是事件。
@@ -385,14 +467,20 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     editor_core::animation::事件类型::自定义 => 配色.次要文字,
                 };
                 事件绘制.add(egui::Shape::convex_polygon(三角, 颜色, egui::Stroke::NONE));
+                // 选中的事件画一个外圈：用户需要知道自己正在编辑哪一个。
+                let 选中 = 上下文.界面.时间轴选中事件 == Some(事件下标);
+                if 选中 {
+                    事件绘制.circle_stroke(中心, 菱形半径 + 3.0, egui::Stroke::new(1.5, 配色.警告));
+                }
                 if let Some(位置) = 事件响应.interact_pointer_pos()
                     && 事件响应.clicked()
                     && (位置.x - x).abs() <= 菱形半径 + 4.0
                 {
-                    命中事件 = Some(事件.时间);
+                    命中事件 = Some((事件下标, 事件.时间));
                 }
             }
-            if let Some(时间) = 命中事件 {
+            if let Some((下标, 时间)) = 命中事件 {
+                上下文.动作.推(UiAction::选择动画事件(Some(下标)));
                 上下文.动作.推(UiAction::动画定位(时间));
             }
             // 双击事件行：在该时刻添加逻辑事件（最常用），类型可在右键里换。

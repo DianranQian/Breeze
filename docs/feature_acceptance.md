@@ -127,3 +127,6 @@
 | R9 协议 | `cargo test -p runtime_protocol 资产` | 2 通过（旧格式缺字段兼容、往返） |
 | R9 E2E | `cargo test -p editor_app --test 运行时调试桥 -- --ignored` | 1 通过（真实握手；demo 无资产时统计为空） |
 | R9 全量 | `cargo test --workspace` | 1127 通过 / 0 失败（`.verify/runtime_assets/all_tests.log`） |
+| R10 集成 | `cargo test -p editor_app --test 动画事件` | 7 通过（新增改名+撤销、拒绝空名/失效下标） |
+| R10 全量 | `cargo test --workspace` | 1129 通过 / 0 失败（`.verify/anim_event_edit/all_tests.log`） |
+| R10 GUI | `.verify/anim_event_edit/dialog2/` | 事件编辑区可见（类型/名称/参数/时间），probe 14 条断言通过 |

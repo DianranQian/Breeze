@@ -102,14 +102,15 @@ impl 资源标识表 {
             std::fs::create_dir_all(父).map_err(|错误| 项目错误::文件错误(父, 错误))?;
         }
         格式版本检查(self.格式版本)?;
-        let 文本 = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
-            .map_err(|来源| {
+        let 文本 = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default()).map_err(
+            |来源| {
                 // 序列化失败不可能是"文件读不出来"，用 io 错误承载更准确。
                 项目错误::文件错误(
                     路径,
                     std::io::Error::new(std::io::ErrorKind::InvalidData, 来源.to_string()),
                 )
-            })?;
+            },
+        )?;
         let 临时 = 路径.with_extension("ron.tmp");
         std::fs::write(&临时, 文本).map_err(|错误| 项目错误::文件错误(&临时, 错误))?;
         std::fs::rename(&临时, 路径).map_err(|错误| 项目错误::文件错误(路径, 错误))?;
@@ -132,7 +133,9 @@ impl 资源标识表 {
     }
 
     /// 文件改名/移动后同步标识；返回是否真的迁移了一条。
-    pub fn 重命名(&mut self, 旧路径: &项目相对路径, 新路径: &项目相对路径) -> bool {
+    pub fn 重命名(
+        &mut self, 旧路径: &项目相对路径, 新路径: &项目相对路径
+    ) -> bool {
         let Some(标识) = self.标识.remove(旧路径.文本()) else {
             return false;
         };
@@ -186,8 +189,7 @@ impl 资源标识表 {
             .count();
         for 路径 in 存在的资源 {
             if !self.标识.contains_key(路径.文本()) {
-                self.标识
-                    .insert(路径.文本().to_string(), Uuid::new_v4());
+                self.标识.insert(路径.文本().to_string(), Uuid::new_v4());
             }
         }
         let 旧数量 = self.标识.len();

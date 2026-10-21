@@ -485,32 +485,17 @@ impl Plugin for BevyStudio插件 {
             // 资源对话框需要"项目已打开、场景已载入"之后才能算引用，
             // 因此单独放在启动链之后，并显式排在打开项目之后
             // （Bevy 的系统元组上限是 20 个，那条链已经很长了）。
-            .add_systems(
-                Startup,
-                按环境变量打开资源对话框.after(按环境变量打开项目),
-            )
+            .add_systems(Startup, 按环境变量打开资源对话框.after(按环境变量打开项目))
             // 恢复点扫描必须在项目打开之后：它要按项目根去找
             // `.breeze/recovery/recovery.ron`。
             .add_systems(
                 Startup,
                 crate::recovery_autosave::启动扫描恢复点.after(按环境变量打开项目),
             )
-            .add_systems(
-                Startup,
-                按环境变量打开恢复对话框.after(按环境变量打开项目),
-            )
-            .add_systems(
-                Startup,
-                按环境变量演示动画事件.after(按环境变量打开项目),
-            )
-            .add_systems(
-                Startup,
-                按环境变量多选.after(按环境变量打开项目),
-            )
-            .add_systems(
-                Startup,
-                按环境变量刷新实例.after(按环境变量打开项目),
-            )
+            .add_systems(Startup, 按环境变量打开恢复对话框.after(按环境变量打开项目))
+            .add_systems(Startup, 按环境变量演示动画事件.after(按环境变量打开项目))
+            .add_systems(Startup, 按环境变量多选.after(按环境变量打开项目))
+            .add_systems(Startup, 按环境变量刷新实例.after(按环境变量打开项目))
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
@@ -1279,13 +1264,11 @@ fn 按环境变量演示动画事件(
         ),
     };
     会话.文档.插入事件(事件);
-    会话
-        .文档
-        .插入事件(editor_core::animation::动画事件::新建(
-            2.0,
-            editor_core::animation::事件类型::逻辑,
-            "开门",
-        ));
+    会话.文档.插入事件(editor_core::animation::动画事件::新建(
+        2.0,
+        editor_core::animation::事件类型::逻辑,
+        "开门",
+    ));
     编辑器.状态.动画 = Some(会话);
     // 选中第一个事件，让截图里能看到名称/类型/参数的编辑区 ——
     // 只摆界面状态，等价于用户点了一下事件三角。

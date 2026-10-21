@@ -39,12 +39,9 @@ pub fn 绘制(
                     .color(配色.文字),
             );
             ui.label(
-                egui::RichText::new(语言.填充(
-                    "asset_find_refs_count",
-                    &[&草稿.行.len()],
-                ))
-                .small()
-                .color(配色.次要文字),
+                egui::RichText::new(语言.填充("asset_find_refs_count", &[&草稿.行.len()]))
+                    .small()
+                    .color(配色.次要文字),
             );
             ui.separator();
 
@@ -62,7 +59,7 @@ pub fn 绘制(
                     for (下标, 行) in 草稿.行.iter().enumerate() {
                         ui.horizontal_wrapped(|ui| {
                             ui.label(
-                                egui::RichText::new(format!("{}. {}", 下标 + 1, 行.文本()))
+                                egui::RichText::new(format!("{}. {}", 下标 + 1, 行.文本(语言)))
                                     .small()
                                     .monospace()
                                     .color(配色.文字),

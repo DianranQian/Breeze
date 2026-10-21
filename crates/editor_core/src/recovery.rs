@@ -34,7 +34,7 @@ use uuid::Uuid;
 
 use scene_doc::document::场景文档;
 use scene_doc::path::项目相对路径;
-use scene_doc::storage::{解码场景, 编码场景};
+use scene_doc::storage::{编码场景, 解码场景};
 
 /// 恢复点格式版本。
 pub const 恢复点格式版本: u32 = 1;
@@ -115,7 +115,8 @@ impl 恢复点存储 {
 
     /// 恢复点目录的绝对路径。
     pub fn 目录(&self) -> PathBuf {
-        self.根目录.join(恢复点目录.replace('/', std::path::MAIN_SEPARATOR_STR))
+        self.根目录
+            .join(恢复点目录.replace('/', std::path::MAIN_SEPARATOR_STR))
     }
 
     /// 索引文件绝对路径。
@@ -132,8 +133,8 @@ impl 恢复点存储 {
         if !路径.is_file() {
             return Ok(恢复点索引::default());
         }
-        let 文本 = std::fs::read_to_string(&路径)
-            .map_err(|错误| format!("读取恢复点索引失败：{错误}"))?;
+        let 文本 =
+            std::fs::read_to_string(&路径).map_err(|错误| format!("读取恢复点索引失败：{错误}"))?;
         let 索引: 恢复点索引 =
             ron::from_str(&文本).map_err(|错误| format!("恢复点索引解析失败：{错误}"))?;
         if 索引.格式版本 > 恢复点格式版本 {
@@ -159,7 +160,9 @@ impl 恢复点存储 {
 
         let 标识 = Uuid::new_v4();
         let 内容文件 = format!("{恢复点目录}/{标识}.scene.ron");
-        let 内容绝对 = self.根目录.join(内容文件.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let 内容绝对 = self
+            .根目录
+            .join(内容文件.replace('/', std::path::MAIN_SEPARATOR_STR));
         let 文本 = 编码场景(文档).map_err(|错误| format!("恢复点编码失败：{错误}"))?;
         let 临时 = 内容绝对.with_extension("ron.tmp");
         std::fs::write(&临时, 文本).map_err(|错误| format!("写恢复点失败：{错误}"))?;
@@ -199,8 +202,8 @@ impl 恢复点存储 {
         let 绝对 = self
             .根目录
             .join(元数据.内容文件.replace('/', std::path::MAIN_SEPARATOR_STR));
-        let 文本 = std::fs::read_to_string(&绝对)
-            .map_err(|错误| format!("读取恢复点内容失败：{错误}"))?;
+        let 文本 =
+            std::fs::read_to_string(&绝对).map_err(|错误| format!("读取恢复点内容失败：{错误}"))?;
         解码场景(&文本, &绝对).map_err(|错误| format!("恢复点内容无法解析：{错误}"))
     }
 
@@ -222,12 +225,10 @@ impl 恢复点存储 {
         let 目标: Vec<&恢复点元数据> = 索引
             .恢复点
             .iter()
-            .filter(|项| {
-                match (path, &项.场景路径) {
-                    (Some(路径), Some(文本)) => 路径.文本() == 文本,
-                    (None, None) => true,
-                    _ => false,
-                }
+            .filter(|项| match (path, &项.场景路径) {
+                (Some(路径), Some(文本)) => 路径.文本() == 文本,
+                (None, None) => true,
+                _ => false,
             })
             .collect();
         let 数量 = 目标.len();
@@ -312,7 +313,11 @@ mod 测试 {
         let (_目录, 存储) = 建项目();
         let 文档 = 场景("主场景", 3);
         let 元数据 = 存储
-            .写入(Some(&项目相对路径::解析("scenes/main.scene.ron").unwrap()), &文档, 100)
+            .写入(
+                Some(&项目相对路径::解析("scenes/main.scene.ron").unwrap()),
+                &文档,
+                100,
+            )
             .expect("写入");
 
         assert_eq!(元数据.实体数, 3);
@@ -327,8 +332,12 @@ mod 测试 {
     fn 同一个场景只保留最新恢复点() {
         let (_目录, 存储) = 建项目();
         let 路径 = 项目相对路径::解析("scenes/main.scene.ron").unwrap();
-        存储.写入(Some(&路径), &场景("主场景", 1), 100).expect("写入");
-        let 新 = 存储.写入(Some(&路径), &场景("主场景", 5), 200).expect("写入");
+        存储
+            .写入(Some(&路径), &场景("主场景", 1), 100)
+            .expect("写入");
+        let 新 = 存储
+            .写入(Some(&路径), &场景("主场景", 5), 200)
+            .expect("写入");
 
         let 列表 = 存储.列表();
         assert_eq!(列表.len(), 1, "同场景不该堆多条");
@@ -352,17 +361,32 @@ mod 测试 {
         let (_目录, 基础存储) = 建项目();
         let 存储 = 基础存储.带保留数量(2);
         let 甲 = 存储
-            .写入(Some(&项目相对路径::解析("scenes/甲.scene.ron").unwrap()), &场景("甲", 1), 100)
+            .写入(
+                Some(&项目相对路径::解析("scenes/甲.scene.ron").unwrap()),
+                &场景("甲", 1),
+                100,
+            )
             .expect("写入");
         let 乙 = 存储
-            .写入(Some(&项目相对路径::解析("scenes/乙.scene.ron").unwrap()), &场景("乙", 1), 200)
+            .写入(
+                Some(&项目相对路径::解析("scenes/乙.scene.ron").unwrap()),
+                &场景("乙", 1),
+                200,
+            )
             .expect("写入");
         let 丙 = 存储
-            .写入(Some(&项目相对路径::解析("scenes/丙.scene.ron").unwrap()), &场景("丙", 1), 300)
+            .写入(
+                Some(&项目相对路径::解析("scenes/丙.scene.ron").unwrap()),
+                &场景("丙", 1),
+                300,
+            )
             .expect("写入");
         let 列表 = 存储.列表();
         assert_eq!(列表.len(), 2);
-        assert!(!列表.iter().any(|项| 项.标识 == 甲.标识), "最旧的必须被淘汰");
+        assert!(
+            !列表.iter().any(|项| 项.标识 == 甲.标识),
+            "最旧的必须被淘汰"
+        );
         assert!(列表.iter().any(|项| 项.标识 == 乙.标识));
         assert!(列表.iter().any(|项| 项.标识 == 丙.标识));
     }
@@ -371,7 +395,9 @@ mod 测试 {
     fn 丢弃指定场景会删除内容与索引项() {
         let (_目录, 存储) = 建项目();
         let 路径 = 项目相对路径::解析("scenes/main.scene.ron").unwrap();
-        let 元数据 = 存储.写入(Some(&路径), &场景("主场景", 1), 100).expect("写入");
+        let 元数据 = 存储
+            .写入(Some(&路径), &场景("主场景", 1), 100)
+            .expect("写入");
         assert_eq!(存储.丢弃场景(Some(&路径)).expect("丢弃"), 1);
         assert!(存储.列表().is_empty());
         assert!(存储.读取内容(&元数据).is_err(), "内容文件应当被删掉");

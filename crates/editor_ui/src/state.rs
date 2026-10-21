@@ -1050,15 +1050,19 @@ pub struct 查找引用行 {
 
 impl 查找引用行 {
     /// 一行展示文本：`场景 / 实体 / 组件.属性`。
-    pub fn 文本(&self) -> String {
+    ///
+    /// 实体已不存在时用词表里的占位文案：它是**界面文本**，
+    /// 硬编码中文会让英文界面里冒出一行中文。
+    pub fn 文本(&self, 语言: crate::i18n::语言) -> String {
+        let 名称 = if self.实体名称.is_empty() {
+            语言.取("asset_find_refs_deleted_entity")
+        } else {
+            &self.实体名称
+        };
         format!(
             "{} / {} / {}.{}",
             self.场景.文本(),
-            if self.实体名称.is_empty() {
-                "(已删除实体)"
-            } else {
-                &self.实体名称
-            },
+            名称,
             self.组件,
             self.属性路径
         )

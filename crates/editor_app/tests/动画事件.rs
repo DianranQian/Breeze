@@ -14,7 +14,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::build::构建宿主;
-use editor_app::config::{编辑器配置资源, 布局待保存};
+use editor_app::config::{布局待保存, 编辑器配置资源};
 use editor_app::diagnostics::诊断中心;
 use editor_app::physics_runtime::物理运行时状态;
 use editor_app::plugin::{
@@ -22,7 +22,7 @@ use editor_app::plugin::{
 };
 use editor_app::run::项目运行管理器;
 use editor_app::scene_bridge::运行时宿主;
-use editor_core::animation::{动画事件, 动画文档, 事件类型};
+use editor_core::animation::{事件类型, 动画事件, 动画文档};
 use editor_core::project::项目描述;
 use editor_ui::state::UiAction;
 use scene_doc::path::项目相对路径;
@@ -80,7 +80,9 @@ fn 建项目与动画(世界: &mut World) -> (tempfile::TempDir, std::path::Path
     let 实体 = 持有.新建实体("角色", None).expect("新实体");
     let mut 会话 = editor_core::animation::动画会话::新建("关卡动画");
     会话.文档.时长 = 4.0;
-    let 轨道 = 会话.文档.轨道路径(实体, editor_core::animation::动画属性::平移);
+    let 轨道 = 会话
+        .文档
+        .轨道路径(实体, editor_core::animation::动画属性::平移);
     轨道.插入(editor_core::animation::关键帧::新建(
         0.0,
         editor_core::animation::关键帧值::向量3([0.0, 0.0, 0.0]),
@@ -183,12 +185,7 @@ fn 事件随动画保存并重新打开后仍在() {
     执行动作(&mut 世界);
     // 自定义事件默认名是占位文本，这里改成一个有意义的名字，
     // 顺便验证"事件名称本身就是数据"。
-    if let Some(会话) = 世界
-        .resource_mut::<EditorStateHolder>()
-        .状态
-        .动画
-        .as_mut()
-    {
+    if let Some(会话) = 世界.resource_mut::<EditorStateHolder>().状态.动画.as_mut() {
         会话.文档.事件[0].名称 = "开门".to_string();
     }
 
@@ -200,14 +197,16 @@ fn 事件随动画保存并重新打开后仍在() {
         .状态
         .保存动画到(&对话)
         .expect("保存动画");
-    assert!(世界
-        .resource::<EditorStateHolder>()
-        .状态
-        .项目
-        .as_ref()
-        .expect("项目")
-        .绝对路径(&对话)
-        .is_file());
+    assert!(
+        世界
+            .resource::<EditorStateHolder>()
+            .状态
+            .项目
+            .as_ref()
+            .expect("项目")
+            .绝对路径(&对话)
+            .is_file()
+    );
 
     {
         let 持有 = &mut 世界.resource_mut::<EditorStateHolder>().状态;

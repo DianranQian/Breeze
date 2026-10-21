@@ -14,7 +14,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::build::构建宿主;
-use editor_app::config::{编辑器配置资源, 布局待保存};
+use editor_app::config::{布局待保存, 编辑器配置资源};
 use editor_app::diagnostics::诊断中心;
 use editor_app::physics_runtime::物理运行时状态;
 use editor_app::plugin::{
@@ -123,14 +123,20 @@ fn 没有未保存修改时不会写恢复点() {
     let mut 世界 = 建测试世界();
     let (_目录, 根) = 建项目并编辑(&mut 世界);
     // 直接保存到磁盘，撤销栈回到干净状态。
-    推动作(&mut 世界, UiAction::场景另存为(路径("scenes/main.scene.ron")));
+    推动作(
+        &mut 世界,
+        UiAction::场景另存为(路径("scenes/main.scene.ron")),
+    );
     执行动作(&mut 世界);
     assert!(!编辑(&世界).有未保存修改());
 
     世界
         .run_system_once(recovery_autosave::自动保存)
         .expect("自动保存");
-    assert!(恢复点存储::新建(&根).列表().is_empty(), "干净时不该打扰磁盘");
+    assert!(
+        恢复点存储::新建(&根).列表().is_empty(),
+        "干净时不该打扰磁盘"
+    );
 }
 
 #[test]
@@ -143,7 +149,10 @@ fn 保存场景会清理对应恢复点() {
     let 存储 = 恢复点存储::新建(&根);
     assert_eq!(存储.列表().len(), 1);
 
-    推动作(&mut 世界, UiAction::场景另存为(路径("scenes/main.scene.ron")));
+    推动作(
+        &mut 世界,
+        UiAction::场景另存为(路径("scenes/main.scene.ron")),
+    );
     执行动作(&mut 世界);
     assert!(
         存储.列表().is_empty(),
@@ -175,10 +184,7 @@ fn 恢复动作把内容装进编辑器且不写盘() {
     assert_eq!(编辑(&世界).会话.文档.实体数量(), 1, "应恢复到恢复点的内容");
     assert!(编辑(&世界).有未保存修改(), "恢复内容必须让保存按钮亮起");
     // 磁盘上的场景文件没有被恢复动作创建或覆盖。
-    assert!(
-        !根.join("scenes/main.scene.ron").exists(),
-        "恢复不能写盘"
-    );
+    assert!(!根.join("scenes/main.scene.ron").exists(), "恢复不能写盘");
     // 恢复后该条目从候选里移除。
     assert!(界面(&世界).恢复点候选.is_empty());
 }
@@ -195,10 +201,7 @@ fn 丢弃动作会删除索引与内容文件() {
 
     // 启动扫描会把它放进候选。
     let 项目 = 编辑(&世界).项目.as_ref().expect("项目").clone();
-    recovery_autosave::扫描项目恢复点(
-        &mut 世界.resource_mut::<UiStateHolder>().状态,
-        &项目,
-    );
+    recovery_autosave::扫描项目恢复点(&mut 世界.resource_mut::<UiStateHolder>().状态, &项目);
     assert_eq!(界面(&世界).恢复点候选.len(), 1);
 
     推动作(&mut 世界, UiAction::丢弃自动保存(元数据.clone()));
@@ -221,9 +224,7 @@ fn 启动扫描只提示比磁盘更新的恢复点() {
     文档.生成实体("根", None);
     // 先保存场景，再写一个"远古"恢复点：它比磁盘旧，不该提示。
     项目.保存场景(&场景路径, &文档).expect("保存场景");
-    存储
-        .写入(Some(&场景路径), &文档, 100)
-        .expect("写恢复点");
+    存储.写入(Some(&场景路径), &文档, 100).expect("写恢复点");
     // 另一个未命名场景的恢复点没有磁盘文件对应，一定提示。
     存储
         .写入(None, &场景文档::新建("未命名"), 100)
@@ -232,10 +233,7 @@ fn 启动扫描只提示比磁盘更新的恢复点() {
     let mut 世界 = 建测试世界();
     世界.resource_mut::<EditorStateHolder>().状态.项目 = Some(项目);
     let 项目 = 编辑(&世界).项目.as_ref().expect("项目").clone();
-    recovery_autosave::扫描项目恢复点(
-        &mut 世界.resource_mut::<UiStateHolder>().状态,
-        &项目,
-    );
+    recovery_autosave::扫描项目恢复点(&mut 世界.resource_mut::<UiStateHolder>().状态, &项目);
 
     let 候选 = &界面(&世界).恢复点候选;
     assert_eq!(候选.len(), 1, "只应提示无名场景那条：{候选:?}");

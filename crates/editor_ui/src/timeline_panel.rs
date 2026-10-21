@@ -411,8 +411,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 });
                 if 有改动 {
                     上下文.动作.推(UiAction::更新动画事件 {
-                        下标,
-                        事件: 草稿,
+                        下标, 事件: 草稿
                     });
                 }
             }
@@ -429,8 +428,8 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             // 事件不是"某个实体的某个属性"，因此不占轨道列表的一行，
             // 而是固定在轨道上方单独一行。双击添加、右键选类型，
             // 与关键帧的交互保持同一套（双击 = 在指针时刻创建）。
-            let (事件行, 事件响应) = ui
-                .allocate_exact_size(egui::vec2(可用宽, 轨道行高), egui::Sense::click());
+            let (事件行, 事件响应) =
+                ui.allocate_exact_size(egui::vec2(可用宽, 轨道行高), egui::Sense::click());
             let 事件绘制 = ui.painter_at(事件行);
             let 事件左 = 事件行.left();
             let 事件轨道矩形 = egui::Rect::from_min_max(

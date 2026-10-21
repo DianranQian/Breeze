@@ -135,10 +135,11 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
     }
 
     // 相机交互：操纵器被悬停/拖拽、或正在框选时一律让路。
-    if 响应.dragged() && !操纵器占用 && !正在框选 && !matches!(
-        上下文.界面.拖拽,
-        视口拖拽::框选 { .. }
-    ) {
+    if 响应.dragged()
+        && !操纵器占用
+        && !正在框选
+        && !matches!(上下文.界面.拖拽, 视口拖拽::框选 { .. })
+    {
         let 是平移 = 修饰键.shift;
         let 是轨道 = ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Secondary))
             || ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Middle))
@@ -236,7 +237,8 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
             // 3D 此前只能单选，多选只能回到场景树里 Ctrl 点击；
             // 在一个"只能看、不能批量操作"的三维视口里，这是很实际的工作流缺口。
             let 修饰 = ui.input(|输入| 输入.modifiers);
-            let 意图 = match crate::picking3d::拾取模式由修饰键(修饰.shift, 修饰.command) {
+            let 意图 = match crate::picking3d::拾取模式由修饰键(修饰.shift, 修饰.command)
+            {
                 crate::picking3d::拾取模式::替换 => 选择意图::单选(标识),
                 crate::picking3d::拾取模式::追加 => 选择意图::追加(标识),
                 crate::picking3d::拾取模式::切换 => 选择意图::切换(标识),
@@ -247,8 +249,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
     上下文.界面.三维相机 = 新相机;
 
     // 框选矩形：画在实体之上、操纵器之下。
-    if let (视口拖拽::框选 { 起点 }, Some(终点)) =
-        (&上下文.界面.拖拽, 局部指针)
+    if let (视口拖拽::框选 { 起点 }, Some(终点)) = (&上下文.界面.拖拽, 局部指针)
     {
         let 矩形 = crate::picking3d::屏幕矩形::由两点(*起点, 终点);
         if 矩形.是有效框选() {
@@ -257,11 +258,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
                 egui::pos2(内容矩形.min.x + 矩形.最小.x, 内容矩形.min.y + 矩形.最小.y),
                 egui::pos2(内容矩形.min.x + 矩形.最大.x, 内容矩形.min.y + 矩形.最大.y),
             );
-            画面.rect_filled(
-                屏幕矩形,
-                0.0,
-                上下文.配色.强调.gamma_multiply(0.12),
-            );
+            画面.rect_filled(屏幕矩形, 0.0, 上下文.配色.强调.gamma_multiply(0.12));
             画面.rect_stroke(
                 屏幕矩形,
                 0.0,

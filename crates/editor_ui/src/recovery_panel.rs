@@ -60,10 +60,9 @@ pub fn 绘制(
                             .color(配色.次要文字),
                     );
                     ui.label(
-                        egui::RichText::new(语言.填充(
-                            "recovery_item_meta",
-                            &[&项.实体数, &项.时间],
-                        ))
+                        egui::RichText::new(
+                            语言.填充("recovery_item_meta", &[&项.实体数, &项.时间]),
+                        )
                         .small()
                         .color(配色.次要文字),
                     );

@@ -1237,32 +1237,18 @@ impl 面板查看器<'_, '_> {
         // 而对齐条需要"视口矩形"，那正是布局快照里已经记下来的东西。
         let 视口矩形 = self.上下文.界面.上一帧视口矩形;
         if let Some(视口矩形) = 视口矩形
-            && let Some(动作) = arrange_bar::绘制(
-                egui上下文,
-                self.上下文,
-                视口矩形,
-                配色,
-                语言,
-            )
+            && let Some(动作) = arrange_bar::绘制(egui上下文, self.上下文, 视口矩形, 配色, 语言)
         {
             self.上下文.动作.推(动作);
         }
         // 查找引用：资源被哪些场景/实体/字段引用，并可直接定位。
-        if let Some(动作) = asset_refs_panel::绘制(
-            egui上下文,
-            self.上下文.界面,
-            配色,
-            语言,
-        ) {
+        if let Some(动作) = asset_refs_panel::绘制(egui上下文, self.上下文.界面, 配色, 语言)
+        {
             self.上下文.动作.推(动作);
         }
         // 恢复自动保存：启动时发现的恢复点，只有用户点"恢复"才读内容。
-        if let Some(动作) = recovery_panel::绘制(
-            egui上下文,
-            self.上下文.界面,
-            配色,
-            语言,
-        ) {
+        if let Some(动作) = recovery_panel::绘制(egui上下文, self.上下文.界面, 配色, 语言)
+        {
             self.上下文.动作.推(动作);
         }
         // 资源重命名/删除：两者都以"草稿 + 动作"工作，界面不碰文件系统。

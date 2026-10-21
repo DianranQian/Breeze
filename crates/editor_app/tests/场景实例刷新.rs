@@ -10,7 +10,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::build::构建宿主;
-use editor_app::config::{编辑器配置资源, 布局待保存};
+use editor_app::config::{布局待保存, 编辑器配置资源};
 use editor_app::diagnostics::诊断中心;
 use editor_app::physics_runtime::物理运行时状态;
 use editor_app::plugin::{
@@ -20,7 +20,7 @@ use editor_app::run::项目运行管理器;
 use editor_app::scene_bridge::运行时宿主;
 use editor_core::project::项目描述;
 use editor_ui::state::{UiAction, 选择意图};
-use scene_doc::document::{场景文档, 变换数据};
+use scene_doc::document::{变换数据, 场景文档};
 use scene_doc::path::项目相对路径;
 
 fn 建测试世界() -> World {
@@ -74,12 +74,7 @@ fn 建项目(世界: &mut World) -> (tempfile::TempDir, scene_doc::document::实
 
     let mut 关卡 = 场景文档::新建("关卡");
     let 容器 = 关卡.生成实体("容器", None);
-    let 实例 = editor_core::instance::实例化为(
-        &mut 关卡,
-        &源,
-        Some(&源路径),
-        Some(容器),
-    );
+    let 实例 = editor_core::instance::实例化为(&mut 关卡, &源, Some(&源路径), Some(容器));
     let 旧根 = 实例.根实体.expect("实例根");
     {
         let 实体 = 关卡.取可变(旧根).expect("旧根");
@@ -89,7 +84,9 @@ fn 建项目(世界: &mut World) -> (tempfile::TempDir, scene_doc::document::实
             ..变换数据::单位()
         });
     }
-    项目.保存场景(&路径("scenes/关卡.scene.ron"), &关卡).expect("保存关卡");
+    项目
+        .保存场景(&路径("scenes/关卡.scene.ron"), &关卡)
+        .expect("保存关卡");
 
     // 源场景后来多了一个子实体（模拟"改源场景"）。
     源.生成实体("锁", Some(箱));
@@ -174,10 +171,9 @@ fn 选中普通实体时拒绝刷新并告警() {
 
     assert_eq!(编辑(&世界).会话.文档.实体数量(), 之前);
     assert!(
-        编辑(&世界)
-            .日志列表()
-            .iter()
-            .any(|条目| 条目.渲染(editor_ui::i18n::语言::中文).contains("不是场景实例")),
+        编辑(&世界).日志列表().iter().any(|条目| 条目
+            .渲染(editor_ui::i18n::语言::中文)
+            .contains("不是场景实例")),
         "必须说明为什么没刷新"
     );
 }

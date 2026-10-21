@@ -1118,7 +1118,8 @@ impl 项目描述 {
     /// 只在**路径确实不存在**且 **UID 能唯一确定一个现存路径**时才改；
     /// 冲突（同一 UID 多个路径）或找不到时原样保留，由调用方报告。
     pub fn 按标识修复文档(
-        &self, 文档: &mut scene_doc::document::场景文档
+        &self,
+        文档: &mut scene_doc::document::场景文档,
     ) -> crate::asset_uid::修复报告 {
         let mut 报告 = crate::asset_uid::修复报告::default();
         // 先收集要改的，再统一走 `改资源路径`：后者会同时改资源表与
@@ -1904,8 +1905,12 @@ mod 测试 {
 
         let 重开 = 项目描述::打开(项目.根目录()).expect("重开");
         assert_eq!(
-            重开.资源标识().取(&项目相对路径::解析("assets/新图.png").unwrap()),
-            项目.资源标识().取(&项目相对路径::解析("assets/新图.png").unwrap()),
+            重开
+                .资源标识()
+                .取(&项目相对路径::解析("assets/新图.png").unwrap()),
+            项目
+                .资源标识()
+                .取(&项目相对路径::解析("assets/新图.png").unwrap()),
             "重新打开后标识必须一致"
         );
     }
@@ -1945,7 +1950,10 @@ mod 测试 {
         let mut 属性 = BTreeMap::new();
         属性.insert(
             "texture".to_string(),
-            属性值::资源(scene_doc::property::资源引用值::完整(旧.clone(), 标识)),
+            属性值::资源(scene_doc::property::资源引用值::完整(
+                旧.clone(),
+                标识,
+            )),
         );
         文档
             .取可变(实体)
@@ -1954,8 +1962,7 @@ mod 测试 {
         文档.同步资源表();
 
         // 模拟用户绕过编辑器移动文件：表里的路径同步更新。
-        std::fs::create_dir_all(项目.根目录().join("assets").join("textures"))
-            .expect("建目录");
+        std::fs::create_dir_all(项目.根目录().join("assets").join("textures")).expect("建目录");
         std::fs::rename(项目.绝对路径(&旧), 项目.绝对路径(&新)).expect("移动文件");
         项目.资源标识可变().重命名(&旧, &新);
         项目.保存资源标识().expect("保存表");

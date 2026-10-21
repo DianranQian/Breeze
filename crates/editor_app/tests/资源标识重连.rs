@@ -14,7 +14,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::build::构建宿主;
-use editor_app::config::{编辑器配置资源, 布局待保存};
+use editor_app::config::{布局待保存, 编辑器配置资源};
 use editor_app::diagnostics::诊断中心;
 use editor_app::physics_runtime::物理运行时状态;
 use editor_app::plugin::{
@@ -104,7 +104,10 @@ fn 保存场景会写入标识并落盘标识表() {
             .expect("加组件");
     }
 
-    推动作(&mut 世界, UiAction::场景另存为(路径("scenes/主场景.scene.ron")));
+    推动作(
+        &mut 世界,
+        UiAction::场景另存为(路径("scenes/主场景.scene.ron")),
+    );
     执行动作(&mut 世界);
 
     let 项目 = 编辑(&世界).项目.as_ref().expect("项目");
@@ -141,7 +144,10 @@ fn 外部移动资源后重新打开场景会按标识修复() {
             })
             .expect("加组件");
     }
-    推动作(&mut 世界, UiAction::场景另存为(路径("scenes/主场景.scene.ron")));
+    推动作(
+        &mut 世界,
+        UiAction::场景另存为(路径("scenes/主场景.scene.ron")),
+    );
     执行动作(&mut 世界);
     let 场景路径 = 编辑(&世界).会话.路径.clone().expect("场景路径");
 

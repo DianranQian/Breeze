@@ -10,9 +10,9 @@ use std::time::Instant;
 
 use bevy::prelude::*;
 use runtime_protocol::{
-    世界快照数据, 世界快照请求, 世界概览, 资产统计, 夹紧每页, 字段值, 实体列表请求, 实体列表页, 实体摘要,
+    世界快照数据, 世界快照请求, 世界概览, 夹紧每页, 字段值, 实体列表请求, 实体列表页, 实体摘要,
     实体详情, 属性修改结果, 属性修改请求, 应用元信息, 操作错误, 操作错误代码, 检查支持级别,
-    游标编码, 游标解析, 调试响应, 调试请求, 资源摘要, 资源详情,
+    游标编码, 游标解析, 调试响应, 调试请求, 资产统计, 资源摘要, 资源详情,
 };
 
 use crate::config::{支持的BEVY版本, 现在毫秒, 调试配置};
@@ -580,9 +580,7 @@ fn 采集资产统计(世界: &World) -> 资产统计 {
     if let Some(网格) = 世界.get_resource::<Assets<Mesh>>() {
         统计.网格数 = 网格.len().min(u32::MAX as usize) as u32;
         for (_, 资产) in 网格.iter() {
-            统计.网格顶点数 = 统计
-                .网格顶点数
-                .saturating_add(资产.count_vertices() as u64);
+            统计.网格顶点数 = 统计.网格顶点数.saturating_add(资产.count_vertices() as u64);
             统计.网格索引数 = 统计
                 .网格索引数
                 .saturating_add(资产.indices().map_or(0, |索引| 索引.len()) as u64);
@@ -602,9 +600,7 @@ fn 采集资产统计(世界: &World) -> 资产统计 {
     if let Some(音频) = 世界.get_resource::<Assets<AudioSource>>() {
         统计.音频数 = 音频.len().min(u32::MAX as usize) as u32;
         for (_, 资产) in 音频.iter() {
-            统计.音频字节数 = 统计
-                .音频字节数
-                .saturating_add(资产.bytes.len() as u64);
+            统计.音频字节数 = 统计.音频字节数.saturating_add(资产.bytes.len() as u64);
         }
     }
 

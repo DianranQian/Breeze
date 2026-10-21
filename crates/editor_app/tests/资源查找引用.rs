@@ -13,7 +13,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::build::构建宿主;
-use editor_app::config::{编辑器配置资源, 布局待保存};
+use editor_app::config::{布局待保存, 编辑器配置资源};
 use editor_app::diagnostics::诊断中心;
 use editor_app::physics_runtime::物理运行时状态;
 use editor_app::plugin::{
@@ -89,18 +89,14 @@ fn 建项目(世界: &mut World) -> (tempfile::TempDir, 项目相对路径, 项�
 
     let mut 甲 = 场景文档::新建("甲");
     let 甲实体 = 甲.生成实体("房屋", None);
-    甲.取可变(甲实体)
-        .expect("实体")
-        .加组件(精灵(资源.clone()));
+    甲.取可变(甲实体).expect("实体").加组件(精灵(资源.clone()));
     甲.同步资源表();
     let 甲路径 = 路径("scenes/甲.scene.ron");
     项目.保存场景(&甲路径, &甲).expect("保存甲");
 
     let mut 乙 = 场景文档::新建("乙");
     let 乙实体 = 乙.生成实体("另一间房", None);
-    乙.取可变(乙实体)
-        .expect("实体")
-        .加组件(精灵(资源.clone()));
+    乙.取可变(乙实体).expect("实体").加组件(精灵(资源.clone()));
     乙.同步资源表();
     let 乙路径 = 路径("scenes/乙.scene.ron");
     项目.保存场景(&乙路径, &乙).expect("保存乙");

@@ -235,6 +235,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "asset_files", 中文: "{} 个资源文件", 英文: "{} asset files" },
     词条 { 键: "asset_find_refs", 中文: "查找引用", 英文: "Find References" },
     词条 { 键: "asset_find_refs_count", 中文: "共 {} 处引用", 英文: "{} references" },
+    词条 { 键: "asset_find_refs_deleted_entity", 中文: "(已删除实体)", 英文: "(deleted entity)" },
     词条 { 键: "asset_find_refs_go", 中文: "定位", 英文: "Go to" },
     词条 { 键: "asset_find_refs_hint", 中文: "列出所有引用这个资源的场景与实体，可一键定位", 英文: "List every scene and entity referencing this asset, with jump-to" },
     词条 { 键: "asset_find_refs_none", 中文: "项目里没有任何场景引用它", 英文: "No scene in this project references it" },

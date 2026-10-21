@@ -20,7 +20,7 @@
 
 use bevy::prelude::*;
 use editor_core::project::项目描述;
-use editor_core::recovery::{比场景更新, 恢复点存储, 默认自动保存间隔秒};
+use editor_core::recovery::{恢复点存储, 比场景更新, 默认自动保存间隔秒};
 use editor_core::state::编辑器状态;
 
 use crate::plugin::{EditorStateHolder, UiStateHolder};
@@ -169,7 +169,10 @@ pub fn 扫描项目恢复点(界面: &mut editor_ui::界面状态, 项目: &项�
 ///
 /// 不写盘：用户看到内容后自己决定保存到哪里。这样即使恢复错了，
 /// 也不会破坏磁盘上的原场景。
-pub fn 恢复恢复点(编辑器: &mut 编辑器状态, 元数据: &editor_core::recovery::恢复点元数据) -> Result<(), String> {
+pub fn 恢复恢复点(
+    编辑器: &mut 编辑器状态,
+    元数据: &editor_core::recovery::恢复点元数据,
+) -> Result<(), String> {
     let Some(项目) = 编辑器.项目.as_ref() else {
         return Err("没有打开的项目".to_string());
     };

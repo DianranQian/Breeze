@@ -184,8 +184,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                     项: vec![
                         菜单项::常可用("instantiate_scene", None).需要(可用性::需要项目),
                         菜单项::常可用("save_subscene", None).需要(可用性::需要选中),
-                        菜单项::常可用("refresh_scene_instance", None)
-                            .需要(可用性::需要选中),
+                        菜单项::常可用("refresh_scene_instance", None).需要(可用性::需要选中),
                         菜单项::常可用("focus_selection", Some("F")).需要(可用性::需要选中),
                     ],
                 },

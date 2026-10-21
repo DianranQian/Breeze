@@ -305,7 +305,7 @@ pub fn 导出子树(
 #[cfg(test)]
 mod 测试 {
     use super::*;
-    use scene_doc::document::{场景实体, 变换数据};
+    use scene_doc::document::{变换数据, 场景实体};
 
     /// 造一个"子场景"：根 + 两个子节点，其中一个带组件。
     fn 造源场景() -> 场景文档 {

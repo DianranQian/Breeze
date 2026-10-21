@@ -12,7 +12,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use editor_app::actions;
 use editor_app::build::构建宿主;
-use editor_app::config::{编辑器配置资源, 布局待保存};
+use editor_app::config::{布局待保存, 编辑器配置资源};
 use editor_app::diagnostics::诊断中心;
 use editor_app::physics_runtime::物理运行时状态;
 use editor_app::plugin::{
@@ -23,7 +23,7 @@ use editor_app::scene_bridge::运行时宿主;
 use editor_core::arrange::{分布轴, 对齐边};
 use editor_core::project::项目描述;
 use editor_ui::state::{UiAction, 选择意图};
-use scene_doc::document::{场景文档, 变换数据, 实体标识};
+use scene_doc::document::{变换数据, 场景文档, 实体标识};
 use scene_doc::path::项目相对路径;
 
 fn 建测试世界() -> World {
@@ -76,7 +76,11 @@ fn 建场景(世界: &mut World) -> (tempfile::TempDir, Vec<实体标识>) {
 
     let mut 文档 = 场景文档::新建("对齐");
     let mut 标识 = Vec::new();
-    for (名称, x, y) in [("甲", 0.0_f32, 0.0_f32), ("乙", 100.0, 40.0), ("丙", 200.0, 90.0)] {
+    for (名称, x, y) in [
+        ("甲", 0.0_f32, 0.0_f32),
+        ("乙", 100.0, 40.0),
+        ("丙", 200.0, 90.0),
+    ] {
         let 实体 = 文档.生成实体(名称, None);
         let mut 变换 = 变换数据::单位();
         变换.平移 = (x, y, 0.0);
@@ -103,7 +107,12 @@ fn 左对齐后左边缘一致且能一步撤销() {
     推动作(&mut 世界, UiAction::选择(选择意图::设为(标识.clone())));
     执行动作(&mut 世界);
 
-    推动作(&mut 世界, UiAction::对齐选中 { 边: 对齐边::左 });
+    推动作(
+        &mut 世界,
+        UiAction::对齐选中 {
+            边: 对齐边::左
+        },
+    );
     执行动作(&mut 世界);
 
     // 默认精灵框半宽 32：左边缘 = x - 32。对齐后三者 x 必须相同。
@@ -130,7 +139,12 @@ fn 水平分布让中间实体等距() {
     推动作(&mut 世界, UiAction::选择(选择意图::设为(标识.clone())));
     执行动作(&mut 世界);
 
-    推动作(&mut 世界, UiAction::分布选中 { 轴: 分布轴::水平 });
+    推动作(
+        &mut 世界,
+        UiAction::分布选中 {
+            轴: 分布轴::水平
+        },
+    );
     执行动作(&mut 世界);
 
     let 甲 = 位置(&世界, 标识[0]).0;
@@ -149,16 +163,20 @@ fn 少于两个选中只告警不改文档() {
     执行动作(&mut 世界);
     let 之前 = 位置(&世界, 标识[0]);
 
-    推动作(&mut 世界, UiAction::对齐选中 { 边: 对齐边::左 });
+    推动作(
+        &mut 世界,
+        UiAction::对齐选中 {
+            边: 对齐边::左
+        },
+    );
     执行动作(&mut 世界);
 
     assert_eq!(位置(&世界, 标识[0]), 之前);
     assert!(!编辑(&世界).有未保存修改(), "被拒绝的操作不能写撤销栈");
     assert!(
-        编辑(&世界)
-            .日志列表()
-            .iter()
-            .any(|条目| 条目.渲染(editor_ui::i18n::语言::中文).contains("至少选中两个")),
+        编辑(&世界).日志列表().iter().any(|条目| 条目
+            .渲染(editor_ui::i18n::语言::中文)
+            .contains("至少选中两个")),
         "必须告诉用户为什么没反应"
     );
 }
@@ -169,11 +187,21 @@ fn 已经对齐时不产生撤销步() {
     let (_目录, 标识) = 建场景(&mut 世界);
     推动作(&mut 世界, UiAction::选择(选择意图::设为(标识.clone())));
     执行动作(&mut 世界);
-    推动作(&mut 世界, UiAction::对齐选中 { 边: 对齐边::左 });
+    推动作(
+        &mut 世界,
+        UiAction::对齐选中 {
+            边: 对齐边::左
+        },
+    );
     执行动作(&mut 世界);
     let 步数 = 编辑(&世界).可撤销步数();
 
-    推动作(&mut 世界, UiAction::对齐选中 { 边: 对齐边::左 });
+    推动作(
+        &mut 世界,
+        UiAction::对齐选中 {
+            边: 对齐边::左
+        },
+    );
     执行动作(&mut 世界);
 
     assert_eq!(

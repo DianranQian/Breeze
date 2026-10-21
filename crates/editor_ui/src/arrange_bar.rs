@@ -78,10 +78,8 @@ pub fn 绘制(
                             };
                             if ui
                                 .add(
-                                    egui::Button::new(
-                                        egui::RichText::new(文本).size(13.0),
-                                    )
-                                    .frame(false),
+                                    egui::Button::new(egui::RichText::new(文本).size(13.0))
+                                        .frame(false),
                                 )
                                 .on_hover_text(语言.取(边.词条键()))
                                 .clicked()
@@ -90,10 +88,8 @@ pub fn 绘制(
                             }
                         }
                         // 分隔线只画不点：一个点了没反应的按钮比没有按钮更让人困惑。
-                        let (分隔矩形, _) = ui.allocate_exact_size(
-                            egui::vec2(7.0, 工具条高度),
-                            egui::Sense::hover(),
-                        );
+                        let (分隔矩形, _) = ui
+                            .allocate_exact_size(egui::vec2(7.0, 工具条高度), egui::Sense::hover());
                         ui.painter().line_segment(
                             [
                                 egui::pos2(分隔矩形.center().x, 分隔矩形.top() + 6.0),
@@ -111,10 +107,8 @@ pub fn 绘制(
                             };
                             if ui
                                 .add(
-                                    egui::Button::new(
-                                        egui::RichText::new(文本).size(13.0),
-                                    )
-                                    .frame(false),
+                                    egui::Button::new(egui::RichText::new(文本).size(13.0))
+                                        .frame(false),
                                 )
                                 .on_hover_text(语言.取(轴.词条键()))
                                 .clicked()

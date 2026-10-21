@@ -133,3 +133,22 @@
 | R11 集成 | `cargo test -p editor_core --test 场景Uid补全` | 3 通过（打开标脏、保存后重开不脏、无资源不脏） |
 | R11 全量 | `cargo test --workspace` | 1132 通过 / 0 失败（`.verify/uid_on_open/all_tests.log`） |
 | R11 GUI | `.verify/uid_on_open/gui3/` | 控制台"已为 12 个资源补全稳定标识"，状态栏未保存 |
+
+## 10. 最终回归结果（R0–R11 收尾）
+
+本轮收尾跑了一遍完整门禁，并如实记录**哪些失败不属于本轮**。
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 格式 | `cargo fmt --all -- --check` | 通过（本轮自有文件已格式化；共享文件只格式化本轮 hunk 所在区域） |
+| 全量测试 | `cargo test --workspace` | **1132 通过 / 0 失败**（`.verify/final/all_tests.log`） |
+| 词表 | `python tools/gen_messages.py --check` | **6 → 5 条失败**；本轮新增键全部就位，剩余 5 条全部来自并行 UI 工作线未提交文案（`inspector_panel.rs` / `viewport_panel.rs` / `视觉规范` 模块名） |
+| 图标 | `cargo run -p icon_bake -- --check` | 通过（62 个图标，32×32） |
+| 全量 clippy | `cargo clippy --workspace --all-targets` | 仅剩既有告警：`bsn_bridge` 的 `impl Default` 可派生（来自并行线未提交文件）、`runtime_acceptance` 的 `len == 1`、BSN 测试的多余借用 |
+| GUI 回归 | `powershell tools/gui_acceptance.ps1 -Filter assets` | 通过（1 场景，14 条断言） |
+
+### 本轮修掉的一处 i18n 真实缺陷
+
+`查找引用行::文本()` 里把「(已删除实体)」硬编码成中文——英文界面会冒出一行中文。
+现在改为走词表（`asset_find_refs_deleted_entity`），并让函数接收语言参数。
+扫描脚本因此少了一条失败（6 → 5）。

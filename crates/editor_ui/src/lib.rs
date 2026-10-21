@@ -17,6 +17,7 @@ pub mod agent_permission;
 pub mod agent_repair;
 pub mod agent_review;
 pub mod agent_store;
+pub mod arrange_bar;
 pub mod asset_refs_panel;
 pub mod assets_panel;
 pub mod build_panel;
@@ -95,6 +96,15 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
     // 之后所有绘制只读 `上下文.配色` 的语义槽位。
     上下文.主题.应用(egui上下文);
     let 配色 = 上下文.配色;
+
+    // 浮层（对齐条）先于 DockArea 绘制，拿不到本帧视口矩形；
+    // 在清空之前把它存进界面状态，供浮层用上一帧的位置。
+    上下文.界面.上一帧视口矩形 = 上下文
+        .界面
+        .布局快照
+        .iter()
+        .find(|区域| 区域.标识 == "viewport")
+        .map(|区域| 区域.矩形);
 
     // 每帧重新测量。清空而不是复用：区域数量会随面板开关变化，
     // 复用会让已经关闭的面板以旧矩形残留在证据文件里。
@@ -1219,6 +1229,22 @@ impl 面板查看器<'_, '_> {
             配色,
             语言,
         ) {
+            self.上下文.动作.推(动作);
+        }
+        // 多选对齐/分布：浮在视口右上角，不占布局。
+        //
+        // 放在浮层而不是视口绘制里，有两个原因：视口只负责画场景；
+        // 而对齐条需要"视口矩形"，那正是布局快照里已经记下来的东西。
+        let 视口矩形 = self.上下文.界面.上一帧视口矩形;
+        if let Some(视口矩形) = 视口矩形
+            && let Some(动作) = arrange_bar::绘制(
+                egui上下文,
+                self.上下文,
+                视口矩形,
+                配色,
+                语言,
+            )
+        {
             self.上下文.动作.推(动作);
         }
         // 查找引用：资源被哪些场景/实体/字段引用，并可直接定位。

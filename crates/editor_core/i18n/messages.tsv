@@ -1037,6 +1037,15 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+arrange_title	对齐	Align
+align_left	左对齐	Align left
+align_center_h	水平居中	Center horizontally
+align_right	右对齐	Align right
+align_top	上对齐	Align top
+align_center_v	垂直居中	Center vertically
+align_bottom	下对齐	Align bottom
+distribute_h	水平等距分布	Distribute horizontally
+distribute_v	垂直等距分布	Distribute vertically
 asset_find_refs	查找引用	Find References
 asset_find_refs_hint	列出所有引用这个资源的场景与实体，可一键定位	List every scene and entity referencing this asset, with jump-to
 asset_find_refs_title	资源引用位置	Asset References

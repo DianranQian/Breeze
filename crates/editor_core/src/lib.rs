@@ -23,6 +23,7 @@
 //! 属于 `editor_app` 的 `scene_bridge` 模块职责。
 
 pub mod animation;
+pub mod arrange;
 pub mod asset_index;
 pub mod asset_uid;
 pub mod build;
@@ -60,6 +61,7 @@ pub mod 架构预留;
 pub use animation::{
     关键帧, 关键帧值, 动画会话, 动画属性, 动画播放状态, 动画文档, 动画格式版本, 动画轨道, 时间容差,
 };
+pub use arrange::{对齐盒, 对齐边, 分布轴, 计算分布, 计算对齐};
 pub use asset_index::{项目引用, 项目资源索引};
 pub use asset_uid::{标识表相对路径, 标识格式版本, 资源标识表};
 pub use build::{

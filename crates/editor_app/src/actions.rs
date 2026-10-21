@@ -1316,6 +1316,14 @@ fn 执行单个动作(
             界面状态.恢复点错误 = None;
         }
 
+        UiAction::对齐选中 { 边 } => {
+            对齐或分布选中(编辑器, 对齐请求::对齐(边));
+        }
+
+        UiAction::分布选中 { 轴 } => {
+            对齐或分布选中(编辑器, 对齐请求::分布(轴));
+        }
+
         UiAction::请求查找引用(资源) => {
             let Some(项目) = 编辑器.项目.clone() else {
                 编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());
@@ -4189,3 +4197,73 @@ fn 启动项目运行(
     ));
     Ok(())
 }
+
+/// 对齐/分布请求。
+enum 对齐请求 {
+    对齐(editor_core::arrange::对齐边),
+    分布(editor_core::arrange::分布轴),
+}
+
+/// 把"选中的多个实体"按请求对齐或分布。
+///
+/// 只产生**一条** `批量设变换` 命令：用户按一次 Ctrl+Z 应当回到整批操作
+/// 之前，而不是逐个退回。
+fn 对齐或分布选中(编辑器: &mut 编辑器状态, 请求: 对齐请求) {
+    let 选中 = 编辑器.选择.全部();
+    if 选中.len() < 2 {
+        编辑器.警告("对齐/分布需要至少选中两个实体".to_string());
+        return;
+    }
+
+    // 收集世界 AABB：复用 2D 视口的尺寸推断，保证"看到的框"就是"对齐用的框"。
+    let mut 盒子 = Vec::with_capacity(选中.len());
+    let mut 标识列表 = Vec::with_capacity(选中.len());
+    for 标识 in &选中 {
+        let Some(框) = editor_ui::viewport_panel::计算实体框(&编辑器.会话.文档, *标识)
+        else {
+            continue;
+        };
+        盒子.push(editor_core::arrange::对齐盒 {
+            位置: 框.中心,
+            最小: (框.中心.0 - 框.半宽, 框.中心.1 - 框.半高),
+            最大: (框.中心.0 + 框.半宽, 框.中心.1 + 框.半高),
+        });
+        标识列表.push(*标识);
+    }
+    if 盒子.len() < 2 {
+        编辑器.警告("选中的实体里没有足够的可变换对象".to_string());
+        return;
+    }
+
+    let 位移 = match 请求 {
+        对齐请求::对齐(边) => editor_core::arrange::计算对齐(&盒子, 边),
+        对齐请求::分布(轴) => editor_core::arrange::计算分布(&盒子, 轴),
+    };
+
+    let mut 项 = Vec::new();
+    for (标识, 偏移) in 标识列表.iter().zip(位移) {
+        if 偏移.0.abs() < f32::EPSILON && 偏移.1.abs() < f32::EPSILON {
+            continue;
+        }
+        let Some(当前) = 编辑器.会话.文档.取(*标识).and_then(|实体| 实体.变换) else {
+            continue;
+        };
+        let mut 新变换 = 当前;
+        新变换.平移.0 += 偏移.0;
+        新变换.平移.1 += 偏移.1;
+        项.push((*标识, Some(新变换)));
+    }
+    if 项.is_empty() {
+        // 已经对齐好了：不写撤销栈，只给一句提示。
+        编辑器.信息("已经对齐，没有需要移动的实体".to_string());
+        return;
+    }
+    let 数量 = 项.len();
+    if 编辑器
+        .执行并记录(editor_core::command::编辑器命令::批量设变换 { 项 })
+        .is_some()
+    {
+        编辑器.信息(format!("已调整 {数量} 个实体"));
+    }
+}
+

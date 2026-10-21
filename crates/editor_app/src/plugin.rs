@@ -1675,6 +1675,8 @@ pub fn 动作摘要(动作: &UiAction) -> String {
             format!("打开引用位置({})", 场景.文本())
         }
         UiAction::关闭查找引用 => "关闭查找引用".to_string(),
+        UiAction::对齐选中 { 边 } => format!("对齐选中({})", 边.词条键()),
+        UiAction::分布选中 { 轴 } => format!("分布选中({})", 轴.词条键()),
         UiAction::添加动画事件 { 类型, .. } => {
             format!("添加动画事件({})", 类型.代号())
         }

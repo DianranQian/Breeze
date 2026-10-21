@@ -115,3 +115,7 @@
 | R6 单元 | `cargo test -p editor_ui --lib picking3d` | 11 通过 |
 | R6 真实指针 | `gui_probe drag`（`.verify/box_select/drag3/`） | 逻辑 (650,380)→(860,520)，选择数 0→3，日志"执行选择动作 设为(3 项)" |
 | R6 全量 | `cargo test --workspace` | 1104 通过 / 0 失败（`.verify/box_select/all_tests.log`） |
+| R7 单元 | `cargo test -p editor_core --lib arrange` | 8 通过 |
+| R7 集成 | `cargo test -p editor_app --test 对齐分布` | 4 通过（含"已对齐不产生撤销步"） |
+| R7 全量 | `cargo test --workspace` | 1116 通过 / 0 失败（`.verify/arrange/all_tests.log`） |
+| R7 GUI | `.verify/arrange/bar3/` | 2D 多选 3 个实体时视口右上出现对齐条（浮层），probe 14 条断言通过 |

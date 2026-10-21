@@ -36,6 +36,7 @@ pub mod icons;
 pub mod inspector_panel;
 pub mod menu_bar;
 pub mod node_icons;
+pub mod picking3d;
 pub mod recovery_panel;
 pub mod runtime_panel;
 pub mod script;

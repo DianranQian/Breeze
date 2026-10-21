@@ -176,7 +176,16 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
     {
         let 局部 = egui::vec2(指针.x - 内容矩形.min.x, 指针.y - 内容矩形.min.y);
         if let Some(标识) = 最近实体(上下文, &新相机, 局部, 尺寸, 14.0) {
-            上下文.动作.推(UiAction::选择(选择意图::单选(标识)));
+            // 修饰键与 2D 视口一致：Shift 追加、Ctrl 切换。
+            // 3D 此前只能单选，多选只能回到场景树里 Ctrl 点击；
+            // 在一个"只能看、不能批量操作"的三维视口里，这是很实际的工作流缺口。
+            let 修饰 = ui.input(|输入| 输入.modifiers);
+            let 意图 = match crate::picking3d::拾取模式由修饰键(修饰.shift, 修饰.command) {
+                crate::picking3d::拾取模式::替换 => 选择意图::单选(标识),
+                crate::picking3d::拾取模式::追加 => 选择意图::追加(标识),
+                crate::picking3d::拾取模式::切换 => 选择意图::切换(标识),
+            };
+            上下文.动作.推(UiAction::选择(意图));
         }
     }
     上下文.界面.三维相机 = 新相机;
@@ -359,7 +368,10 @@ fn 最近实体(
     尺寸: egui::Vec2,
     阈值: f32,
 ) -> Option<scene_doc::document::实体标识> {
-    let mut 最佳: Option<(f32, scene_doc::document::实体标识)> = None;
+    // 决策规则集中在 `picking3d`：屏幕距离优先，距离接近时用相机深度兜底。
+    // 这里只负责把文档投影成候选，不做判断 —— 那样才有测试可写。
+    let 相机位置 = 相机.位置();
+    let mut 候选 = Vec::new();
     for 实体 in 上下文.编辑器.会话.文档.实体表.values() {
         let Some(变换) = 实体.变换 else {
             continue;
@@ -367,12 +379,18 @@ fn 最近实体(
         let Some(屏幕) = 相机.投影(变换.平移, 尺寸) else {
             continue;
         };
-        let 距离 = ((屏幕.x - 局部.x).powi(2) + (屏幕.y - 局部.y).powi(2)).sqrt();
-        if 距离 <= 阈值 && 最佳.as_ref().map(|(最, _)| 距离 < *最).unwrap_or(true) {
-            最佳 = Some((距离, 实体.标识));
+        let 屏幕距离 = ((屏幕.x - 局部.x).powi(2) + (屏幕.y - 局部.y).powi(2)).sqrt();
+        if 屏幕距离 > 阈值 {
+            continue;
         }
+        候选.push(crate::picking3d::候选(
+            实体.标识,
+            屏幕距离,
+            相机位置,
+            变换.平移,
+        ));
     }
-    最佳.map(|(_, 标识)| 标识)
+    crate::picking3d::最佳拾取(&候选, 阈值)
 }
 
 /// 世界点 → 屏幕像素。

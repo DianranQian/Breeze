@@ -109,3 +109,6 @@
 | R4 集成 | `cargo test -p editor_app --test 资源查找引用` | 5 通过 |
 | R4 全量 | `cargo test --workspace` | 1093 通过 / 0 失败（`.verify/find_refs/all_tests.log`） |
 | R4 GUI | `.verify/find_refs/dialog/` | 真实引用位置 + 定位按钮，probe 14 条断言通过 |
+| R5 单元 | `cargo test -p editor_ui --lib picking3d` | 8 通过 |
+| R5 全量 | `cargo test --workspace` | 1101 通过 / 0 失败（`.verify/multi_select/all_tests.log`） |
+| R5 GUI | `.verify/multi_select/3d_demo/` | 3D 模式选中 3 个实体，场景树/检查器/视口一致 |

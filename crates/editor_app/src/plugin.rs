@@ -503,6 +503,10 @@ impl Plugin for BevyStudio插件 {
                 Startup,
                 按环境变量演示动画事件.after(按环境变量打开项目),
             )
+            .add_systems(
+                Startup,
+                按环境变量多选.after(按环境变量打开项目),
+            )
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
@@ -834,6 +838,13 @@ pub const 打开项目设置环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT_SETTI
 /// 它打开的是**真实的**对话框状态，引用列表也是真索引算出来的。
 pub const 资源对话框环境变量: &str = "BEVY_STUDIO_OPEN_ASSET_DIALOG";
 
+/// 启动时选中前 N 个实体（自动验收用）。
+///
+/// 3D 多选没有可自动化的"按住 Ctrl 点击"——`gui_probe` 的指针注入目前
+/// 不带修饰键。这个入口只把**选择集**摆成多选状态，用来验证"多选在三维
+/// 视口里确实被画出来、Inspector 也认得"，不假装验证了点击路径。
+pub const 多选验收环境变量: &str = "BEVY_STUDIO_SELECT_COUNT";
+
 /// 启动时生成一条**真实**恢复点并打开恢复对话框（自动验收用）。
 ///
 /// 只用于截图与回归：它用当前场景真实内容写恢复点，再走与启动扫描
@@ -1136,6 +1147,33 @@ fn 按环境变量打开恢复对话框(
         }
         Err(错误) => warn!("生成恢复点失败：{错误}"),
     }
+}
+
+/// 启动时按环境变量选中前 N 个实体（自动验收用）。
+fn 按环境变量多选(mut 编辑器: ResMut<EditorStateHolder>) {
+    let Ok(数量) = std::env::var(多选验收环境变量) else {
+        return;
+    };
+    let Ok(数量) = 数量.trim().parse::<usize>() else {
+        warn!("{多选验收环境变量} 需要一个数字，收到：{数量}");
+        return;
+    };
+    let 标识: Vec<scene_doc::document::实体标识> = 编辑器
+        .状态
+        .会话
+        .文档
+        .深度优先遍历()
+        .into_iter()
+        .map(|(标识, _)| 标识)
+        .take(数量.max(1))
+        .collect();
+    if 标识.is_empty() {
+        warn!("场景是空的，无法演示多选");
+        return;
+    }
+    let 个数 = 标识.len();
+    编辑器.状态.选择.设为(标识);
+    info!("已按环境变量选中 {个数} 个实体");
 }
 
 /// 启动时生成一份**带事件**的动画（自动验收用）。

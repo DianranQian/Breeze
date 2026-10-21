@@ -24,6 +24,7 @@
 
 pub mod animation;
 pub mod asset_index;
+pub mod asset_uid;
 pub mod build;
 pub mod cargo_metadata;
 pub mod cargo_project;
@@ -59,6 +60,7 @@ pub use animation::{
     关键帧, 关键帧值, 动画会话, 动画属性, 动画播放状态, 动画文档, 动画格式版本, 动画轨道, 时间容差,
 };
 pub use asset_index::{项目引用, 项目资源索引};
+pub use asset_uid::{标识表相对路径, 标识格式版本, 资源标识表};
 pub use build::{
     代码位置, 构建快照, 构建报告, 构建状态, 构建诊断, 构建配置, 构建配置类型, 编译事件,
     解析编译事件, 诊断级别,

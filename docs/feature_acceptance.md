@@ -92,3 +92,9 @@
 | GUI 对话框 | `.verify/asset_ops/delete_dialog/`、`.verify/asset_ops/rename_dialog/` | probe 通过（14 断言） |
 | 代码风格 | `cargo clippy -p scene_doc -p editor_core -p editor_app -p editor_ui --all-targets` | 本轮新增代码 0 警告（既有告警另见报告） |
 | 词表 | `python tools/gen_messages.py --check` | 本轮新增键全部就位；仍有 5 条来自并行 UI 工作线未提交文案 |
+| R1 单元 | `cargo test -p editor_core --lib asset_uid` | 7 通过 |
+| R1 项目层 | `cargo test -p editor_core --lib project::测试` | 含 UID 同步/写盘/回连/冲突 4 条 |
+| R1 应用层 | `cargo test -p editor_app --lib asset_ops` | 7 通过（新增重命名保 UID、删除移除 UID） |
+| R1 集成 | `cargo test -p editor_app --test 资源标识重连` | 3 通过 |
+| R1 全量 | `cargo test --workspace` | 1064 通过 / 0 失败（`.verify/asset_ops/uid_tests.log`） |
+| R1 GUI | `.verify/asset_ops/uid_dialog/` | 真实打开示例副本，生成 `.breeze/asset_uids.ron`，删除对话框仍通过 14 条断言 |

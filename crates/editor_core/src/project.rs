@@ -35,6 +35,7 @@ use scene_doc::path::{路径错误, 项目相对路径};
 use scene_doc::property::资源类别;
 use scene_doc::storage::{场景存储, 文件系统场景存储};
 
+use crate::asset_uid::{标识表相对路径 as 标识表路径, 资源标识表};
 use crate::cargo_project::{Cargo工程, Cargo识别错误};
 
 /// 项目清单文件名。
@@ -295,7 +296,7 @@ pub enum 项目错误 {
 
 impl 项目错误 {
     /// 构造一个文件错误。
-    fn 文件错误(路径: impl Into<PathBuf>, 来源: std::io::Error) -> Self {
+    pub(crate) fn 文件错误(路径: impl Into<PathBuf>, 来源: std::io::Error) -> Self {
         Self::文件 {
             路径: 路径.into(),
             来源,
@@ -326,6 +327,12 @@ pub struct 项目描述 {
     /// 对微风项目没有意义（那种项目的运行目标写在 `project.ron` 里，
     /// 由 [`项目清单::运行`] 权威表达），因此恒为 `None`。
     运行入口: Option<crate::run_entry::运行入口>,
+    /// 资源稳定标识表（路径 → UID）。
+    ///
+    /// 只在**微风项目**里落盘到 `.breeze/asset_uids.ron`；
+    /// 原生 Cargo 工程可以在内存里维护，但不写文件（原因见
+    /// [`crate::asset_uid`] 的模块说明）。
+    资源标识: crate::asset_uid::资源标识表,
 }
 
 impl 项目描述 {
@@ -364,6 +371,7 @@ impl 项目描述 {
             识别来源: None,
             识别提示: None,
             运行入口: None,
+            资源标识: crate::asset_uid::资源标识表::default(),
         };
 
         // 建目录
@@ -439,6 +447,20 @@ impl 项目描述 {
             });
         }
 
+        // 标识表损坏时**不阻止打开项目**：场景与资源仍然可用，
+        // 标识只影响"外部移动后的重连"。把错误留给调用方显示，
+        // 而不是让用户对着一个打不开的工程。
+        let 资源标识 = match crate::asset_uid::资源标识表::读取(&根.join(标识表路径)) {
+            Ok(表) => 表,
+            Err(错误) => {
+                let 空表 = crate::asset_uid::资源标识表::default();
+                // 用 eprintln 而不是日志框架：这一层不依赖日志设施，
+                // 且这是必须在第一时间看见的告警。
+                eprintln!("资源标识表读取失败，已按空表继续：{错误}");
+                空表
+            }
+        };
+
         Ok(Self {
             根目录: 根,
             清单,
@@ -447,6 +469,7 @@ impl 项目描述 {
             识别来源: None,
             识别提示: None,
             运行入口: None,
+            资源标识,
         })
     }
 
@@ -519,6 +542,8 @@ impl 项目描述 {
                 .as_ref()
                 .map(|错误| format!("{}：{}", 错误.代号(), 错误.说明())),
             运行入口,
+            // 原生工程不写 `.breeze/`：它没有微风清单，也不该被塞一个。
+            资源标识: crate::asset_uid::资源标识表::default(),
         })
     }
 
@@ -993,6 +1018,140 @@ impl 项目描述 {
     /// 导入清单的绝对路径。
     pub fn 导入清单路径(&self) -> PathBuf {
         self.根目录.join(导入清单文件名)
+    }
+
+    // ------------------------------------------------------------------
+    // 资源稳定标识（UID）
+    // ------------------------------------------------------------------
+
+    /// 标识表在磁盘上的绝对路径。
+    pub fn 资源标识路径(&self) -> PathBuf {
+        self.根目录.join(标识表路径)
+    }
+
+    /// 只读的标识表。
+    pub fn 资源标识(&self) -> &资源标识表 {
+        &self.资源标识
+    }
+
+    /// 可变的标识表（调用方改完要自己调用 [`项目描述::保存资源标识`]）。
+    pub fn 资源标识可变(&mut self) -> &mut 资源标识表 {
+        &mut self.资源标识
+    }
+
+    /// 标识表是否可以落盘。
+    ///
+    /// 只有微风项目写 `.breeze/asset_uids.ron`；原生 Cargo 工程不写，
+    /// 因为那会给一个本来干净的原生工程凭空造出编辑器私有目录。
+    pub fn 资源标识可落盘(&self) -> bool {
+        self.类型 == 项目类型::微风
+    }
+
+    /// 保存标识表。原生工程直接返回 `Ok(())`（不写文件）。
+    pub fn 保存资源标识(&self) -> 项目结果<()> {
+        if !self.资源标识可落盘() {
+            return Ok(());
+        }
+        self.资源标识.保存(&self.资源标识路径())
+    }
+
+    /// 与磁盘上的资源文件同步标识表，并在可落盘时写回。
+    ///
+    /// 返回 `(新增, 移除)`。这是"新导入的文件自动获得 UID、
+    /// 已删除文件的 UID 被清理"的唯一入口。
+    pub fn 同步资源标识(&mut self) -> 项目结果<(usize, usize)> {
+        let 资源: Vec<项目相对路径> = self
+            .资源列表()
+            .into_iter()
+            .filter(|条目| !条目.是目录)
+            .map(|条目| 条目.路径)
+            .collect();
+        let 变化 = self.资源标识.同步(&资源);
+        self.保存资源标识()?;
+        Ok(变化)
+    }
+
+    /// 把文档里记录的标识补进标识表，并把表里的标识写回文档。
+    ///
+    /// # 为什么要双向
+    ///
+    /// * 文档 → 表：旧场景里已经记录过 `唯一标识` 的资源，
+    ///   不该在第一次同步时被换成新 UUID；
+    /// * 表 → 文档：保存场景时把标识真正写进文件，
+    ///   下次在文件管理器里移动资源时才有东西可以按 UID 回连。
+    ///
+    /// 返回补进表的条数。调用方负责随后保存表与场景。
+    pub fn 对齐文档标识(&mut self, 文档: &mut scene_doc::document::场景文档) -> usize {
+        let mut 补入 = 0;
+        for (路径, 引用) in 文档.资源表.iter_mut() {
+            match 引用.唯一标识 {
+                Some(已有) => {
+                    let 文本 = 路径.文本().to_string();
+                    if let std::collections::btree_map::Entry::Vacant(空位) =
+                        self.资源标识.标识.entry(文本)
+                    {
+                        空位.insert(已有.0);
+                        补入 += 1;
+                    }
+                }
+                None => {
+                    let (标识, 新建) = self.资源标识.确保(路径);
+                    引用.唯一标识 = Some(scene_doc::path::资源唯一标识(标识));
+                    if 新建 {
+                        补入 += 1;
+                    }
+                }
+            }
+        }
+        补入
+    }
+
+    /// 按 UID 修复一份文档里"路径已失效、但资源还在别处"的引用。
+    ///
+    /// 这是"用户在系统文件管理器里移动了资源"的补救路径：
+    /// 路径对不上时，用文档里记录的 UID 去标识表里找它现在在哪。
+    ///
+    /// 只在**路径确实不存在**且 **UID 能唯一确定一个现存路径**时才改；
+    /// 冲突（同一 UID 多个路径）或找不到时原样保留，由调用方报告。
+    pub fn 按标识修复文档(
+        &self, 文档: &mut scene_doc::document::场景文档
+    ) -> crate::asset_uid::修复报告 {
+        let mut 报告 = crate::asset_uid::修复报告::default();
+        // 先收集要改的，再统一走 `改资源路径`：后者会同时改资源表与
+        // 组件里内嵌的引用值，避免出现"表改了、Sprite 还指向旧路径"。
+        let 冲突 = self.资源标识.冲突标识();
+        let mut 待改: Vec<(项目相对路径, 项目相对路径)> = Vec::new();
+        for (路径, 引用) in &文档.资源表 {
+            if self.绝对路径(路径).is_file() {
+                continue;
+            }
+            let Some(标识) = 引用.唯一标识 else {
+                报告.无标识缺失.push(路径.clone());
+                continue;
+            };
+            let Some(现状) = self.资源标识.按标识查路径(&标识.0) else {
+                if 冲突.contains_key(&标识.0) {
+                    报告.冲突.push(路径.clone());
+                } else {
+                    报告.无法找回.push(路径.clone());
+                }
+                continue;
+            };
+            let Ok(新路径) = 项目相对路径::解析(现状) else {
+                报告.无法找回.push(路径.clone());
+                continue;
+            };
+            if !self.绝对路径(&新路径).is_file() {
+                报告.无法找回.push(路径.clone());
+                continue;
+            }
+            待改.push((路径.clone(), 新路径));
+        }
+        for (旧, 新) in 待改 {
+            文档.改资源路径(&旧, &新);
+            报告.已修复.push((旧, 新));
+        }
+        报告
     }
 
     /// 读取导入清单。文件不存在或损坏时返回空清单。
@@ -1585,6 +1744,9 @@ pub fn 清理文件名(输入: &str) -> String {
 mod 测试 {
     use super::*;
 
+    use scene_doc::document::场景文档;
+    use scene_doc::property::属性值;
+
     /// 建一个临时项目，并在其中写一个资源文件与一个场景文件。
     fn 建项目() -> (tempfile::TempDir, 项目描述) {
         let 目录 = tempfile::tempdir().expect("临时目录");
@@ -1725,5 +1887,105 @@ mod 测试 {
         assert_eq!(缺失.len(), 1, "应当报告一条缺失引用：{缺失:?}");
         assert_eq!(缺失[0].场景, 场景路径);
         assert!(缺失[0].资源.文本().contains("丢失.png"));
+    }
+
+    #[test]
+    fn 同步资源标识会写盘并给新文件分配标识() {
+        let (_目录, mut 项目) = 建项目();
+        std::fs::write(项目.根目录().join("assets").join("新图.png"), b"a").expect("写资源");
+        let (新增, 移除) = 项目.同步资源标识().expect("同步");
+        assert_eq!(新增, 1);
+        assert_eq!(移除, 0);
+        assert!(项目.资源标识路径().is_file(), "微风项目必须落盘");
+
+        let 重开 = 项目描述::打开(项目.根目录()).expect("重开");
+        assert_eq!(
+            重开.资源标识().取(&项目相对路径::解析("assets/新图.png").unwrap()),
+            项目.资源标识().取(&项目相对路径::解析("assets/新图.png").unwrap()),
+            "重新打开后标识必须一致"
+        );
+    }
+
+    #[test]
+    fn 保存场景时把标识写进文件并补进表() {
+        let (_目录, mut 项目) = 建项目();
+        let mut 文档 = 场景文档::新建("带引用");
+        文档.资源表.insert(
+            项目相对路径::解析("assets/引用.png").unwrap(),
+            scene_doc::document::资源引用 {
+                路径: 项目相对路径::解析("assets/引用.png").unwrap(),
+                唯一标识: None,
+            },
+        );
+        let 补入 = 项目.对齐文档标识(&mut 文档);
+        assert_eq!(补入, 1, "表里没有的引用应当生成标识并补入");
+        assert!(文档.资源表.values().all(|引用| 引用.唯一标识.is_some()));
+
+        // 再对齐一次不应产生新条目。
+        let 再次 = 项目.对齐文档标识(&mut 文档);
+        assert_eq!(再次, 0, "标识必须稳定");
+    }
+
+    #[test]
+    fn 外部移动文件后能按标识修复引用() {
+        let (_目录, mut 项目) = 建项目();
+        let 旧 = 项目相对路径::解析("assets/搬家.png").unwrap();
+        let 新 = 项目相对路径::解析("assets/textures/搬家.png").unwrap();
+        std::fs::write(项目.绝对路径(&旧), b"x").expect("写资源");
+        项目.同步资源标识().expect("同步");
+        let 标识 = 项目.资源标识().取(&旧).expect("应当有标识");
+
+        // 场景记录旧路径 + 标识。
+        let mut 文档 = 场景文档::新建("搬迁");
+        let 实体 = 文档.生成实体("房屋", None);
+        let mut 属性 = BTreeMap::new();
+        属性.insert(
+            "texture".to_string(),
+            属性值::资源(scene_doc::property::资源引用值::完整(旧.clone(), 标识)),
+        );
+        文档
+            .取可变(实体)
+            .expect("实体")
+            .加组件(scene_doc::document::组件数据::新建("Sprite", 属性));
+        文档.同步资源表();
+
+        // 模拟用户绕过编辑器移动文件：表里的路径同步更新。
+        std::fs::create_dir_all(项目.根目录().join("assets").join("textures"))
+            .expect("建目录");
+        std::fs::rename(项目.绝对路径(&旧), 项目.绝对路径(&新)).expect("移动文件");
+        项目.资源标识可变().重命名(&旧, &新);
+        项目.保存资源标识().expect("保存表");
+
+        let 报告 = 项目.按标识修复文档(&mut 文档);
+        assert_eq!(报告.已修复.len(), 1, "应当修复一处：{报告:?}");
+        assert!(文档.资源表.contains_key(&新));
+        assert!(!文档.资源表.contains_key(&旧));
+        assert!(文档.校验().无问题(), "修复后文档应当自洽");
+    }
+
+    #[test]
+    fn 标识冲突时不猜路径() {
+        let (_目录, mut 项目) = 建项目();
+        let 甲 = 项目相对路径::解析("assets/甲.png").unwrap();
+        let 乙 = 项目相对路径::解析("assets/乙.png").unwrap();
+        std::fs::write(项目.绝对路径(&甲), b"a").expect("写资源");
+        std::fs::write(项目.绝对路径(&乙), b"b").expect("写资源");
+        项目.同步资源标识().expect("同步");
+
+        // 人为制造冲突：两条路径共用同一标识。
+        let 标识 = 项目.资源标识().取(&甲).expect("标识");
+        项目.资源标识可变().标识.insert(乙.文本().to_string(), 标识);
+
+        let mut 文档 = 场景文档::新建("冲突");
+        文档.资源表.insert(
+            项目相对路径::解析("assets/丢失.png").unwrap(),
+            scene_doc::document::资源引用 {
+                路径: 项目相对路径::解析("assets/丢失.png").unwrap(),
+                唯一标识: Some(scene_doc::path::资源唯一标识::从(标识)),
+            },
+        );
+        let 报告 = 项目.按标识修复文档(&mut 文档);
+        assert_eq!(报告.冲突.len(), 1, "冲突必须被报告：{报告:?}");
+        assert!(报告.已修复.is_empty(), "不能替用户猜");
     }
 }

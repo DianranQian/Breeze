@@ -1037,6 +1037,15 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+anim_event_audio	音效	Audio
+anim_event_logic	逻辑	Logic
+anim_event_custom	自定义	Custom
+anim_events	事件	Events
+anim_event_add	在此处添加事件	Add event here
+anim_event_delete	删除此事件	Delete this event
+anim_event_name	事件名称	Event name
+anim_event_empty_hint	双击事件行可在该时刻添加事件（音效/逻辑/自定义）	Double-click the Events row to add an event at that time (audio/logic/custom)
+log_anim_event_fired	动画事件：{}	Animation event: {}
 recovery_discard	丢弃	Discard
 recovery_intro	检测到上次异常退出时未保存的编辑。恢复只把内容装进编辑器，不会覆盖磁盘上的场景文件。	Unsaved edits from an abnormal exit were found. Restoring only loads them into the editor; it never overwrites scene files on disk.
 recovery_item_meta	{} 个实体 · 记录时间 {}	{} entities · recorded at {}

@@ -102,3 +102,7 @@
 | R1.5 集成 | `cargo test -p editor_app --test 自动保存恢复` | 6 通过（含"保存后恢复点必须消失"） |
 | R1.5 全量 | `cargo test --workspace` | 1077 通过 / 0 失败（`.verify/recovery/all_tests.log`） |
 | R1.5 GUI | `.verify/recovery/dialog/` | 真实恢复点 + 对话框，probe 14 条断言通过 |
+| R3 单元 | `cargo test -p editor_core --lib animation` | 32 通过（含 6 条事件语义） |
+| R3 集成 | `cargo test -p editor_app --test 动画事件` | 5 通过 |
+| R3 全量 | `cargo test --workspace` | 1088 通过 / 0 失败（`.verify/anim_events/all_tests.log`） |
+| R3 GUI | `.verify/anim_events/timeline_clean/` | 时间轴事件行两个标记，probe 14 条断言通过 |

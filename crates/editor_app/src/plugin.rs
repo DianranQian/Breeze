@@ -499,6 +499,10 @@ impl Plugin for BevyStudio插件 {
                 Startup,
                 按环境变量打开恢复对话框.after(按环境变量打开项目),
             )
+            .add_systems(
+                Startup,
+                按环境变量演示动画事件.after(按环境变量打开项目),
+            )
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
@@ -1101,6 +1105,78 @@ fn 按环境变量打开恢复对话框(
     }
 }
 
+/// 启动时生成一份**带事件**的动画（自动验收用）。
+///
+/// 走真实数据结构与真实项目资源：事件引用项目里第一个音频文件（没有就
+/// 用逻辑事件）。这样截图里的三角标记、事件行与播放触发都是真数据。
+pub const 动画事件验收环境变量: &str = "BEVY_STUDIO_ANIMATION_EVENTS";
+
+fn 按环境变量演示动画事件(
+    mut 编辑器: ResMut<EditorStateHolder>,
+    mut 界面: ResMut<UiStateHolder>,
+) {
+    if std::env::var(动画事件验收环境变量).is_err() {
+        return;
+    }
+    let Some(项目) = 编辑器.状态.项目.as_ref() else {
+        warn!("环境变量要求演示动画事件，但当前没有打开项目");
+        return;
+    };
+    let 音频 = 项目
+        .资源列表()
+        .into_iter()
+        .find(|条目| !条目.是目录 && 条目.类别 == scene_doc::property::资源类别::音频)
+        .map(|条目| 条目.路径.文本().to_string());
+    let 实体 = 编辑器
+        .状态
+        .会话
+        .文档
+        .深度优先遍历()
+        .first()
+        .map(|(标识, _)| *标识);
+    let Some(实体) = 实体 else {
+        warn!("场景是空的，无法演示动画事件");
+        return;
+    };
+
+    let mut 会话 = editor_core::animation::动画会话::新建("事件演示");
+    会话.文档.时长 = 3.0;
+    let 轨道 = 会话
+        .文档
+        .轨道路径(实体, editor_core::animation::动画属性::平移);
+    轨道.插入(editor_core::animation::关键帧::新建(
+        0.0,
+        editor_core::animation::关键帧值::向量3([0.0, 0.0, 0.0]),
+    ));
+    轨道.插入(editor_core::animation::关键帧::新建(
+        3.0,
+        editor_core::animation::关键帧值::向量3([2.0, 0.0, 0.0]),
+    ));
+    let 事件 = match 音频 {
+        Some(资源) => editor_core::animation::动画事件::新建(
+            1.0,
+            editor_core::animation::事件类型::音效,
+            资源,
+        ),
+        None => editor_core::animation::动画事件::新建(
+            1.0,
+            editor_core::animation::事件类型::音效,
+            "assets/audio/未指定.ogg",
+        ),
+    };
+    会话.文档.插入事件(事件);
+    会话
+        .文档
+        .插入事件(editor_core::animation::动画事件::新建(
+            2.0,
+            editor_core::animation::事件类型::逻辑,
+            "开门",
+        ));
+    编辑器.状态.动画 = Some(会话);
+    界面.状态.聚焦面板(editor_ui::Tab::时间轴);
+    info!("已按环境变量生成带事件的动画，并聚焦时间轴");
+}
+
 /// 启动时按环境变量把某个面板切到前台。
 ///
 /// # 为什么需要它
@@ -1521,6 +1597,10 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         }
         UiAction::关闭删除资源 => "关闭删除资源".to_string(),
         UiAction::检查资源使用 => "检查资源使用".to_string(),
+        UiAction::添加动画事件 { 类型, .. } => {
+            format!("添加动画事件({})", 类型.代号())
+        }
+        UiAction::删除动画事件 { 时间 } => format!("删除动画事件({时间})"),
         UiAction::恢复自动保存(元数据) => {
             format!("恢复自动保存({})", 元数据.场景名)
         }

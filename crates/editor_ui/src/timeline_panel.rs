@@ -342,6 +342,91 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         .id_salt("timeline_tracks")
         .auto_shrink([false, false])
         .show(ui, |ui| {
+            // ---- 事件行 ----
+            //
+            // 事件不是"某个实体的某个属性"，因此不占轨道列表的一行，
+            // 而是固定在轨道上方单独一行。双击添加、右键选类型，
+            // 与关键帧的交互保持同一套（双击 = 在指针时刻创建）。
+            let (事件行, 事件响应) = ui
+                .allocate_exact_size(egui::vec2(可用宽, 轨道行高), egui::Sense::click());
+            let 事件绘制 = ui.painter_at(事件行);
+            let 事件左 = 事件行.left();
+            let 事件轨道矩形 = egui::Rect::from_min_max(
+                egui::pos2(事件左 + 名称列宽, 事件行.top() + 2.0),
+                egui::pos2(事件左 + 名称列宽 + 轨道宽, 事件行.bottom() - 2.0),
+            );
+            事件绘制.rect_filled(事件轨道矩形, 2.0, 配色.面板次背景);
+            事件绘制.text(
+                egui::pos2(事件左 + 4.0, 事件行.center().y),
+                egui::Align2::LEFT_CENTER,
+                语言.取("anim_events"),
+                egui::FontId::proportional(11.0),
+                配色.文字,
+            );
+            let 事件列表 = 上下文
+                .编辑器
+                .动画
+                .as_ref()
+                .map(|会话| 会话.文档.事件.clone())
+                .unwrap_or_default();
+            let mut 命中事件: Option<f32> = None;
+            for 事件 in &事件列表 {
+                let x = 轨道x(事件左, 事件.时间);
+                let 中心 = egui::pos2(x, 事件轨道矩形.center().y);
+                // 事件用三角形，与关键帧的菱形区分开：一眼能看出这行是事件。
+                let 三角 = vec![
+                    中心 + egui::vec2(0.0, -菱形半径 - 1.0),
+                    中心 + egui::vec2(菱形半径 + 1.0, 菱形半径),
+                    中心 + egui::vec2(-菱形半径 - 1.0, 菱形半径),
+                ];
+                let 颜色 = match 事件.类型 {
+                    editor_core::animation::事件类型::音效 => 配色.成功,
+                    editor_core::animation::事件类型::逻辑 => 配色.强调,
+                    editor_core::animation::事件类型::自定义 => 配色.次要文字,
+                };
+                事件绘制.add(egui::Shape::convex_polygon(三角, 颜色, egui::Stroke::NONE));
+                if let Some(位置) = 事件响应.interact_pointer_pos()
+                    && 事件响应.clicked()
+                    && (位置.x - x).abs() <= 菱形半径 + 4.0
+                {
+                    命中事件 = Some(事件.时间);
+                }
+            }
+            if let Some(时间) = 命中事件 {
+                上下文.动作.推(UiAction::动画定位(时间));
+            }
+            // 双击事件行：在该时刻添加逻辑事件（最常用），类型可在右键里换。
+            if 事件响应.double_clicked()
+                && let Some(位置) = 事件响应.interact_pointer_pos()
+                && 位置.x >= 事件左 + 名称列宽
+            {
+                let 时间 = 反解时间(事件左, 位置.x);
+                上下文.动作.推(UiAction::动画定位(时间));
+                上下文.动作.推(UiAction::添加动画事件 {
+                    时间,
+                    类型: editor_core::animation::事件类型::逻辑,
+                });
+            }
+            事件响应.context_menu(|ui| {
+                ui.label(语言.取("anim_events"));
+                for 类型 in editor_core::animation::事件类型::全部 {
+                    if ui.button(语言.取(类型.词条键())).clicked() {
+                        let 时间 = 上下文.编辑器.动画播放.时间;
+                        上下文.动作.推(UiAction::添加动画事件 { 时间, 类型 });
+                        ui.close();
+                    }
+                }
+                ui.separator();
+                if ui
+                    .button(egui::RichText::new(语言.取("anim_event_delete")).color(配色.错误))
+                    .clicked()
+                {
+                    let 时间 = 上下文.编辑器.动画播放.时间;
+                    上下文.动作.推(UiAction::删除动画事件 { 时间 });
+                    ui.close();
+                }
+            });
+
             if 轨道列表.is_empty() {
                 ui.label(
                     egui::RichText::new(语言.取("anim_no_tracks"))

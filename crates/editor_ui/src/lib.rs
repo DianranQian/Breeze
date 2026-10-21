@@ -35,6 +35,7 @@ pub mod icons;
 pub mod inspector_panel;
 pub mod menu_bar;
 pub mod node_icons;
+pub mod runtime_panel;
 pub mod script;
 pub mod state;
 pub mod theme;
@@ -962,6 +963,8 @@ impl 面板查看器<'_, '_> {
             运行时信息: self.上下文.运行时信息,
             构建: self.上下文.构建,
             运行: self.上下文.运行,
+            调试: self.上下文.调试,
+            调试历史: self.上下文.调试历史,
             统一诊断: self.上下文.统一诊断,
             导入状态: self.上下文.导入状态,
             配置目录: self.上下文.配置目录,
@@ -1088,7 +1091,7 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
             Tab::资源浏览器 => assets_panel::绘制(ui, &mut 上下文),
             Tab::控制台 => console_panel::绘制(ui, &mut 上下文),
             Tab::历史 => history_panel::绘制历史(ui, &mut 上下文),
-            Tab::运行时ecs => history_panel::绘制运行时(ui, &mut 上下文),
+            Tab::运行时ecs => runtime_panel::绘制(ui, &mut 上下文),
             Tab::性能 => history_panel::绘制性能(ui, &mut 上下文),
             Tab::脚本 => script::绘制(ui, &mut 上下文),
             Tab::构建 => build_panel::绘制(ui, &mut 上下文),

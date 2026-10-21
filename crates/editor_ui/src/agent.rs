@@ -384,6 +384,8 @@ pub enum 上下文种类 {
     诊断,
     /// 原生 Cargo/Bevy 工程结构（workspace、crate、入口）。
     Cargo工程,
+    /// 游戏进程的真实运行时 ECS 快照（含来源与可信度）。
+    运行时,
 }
 
 impl 上下文种类 {
@@ -397,6 +399,7 @@ impl 上下文种类 {
             上下文种类::代码 => "script",
             上下文种类::诊断 => "diagnostics",
             上下文种类::Cargo工程 => "agent_context_cargo",
+            上下文种类::运行时 => "runtime_debug_context_kind",
         }
     }
 }

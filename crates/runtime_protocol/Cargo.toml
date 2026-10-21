@@ -1,0 +1,12 @@
+[package]
+name = "runtime_protocol"
+description = "微风运行时调试协议：独立、版本化、不依赖 Bevy 的跨进程数据模型与帧编解码。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

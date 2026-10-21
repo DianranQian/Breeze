@@ -1,0 +1,22 @@
+[package]
+name = "breeze_debug_adapter"
+description = "微风运行时调试的游戏端 Bevy 适配器：把真实 ECS 世界映射成独立协议。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# 这个版本**只声明**支持 Bevy 0.20。Bevy 0.19 需要单独的适配器分支：
+# 直接把两个 feature 塞进同一个 crate 会让依赖解析变成"二选一"，而
+# 编辑器侧协议 crate 完全不依赖 Bevy，因此可以同时服务两个适配器。
+[dependencies]
+# `debug` 不是"打印日志"：Bevy 0.20 只有在启用它之后才会在
+# `ComponentInfo::name()` 里返回真实类型名；不启用时读到的是
+# "<Enable the debug feature to see the name>"。运行时检查器必须显示
+# 真实组件类型名，因此这是硬依赖，不是可选项。
+bevy = { workspace = true, features = ["debug"] }
+runtime_protocol.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

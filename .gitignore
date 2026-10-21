@@ -5,6 +5,8 @@
 # .cargo\config.toml 把 target-dir 重定向到了 C:\Spaces\Share\10_Code\10_Bevy\_build\target。
 # 因此这里的 target/ 通常不会出现，但仍然保留规则以防有人改掉那份全局配置。
 /target/
+# 独立示例是自己的 Cargo 工程，构建产物落在它自己的目录里。
+/examples/bevy_debug_demo/target/
 **/*.rs.bk
 *.pdb
 

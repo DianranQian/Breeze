@@ -404,6 +404,8 @@ impl Plugin for BevyStudio插件 {
             // AI 会话存档：启动载入、运行期防抖保存、退出前强制保存。
             .init_resource::<crate::agent_persistence::会话存档状态>()
             .init_resource::<crate::run::项目运行管理器>()
+            // 运行时调试桥：监听 loopback、握手、心跳与只读 ECS 查询。
+            .init_resource::<crate::debug_bridge::运行时调试管理器>()
             // 运行快照：界面读的运行时状态（不含 Child/线程等进程细节）。
             .init_resource::<crate::run::运行快照资源>()
             // 统一诊断中心：构建 / 运行 / Agent 三个来源汇到同一份数据。
@@ -473,6 +475,7 @@ impl Plugin for BevyStudio插件 {
                     // 放在最后：它需要一个已打开的项目与已恢复的布局，
                     // 否则「构建并运行」会落在"没有项目"的分支上。
                     按环境变量构建并运行,
+                    按环境变量直接运行项目,
                     打印启动信息,
                 )
                     .chain(),
@@ -543,6 +546,11 @@ impl Plugin for BevyStudio插件 {
                         preview::模型诊断,
                         crate::run::轮询项目运行,
                         crate::run::同步运行快照,
+                        // 调试事件必须紧跟运行状态：游戏退出后立刻把会话标成断开。
+                        crate::debug_bridge::推进调试,
+                        // GUI 验收专用（没有环境变量时是空操作）：用真实
+                        // 管理器方法与真实游戏完成成功/拒绝/快照差异。
+                        crate::runtime_acceptance::驱动运行时验收,
                         // 「构建并运行」的一次性意图在这里消费：
                         // 只有真实构建成功（退出码 0）才启动游戏。
                         actions::构建完成后启动运行,
@@ -840,6 +848,21 @@ fn 按环境变量构建并运行(mut 界面: ResMut<UiStateHolder>) {
     界面.状态.聚焦面板(editor_ui::Tab::运行);
     界面.动作.推(UiAction::构建并运行);
     info!("已按环境变量执行「构建并运行」");
+}
+
+/// GUI 验收专用：直接运行已构建好的项目（跳过构建管理器）。
+///
+/// 它与用户点「运行项目」走同一条运行管理器链路；只用于需要稳定帧号
+/// 的 GUI 截图验收，避免构建耗时不固定导致截图落在构建阶段。
+pub const 直接运行项目环境变量: &str = "BEVY_STUDIO_RUN_PROJECT";
+
+fn 按环境变量直接运行项目(mut 界面: ResMut<UiStateHolder>) {
+    if std::env::var(直接运行项目环境变量).is_err() {
+        return;
+    }
+    界面.状态.聚焦面板(editor_ui::Tab::运行);
+    界面.动作.推(UiAction::运行项目);
+    info!("已按环境变量直接运行项目");
 }
 
 /// 启动后自动开始运行（`1` = 是）。仅供自动验收使用。
@@ -1228,6 +1251,10 @@ pub struct 绘制环境<'平台> {
     pub 构建: &'平台 editor_core::build::构建快照,
     /// 运行状态、本次运行日志与最近运行记录。
     pub 运行: &'平台 editor_core::run_entry::运行快照,
+    /// 远程调试会话只读快照。
+    pub 调试: &'平台 editor_core::runtime_debug::运行时调试快照,
+    /// 运行时快照与属性修改历史。
+    pub 调试历史: &'平台 editor_core::runtime_debug::运行时调试历史,
     /// 统一诊断（当前结果视图）。
     pub 统一诊断: &'平台 crate::diagnostics::诊断快照,
     /// 资源导入状态表（项目相对路径文本 → 状态）。
@@ -1272,6 +1299,8 @@ pub fn 绘制一帧(
         运行时信息: 环境.诊断,
         构建: 环境.构建,
         运行: 环境.运行,
+        调试: 环境.调试,
+        调试历史: 环境.调试历史,
         统一诊断: 环境.统一诊断,
         导入状态: 环境.导入状态,
         配置目录: 环境.配置目录,
@@ -1414,6 +1443,29 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         },
         UiAction::把运行日志发送给智能体 => "把运行日志发送给智能体".to_string(),
         UiAction::清空诊断 => "清空诊断".to_string(),
+
+        // ---- 远程 ECS 检查器 ----
+        UiAction::刷新运行时 => "刷新运行时".to_string(),
+        UiAction::查询运行时实体 { 页, 每页, .. } => {
+            format!("查询运行时实体(第 {页} 页，每页 {每页})")
+        }
+        UiAction::选中运行时实体 { 实体 } => format!("选中运行时实体({实体})"),
+        UiAction::选中运行时资源 { 名称 } => format!("选中运行时资源({名称})"),
+        UiAction::断开运行时调试 => "断开运行时调试".to_string(),
+        UiAction::重连运行时调试 => "重连运行时调试".to_string(),
+        UiAction::把运行时上下文发送给智能体 => {
+            "把运行时上下文发送给智能体".to_string()
+        }
+        UiAction::采集运行时快照 => "采集运行时快照".to_string(),
+        UiAction::比较最近运行时快照 => "比较最近运行时快照".to_string(),
+        UiAction::提交运行时属性 {
+            组件, 字段, 实体,
+        ..
+        } => format!("提交运行时属性({实体} {组件}.{字段})"),
+        UiAction::关联运行时实体 { 场景实体 } => {
+            format!("关联运行时实体({场景实体})")
+        }
+        UiAction::清除运行时关联 => "清除运行时关联".to_string(),
 
         // ---- 动画与时间轴 ----
         UiAction::新建动画 => "新建动画".to_string(),

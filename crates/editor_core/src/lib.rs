@@ -36,6 +36,7 @@ pub mod log_source;
 pub mod package;
 pub mod project;
 pub mod run_entry;
+pub mod runtime_debug;
 pub mod selection;
 pub mod state;
 pub mod ui_layout;
@@ -84,6 +85,11 @@ pub use project::{
 };
 pub use run_entry::{
     入口失效原因, 结束原因, 运行入口, 运行历史, 运行记录, 默认运行历史上限
+};
+pub use runtime_debug::{
+    字段差异, 属性修改记录, 智能体上下文文本, 智能体上下文文本扩展, 最大修改记录, 最大历史快照,
+    最大历史快照字节, 比较快照, 请求用途, 调试连接状态, 资源差异, 运行时关联, 运行时快照差异,
+    运行时快照记录, 运行时数据状态, 运行时调试历史, 运行时调试快照,
 };
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};

@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 scene_doc.workspace = true
+runtime_protocol.workspace = true
 serde.workspace = true
 # 原生 Cargo / Bevy 工程识别需要**只读地**解析用户的 `Cargo.toml`
 # （工作区成员、[[bin]] 目标、bevy 依赖）。这个版本本来就在依赖图里，

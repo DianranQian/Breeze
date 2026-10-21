@@ -1,0 +1,28 @@
+[package]
+name = "breeze_debug_demo"
+version = "0.1.0"
+edition = "2024"
+
+# 这是一个**真实**的原生 Bevy 游戏，不是屏幕上的假数据。
+# `[workspace]` 空表把它排除在微风自己的 workspace 之外。
+[workspace]
+
+[dependencies]
+bevy = { version = "0.20", default-features = true, features = [
+    "wav",
+    "vorbis",
+    "complex_script_segmentation",
+    "debug",
+] }
+
+# 游戏端调试适配器。它是可选依赖：删掉这一行、去掉 main 里的插件，
+# 游戏仍然可以正常运行，只是微风无法读取它的 ECS 世界。
+bevy_breeze_debug = { package = "breeze_debug_adapter", path = "../../crates/breeze_debug_adapter" }
+runtime_protocol = { path = "../../crates/runtime_protocol" }
+
+# 验收/演示时把构建产物放在仓库内，避免写到用户全局 target。
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2

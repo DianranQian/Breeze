@@ -1010,3 +1010,108 @@ workbench_build_history	最近构建记录（{}）	Build history ({})
 workbench_runtime_inspect	运行时检查	Runtime inspection
 workbench_runtime_available	可用	available
 workbench_runtime_unavailable	不可用（没有运行时通道）	unavailable (no runtime channel)
+runtime_debug_app	应用	App
+runtime_debug_clear_filter	清除过滤	Clear filters
+runtime_debug_component	组件	Component
+runtime_debug_component_filter	组件过滤	Component filter
+runtime_debug_component_types	组件类型	Component types
+runtime_debug_components	组件数	Components
+runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
+runtime_debug_copy_detail	复制详情	Copy details
+runtime_debug_copy_entity	复制实体摘要	Copy entity summary
+runtime_debug_copy_resource	复制资源	Copy resource
+runtime_debug_data_incompatible	协议不兼容	Incompatible protocol
+runtime_debug_data_last	最近快照（已过期，不是实时）	Last snapshot (stale, not live)
+runtime_debug_data_live	实时	Live
+runtime_debug_data_loading	加载中	Loading
+runtime_debug_data_not_attached	未接入调试插件	Debug plugin not attached
+runtime_debug_data_unavailable	数据不可用	Data unavailable
+runtime_debug_disconnect	断开调试	Disconnect
+runtime_debug_entities	实体	Entities
+runtime_debug_entity_detail	实体详情	Entity details
+runtime_debug_entity_list	实体列表	Entity list
+runtime_debug_failed_title	运行时调试连接失败	Runtime debug connection failed
+runtime_debug_field_partial	部分支持	Partially supported
+runtime_debug_field_supported	可检查	Inspectable
+runtime_debug_field_unsupported	不支持检查	Not inspectable
+runtime_debug_fields	字段	Fields
+runtime_debug_filtered_total	过滤后总数	Filtered total
+runtime_debug_id	标识	ID
+runtime_debug_incompatible_title	协议版本不兼容	Incompatible protocol version
+runtime_debug_live_hint	数据来自当前游戏进程的实时查询	Data comes from live queries against the running game process
+runtime_debug_loading_detail	正在向游戏端请求实体详情…	Requesting entity details from the game…
+runtime_debug_loopback	监听地址（仅本机）	Listen address (loopback only)
+runtime_debug_name	名称	Name
+runtime_debug_next_page	下一页	Next page
+runtime_debug_no_entities	没有符合条件的实体	No entities match the filters
+runtime_debug_no_entity_page	还没有实体列表快照	No entity list snapshot yet
+runtime_debug_no_fields	该组件没有可展示的结构化字段	This component exposes no structured fields
+runtime_debug_no_resources	游戏端没有注册可检查的资源	The game has registered no inspectable resources
+runtime_debug_not_attached_body	当前运行的游戏没有加载微风调试插件，因此没有可用的运行时数据通道。这不是连接故障，也不是连接成功。	The running game has not loaded the Breeze debug plugin, so no runtime data channel exists. This is neither a connection failure nor a successful connection.
+runtime_debug_not_attached_steps	接入步骤：在游戏端添加 bevy_breeze_debug 依赖，并在 App 上注册调试插件（自动配置）。未注入 BREEZE_DEBUG_* 环境变量时插件完全停用。	To attach: add the bevy_breeze_debug dependency and register the debug plugin with its automatic configuration. The plugin stays fully disabled when BREEZE_DEBUG_* variables are absent.
+runtime_debug_not_attached_title	游戏未接入运行时调试插件	Game has not attached the runtime debug plugin
+runtime_debug_not_live	当前没有实时调试连接：请先运行带调试插件的游戏	No live debug connection: run a game with the debug plugin first
+runtime_debug_nothing_to_send	还没有可供 AI 使用的运行时数据	No runtime data is available for the AI yet
+runtime_debug_partial	部分	Partial
+runtime_debug_prev_page	上一页	Previous page
+runtime_debug_query	查询	Query
+runtime_debug_reconnect	重新连接	Reconnect
+runtime_debug_refresh	刷新	Refresh
+runtime_debug_registered_checks	组件检查器	component checkers
+runtime_debug_resource_absent	当前世界中不存在该资源	This resource does not exist in the current world
+runtime_debug_resource_fields	资源字段	Resource fields
+runtime_debug_resource_pending	等待资源详情	Waiting for resource details
+runtime_debug_resources	资源（仅已注册）	Resources (registered only)
+runtime_debug_run	运行实例	Run instance
+runtime_debug_search	搜索	Search
+runtime_debug_search_hint	实体 ID 或名称	Entity ID or name
+runtime_debug_security_note	安全边界：调试服务只监听 127.0.0.1，使用一次性令牌认证；协议不提供任意文件读写、脚本执行或代码执行命令。	Security boundary: the debug service listens only on 127.0.0.1 and authenticates with a one-time token. The protocol provides no arbitrary file access, script execution, or code execution.
+runtime_debug_select_entity	在实体列表中选择一个实体	Select an entity from the list
+runtime_debug_send_to_agent	发给 AI	Send to AI
+runtime_debug_send_to_agent_hint	附带真实运行时上下文、来源与可信度；不改动游戏世界	Attach real runtime context, provenance, and confidence without modifying the game world
+runtime_debug_sent_to_agent	运行时上下文已附加到 AI 会话	Runtime context attached to the AI session
+runtime_debug_session	会话	Session
+runtime_debug_show_range	本页显示	Showing on this page
+runtime_debug_show_unsupported	显示不支持检查的组件	Show non-inspectable components
+runtime_debug_snapshot	快照	Snapshot
+runtime_debug_stale_warning	以下数据是最近一次快照：连接已断开，不能再当作实时状态使用。	The data below is the last snapshot: the connection is closed and must not be treated as live.
+runtime_debug_state_connected	已连接	Connected
+runtime_debug_state_disabled	未启用	Disabled
+runtime_debug_state_disconnected	已断开	Disconnected
+runtime_debug_state_failed	连接失败	Connection failed
+runtime_debug_state_handshake	握手中	Handshaking
+runtime_debug_state_incompatible	版本不兼容	Incompatible version
+runtime_debug_state_waiting	等待连接	Waiting for connection
+runtime_debug_supported	可检查	Inspectable
+runtime_debug_truncated	候选实体超过扫描上限，结果已截断	Candidate entities exceeded the scan limit; results are truncated
+runtime_debug_unavailable_hint	请确认游戏端已接入调试插件，或重新运行游戏后重试。	Make sure the game has attached the debug plugin, or restart the game and try again.
+runtime_debug_unsupported	不支持	Unsupported
+runtime_debug_waiting	正在等待游戏端连接…	Waiting for the game to connect…
+runtime_debug_waiting_hint	若游戏没有接入调试插件，会一直停在这里；这表示“未接入”，不是连接失败。	If the game has not attached the debug plugin, this stays here forever. That means “not attached”, not a connection failure.
+runtime_debug_waiting_not_failure	注意：等待 ≠ 失败，也 ≠ 已连接。只有完成握手并收到心跳回应才会显示“已连接”。	Note: waiting is neither failure nor success. “Connected” appears only after handshake and heartbeat acknowledgment.
+runtime_debug_edit_apply	应用	Apply
+runtime_debug_edit_cancel	取消	Cancel
+runtime_debug_edit_range	范围	Range
+runtime_debug_edit_disabled	断线/会话过期，写入已禁用	Disconnected or expired session; editing disabled
+runtime_debug_edit_waiting	等待游戏端确认中…	Waiting for game confirmation…
+runtime_debug_snapshots	运行时快照	Runtime snapshots
+runtime_debug_take_snapshot	采集快照	Take snapshot
+runtime_debug_compare_snapshots	比较最近两份	Compare latest two
+runtime_debug_latest_snapshot	最近快照	Latest snapshot
+runtime_debug_no_snapshots	还没有快照；点击「采集快照」从游戏进程读取一份有界状态。	No snapshots yet. Click "Take snapshot" to read a bounded state from the game process.
+runtime_debug_snapshot_truncated	该快照被截断，差异结果会标记为不完整	This snapshot is truncated; diffs will be marked incomplete
+runtime_debug_copy_diff	复制差异	Copy diff
+runtime_debug_link_title	编辑态关联	Edit-time association
+runtime_debug_link_scene_entity	场景实体	Scene entity
+runtime_debug_link_clear	清除关联	Clear association
+runtime_debug_link_none	未关联：没有可靠的场景实体映射	Not linked: no reliable scene entity mapping
+runtime_debug_link_to_selected	关联到当前场景实体	Link to selected scene entity
+runtime_debug_link_select_scene	请先在场景树/视口选中一个场景实体	Select a scene entity in the Scene Tree or viewport first
+runtime_debug_link_note	只有用户显式指定才建立关联；不会根据实体 ID、名称或 Transform 相似度自动认定相同。	Associations are only created by explicit user action; entity ID, name, or similar Transform values are never treated as proof of identity.
+runtime_debug_link_user	用户指定	User-specified
+runtime_debug_mutations	属性修改记录	Property mutations
+runtime_debug_no_mutations	还没有属性修改记录	No property mutations yet
+runtime_debug_copy_mutations	复制修改记录	Copy mutation log
+runtime_debug_frame_time	游戏帧耗时	Game frame time
+runtime_debug_request_latency	调试请求往返	Debug request round-trip
+runtime_debug_connection_counts	断开/重连次数	Disconnects/reconnects

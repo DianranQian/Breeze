@@ -837,6 +837,7 @@ dependencies = [
  "indexmap",
  "log",
  "nonmax",
+ "rand",
  "serde",
  "slotmap",
  "smallvec",
@@ -2135,6 +2136,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "breeze_debug_adapter"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "runtime_protocol",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "bsn_bridge"
 version = "0.1.0"
 dependencies = [
@@ -2699,6 +2710,7 @@ dependencies = [
  "rapier2d",
  "rfd",
  "ron",
+ "runtime_protocol",
  "scene_doc",
  "serde",
  "serde_json",
@@ -2713,6 +2725,7 @@ dependencies = [
  "anyhow",
  "indexmap",
  "ron",
+ "runtime_protocol",
  "scene_doc",
  "serde",
  "serde_json",
@@ -2731,6 +2744,7 @@ dependencies = [
  "egui_dock",
  "image",
  "ron",
+ "runtime_protocol",
  "scene_doc",
  "serde",
  "serde_json",
@@ -5567,6 +5581,15 @@ name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
+name = "runtime_protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "rustc-hash"

@@ -140,6 +140,8 @@ pub struct 运行快照 {
     pub 命令行: String,
     /// 进程号。
     pub 进程号: Option<u32>,
+    /// 本次运行实例标识（调试会话关联用）。
+    pub 运行实例标识: Option<String>,
     /// 真实退出码。
     pub 退出码: Option<i32>,
     /// 结束原因。
@@ -430,6 +432,8 @@ pub struct 运行记录 {
     pub 结束原因: 结束原因,
     /// 进程号。
     pub 进程号: Option<u32>,
+    /// 本次运行实例标识。调试会话用它把"哪个运行"与"哪个调试连接"绑在一起。
+    pub 运行实例标识: Option<String>,
     /// 保留的日志行数。
     pub 日志行数: usize,
     /// 结束时的说明（失败原因、退出码来源等）。
@@ -447,6 +451,7 @@ impl Default for 运行记录 {
             退出码: None,
             结束原因: 结束原因::进行中,
             进程号: None,
+            运行实例标识: None,
             日志行数: 0,
             说明: None,
         }
@@ -537,6 +542,7 @@ impl 运行历史 {
         命令行: impl Into<String>,
         入口: Option<运行入口>,
         进程号: Option<u32>,
+        运行实例标识: Option<String>,
         开始时间: u64,
     ) -> u64 {
         let 序号 = self.记录.last().map(|记录| 记录.序号).unwrap_or(0) + 1;
@@ -549,6 +555,7 @@ impl 运行历史 {
             退出码: None,
             结束原因: 结束原因::进行中,
             进程号,
+            运行实例标识,
             日志行数: 0,
             说明: None,
         });
@@ -699,6 +706,7 @@ mod 测试 {
                 format!("cargo run #{序号}"),
                 None,
                 Some(100 + 序号 as u32),
+                Some(format!("run-{序号}")),
                 10,
             );
             历史.结束当前(结束原因::正常退出, Some(0), 12, None, 5);
@@ -712,7 +720,7 @@ mod 测试 {
     #[test]
     fn 用户停止不伪造退出码() {
         let mut 历史 = 运行历史::default();
-        历史.开始("cargo run", None, Some(1), 10);
+        历史.开始("cargo run", None, Some(1), None, 10);
         历史.结束当前(结束原因::用户停止, None, 15, Some("用户点了停止".into()), 3);
         let 记录 = 历史.最近().unwrap();
         assert_eq!(记录.结束原因, 结束原因::用户停止);

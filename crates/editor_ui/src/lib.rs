@@ -62,7 +62,8 @@ pub use icons::{图标, 图标库};
 pub use node_icons::{折叠指示, 节点类型};
 pub use state::{
     UiAction, 动作队列, 动画关键帧引用, 区域快照, 场景行几何, 属性编辑, 控制台过滤, 文本编辑目标,
-    界面状态, 绘制上下文, 视口拖拽, 视口渲染结果, 视口相机, 资源排序, 运行时诊断, 选择意图,
+    界面状态, 绘制上下文, 视口拖拽, 视口渲染结果, 视口相机, 资源删除草稿, 资源排序, 资源重命名草稿,
+    运行时诊断, 选择意图,
 };
 pub use theme::{主题, 主题库, 外观, 明暗, 编辑器配色};
 
@@ -864,6 +865,196 @@ fn 绘制_项目设置对话框(
     None
 }
 
+/// 资源重命名/移动对话框。
+///
+/// 输入的是**完整项目相对路径**，所以同一个框既能改名也能换目录。
+/// 确认时不在界面里碰文件系统：只把意图排进动作队列，
+/// 由动作层统一校验、移动文件、改写所有场景引用，失败时把原因写回草稿。
+fn 绘制_资源重命名对话框(
+    egui上下文: &egui::Context,
+    界面: &mut 界面状态,
+    配色: 编辑器配色,
+    语言: crate::i18n::语言,
+) -> Option<UiAction> {
+    let mut 草稿 = 界面.资源重命名.clone()?;
+    let mut 打开 = true;
+    let mut 确认 = false;
+    let mut 取消 = false;
+
+    let 窗口响应 = egui::Window::new(语言.取("asset_rename_title"))
+        .collapsible(false)
+        .resizable(true)
+        .default_width(480.0)
+        .open(&mut 打开)
+        .show(egui上下文, |ui| {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            ui.label(
+                egui::RichText::new(草稿.旧路径.文本())
+                    .small()
+                    .monospace()
+                    .color(配色.次要文字),
+            );
+            ui.separator();
+            ui.label(语言.取("asset_rename_new_path"));
+            ui.add(
+                egui::TextEdit::singleline(&mut 草稿.新路径)
+                    .desired_width(f32::INFINITY)
+                    .hint_text("assets/new_name.png"),
+            );
+            ui.label(
+                egui::RichText::new(语言.取("asset_rename_hint"))
+                    .small()
+                    .color(配色.次要文字),
+            );
+            if let Some(错误) = 草稿.错误.as_deref() {
+                ui.separator();
+                ui.label(egui::RichText::new(错误).small().color(配色.错误));
+            }
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button(语言.取("confirm")).clicked() {
+                    确认 = true;
+                }
+                if ui.button(语言.取("cancel")).clicked() {
+                    取消 = true;
+                }
+            });
+        });
+
+    // 先写回草稿，再决定动作：确认时动作层要用最新的输入。
+    界面.资源重命名 = Some(草稿.clone());
+    记录浮层区域(
+        界面,
+        egui上下文.viewport_rect(),
+        "float_asset_rename",
+        窗口响应.map(|响应| 响应.response.rect),
+    );
+
+    if 确认 {
+        // 空输入或解析失败时不排动作，直接把错误留在对话框里。
+        match scene_doc::path::项目相对路径::解析(&草稿.新路径) {
+            Ok(新路径) => {
+                return Some(UiAction::确认重命名资源 {
+                    旧路径: 草稿.旧路径.clone(),
+                    新路径,
+                });
+            }
+            Err(错误) => {
+                let 说明 = format!("{}", 错误);
+                界面.资源重命名 = Some(state::资源重命名草稿 {
+                    旧路径: 草稿.旧路径,
+                    新路径: 草稿.新路径,
+                    错误: Some(说明),
+                });
+            }
+        }
+    }
+    if 取消 || !打开 {
+        界面.资源重命名 = None;
+        return Some(UiAction::关闭重命名资源);
+    }
+    None
+}
+
+/// 资源删除确认对话框。
+///
+/// 引用列表与阻止理由都由动作层在打开时算好，这里只展示。
+/// 被引用时删除按钮**不出现**，只留"取消"—— 让危险操作没有可点的入口，
+/// 比"点了再被拒绝"更清楚。
+fn 绘制_资源删除对话框(
+    egui上下文: &egui::Context,
+    界面: &mut 界面状态,
+    配色: 编辑器配色,
+    语言: crate::i18n::语言,
+) -> Option<UiAction> {
+    let 草稿 = 界面.资源删除.clone()?;
+    let mut 打开 = true;
+    let mut 确认 = false;
+    let mut 取消 = false;
+
+    let 窗口响应 = egui::Window::new(语言.取("asset_delete_title"))
+        .collapsible(false)
+        .resizable(true)
+        .default_width(520.0)
+        .open(&mut 打开)
+        .show(egui上下文, |ui| {
+            ui.label(
+                egui::RichText::new(草稿.路径.文本())
+                    .monospace()
+                    .color(配色.文字),
+            );
+            ui.separator();
+
+            match 草稿.阻止原因.as_deref() {
+                Some(原因) => {
+                    ui.label(
+                        egui::RichText::new(语言.取("asset_delete_blocked"))
+                            .strong()
+                            .color(配色.错误),
+                    );
+                    ui.label(egui::RichText::new(原因).small().color(配色.文字));
+                }
+                None => {
+                    ui.label(语言.取("asset_delete_confirm"));
+                    if 草稿.引用.is_empty() {
+                        ui.label(
+                            egui::RichText::new(语言.取("asset_delete_no_refs"))
+                                .small()
+                                .color(配色.次要文字),
+                        );
+                    }
+                }
+            }
+
+            if !草稿.引用.is_empty() {
+                ui.add_space(4.0);
+                egui::ScrollArea::vertical()
+                    .max_height(180.0)
+                    .show(ui, |ui| {
+                        for 行 in &草稿.引用 {
+                            ui.label(
+                                egui::RichText::new(行)
+                                    .small()
+                                    .monospace()
+                                    .color(配色.次要文字),
+                            );
+                        }
+                    });
+            }
+
+            if let Some(错误) = 草稿.错误.as_deref() {
+                ui.separator();
+                ui.label(egui::RichText::new(错误).small().color(配色.错误));
+            }
+
+            ui.separator();
+            ui.horizontal(|ui| {
+                if 草稿.可删除() && ui.button(语言.取("delete")).clicked() {
+                    确认 = true;
+                }
+                if ui.button(语言.取("cancel")).clicked() {
+                    取消 = true;
+                }
+            });
+        });
+
+    记录浮层区域(
+        界面,
+        egui上下文.viewport_rect(),
+        "float_asset_delete",
+        窗口响应.map(|响应| 响应.response.rect),
+    );
+
+    if 确认 {
+        return Some(UiAction::确认删除资源(草稿.路径));
+    }
+    if 取消 || !打开 {
+        界面.资源删除 = None;
+        return Some(UiAction::关闭删除资源);
+    }
+    None
+}
+
 /// "关于"窗口。
 fn 绘制_关于窗口(
     egui上下文: &egui::Context,
@@ -1025,6 +1216,16 @@ impl 面板查看器<'_, '_> {
             配色,
             语言,
         ) {
+            self.上下文.动作.推(动作);
+        }
+        // 资源重命名/删除：两者都以"草稿 + 动作"工作，界面不碰文件系统。
+        if let Some(动作) =
+            绘制_资源重命名对话框(egui上下文, self.上下文.界面, 配色, 语言)
+        {
+            self.上下文.动作.推(动作);
+        }
+        if let Some(动作) = 绘制_资源删除对话框(egui上下文, self.上下文.界面, 配色, 语言)
+        {
             self.上下文.动作.推(动作);
         }
         // 帮助窗口：快捷键、路径与诊断入口。

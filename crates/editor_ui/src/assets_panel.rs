@@ -258,6 +258,15 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         {
             上下文.动作.推(UiAction::检查资源依赖);
         }
+        // 引用使用检查：回答"哪些资源没人用、哪些引用已经断了"。
+        // 与上面的"检查依赖"分工不同：那只查断链，这里还列出未使用资源。
+        if ui
+            .small_button(上下文.语言.取("asset_usage_report"))
+            .on_hover_text(上下文.语言.取("asset_usage_report_hint"))
+            .clicked()
+        {
+            上下文.动作.推(UiAction::检查资源使用);
+        }
     });
 
     ui.separator();

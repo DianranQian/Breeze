@@ -15,8 +15,24 @@ add_this_asset_to_the_scene	在场景中添加此资源	Add this asset to the sc
 advance_one_frame_while_paused	暂停状态下前进一帧	Advance one frame while paused
 angle	角度-{}	Angle-{}
 asset_browser	资源浏览器	Asset Browser
+asset_delete_blocked	无法删除：该资源仍在使用	Cannot delete: the asset is still in use
+asset_delete_confirm	确认删除这个资源文件？此操作不可撤销。	Delete this asset file? This cannot be undone.
+asset_delete_no_refs	项目里没有任何场景引用它。	No scene in this project references it.
+asset_delete_title	删除资源	Delete Asset
 asset_files	{} 个资源文件	{} asset files
 asset_folder	资源目录-{}	Asset Folder - {}
+asset_rename_hint	可以同时改目录；扩展名不能改（那会改变资源类型）。	You may also change the folder; the extension cannot change (that would change the asset type).
+asset_rename_new_path	新路径	New path
+asset_rename_title	重命名或移动资源	Rename or Move Asset
+asset_usage_checked	资源检查：{} 个未被引用，{} 个引用缺失	Asset check: {} unused, {} missing references
+asset_usage_missing	引用缺失：{}	Missing reference: {}
+asset_usage_unused	未被引用：{}	Unused: {}
+asset_usage_report	资源使用报告	Asset Usage Report
+asset_usage_report_hint	列出未被任何场景引用的资源，以及引用了但磁盘上已丢失的资源	List assets no scene references, plus references whose files are gone
+log_asset_deleted	已删除资源 {}（{}）	Deleted asset {} ({})
+log_asset_delete_blocked	已阻止删除 {}：{}	Blocked deleting {}: {}
+log_asset_rename_done	已重命名资源 {} → {}（{}）	Renamed asset {} → {} ({})
+log_asset_rename_no_refs	没有场景引用该资源，本次只改了文件名	No scene referenced this asset; only the file name changed
 assets	资源	Assets
 assets_empty_hint	没有资源。\n把图片、音频等文件放进项目的 assets/ 目录即可被识别。	No assets.\nDrop images, audio, and other files into the project's assets/ directory and they will be detected.
 assets_loaded	已加载资源数	Assets Loaded
@@ -99,6 +115,7 @@ clear_search	清除搜索	Clear Search
 close	关闭	Close
 close_project	关闭项目	Close Project
 command_apply_snapshot	应用快照	Apply Snapshot
+command_asset_path	更改资源路径	Change Asset Path
 command_batch_set_property	批量修改属性	Batch Set Property
 command_batch_set_transform	批量修改变换	Batch Set Transform
 command_move_entity_down	下移实体	Move Entity Down

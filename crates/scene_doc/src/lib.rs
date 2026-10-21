@@ -16,6 +16,7 @@
 //!
 //! 与 Bevy 世界之间的映射由 `editor_app` 的 `scene_bridge` 模块负责。
 
+pub mod asset_refs;
 pub mod document;
 pub mod error;
 pub mod path;
@@ -23,6 +24,7 @@ pub mod property;
 pub mod registry;
 pub mod storage;
 
+pub use asset_refs::{文档资源引用, 资源引用位置};
 pub use document::{
     变换数据, 场景元数据, 场景实体, 场景文档, 当前格式版本, 文档校验报告, 组件数据, 资源引用,
 };

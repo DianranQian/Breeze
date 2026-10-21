@@ -28,6 +28,7 @@ pub mod agent_dsh;
 pub mod agent_persistence;
 pub mod agent_runtime;
 pub mod agent_worktree;
+pub mod asset_ops;
 pub mod audio_components;
 pub mod audio_preview;
 pub mod bsn_templates;

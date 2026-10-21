@@ -26,7 +26,8 @@
 use egui::{Pos2, Rect, RichText, Sense, Stroke, Ui};
 
 use crate::dev_modes::开发模式;
-use crate::state::{UiAction, 三维相机, 绘制上下文, 选择意图};
+use crate::gizmo::变换工具;
+use crate::state::{UiAction, 三维相机, 绘制上下文, 视口拖拽, 选择意图};
 
 /// 网格半边长（世界单位）。
 const 网格半径: i32 = 24;
@@ -109,8 +110,35 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
         });
     let 操纵器占用 = 上下文.界面.操纵器拖拽.is_some() || 初始悬停.is_some();
 
-    // 相机交互：操纵器被悬停/拖拽时一律让路。
-    if 响应.dragged() && !操纵器占用 {
+    // ---- 框选：左键在空白处拖动 ----
+    //
+    // 相机拖拽也用左键，因此必须先决定"这次拖动属于谁"：
+    // 操纵器 > 框选 > 相机。选择工具下左键空白拖动 = 框选；
+    // 其余情况（含中键/右键、Shift+左键平移）仍然归相机。
+    let 主键 = egui::PointerButton::Primary;
+    // 注意：不能一按下就进入框选。
+    //
+    // egui 的 `Sense::click_and_drag()` 在**按下**时就会让 `drag_started()` 为真，
+    // 如果那时就清空选择，普通单击会变成"先清空、再因为 moved=false 而不恢复"，
+    // 表现为"点谁都没反应"。因此只在真的移动超过阈值后进入框选，
+    // 并且**松手时**才改选择集。
+    let 正在框选 = matches!(上下文.界面.拖拽, 视口拖拽::框选 { .. });
+    if !正在框选
+        && 响应.dragged_by(主键)
+        && !操纵器占用
+        && 工具 == 变换工具::选择
+        && let Some(按下) = ui.input(|输入| 输入.pointer.press_origin())
+    {
+        上下文.界面.拖拽 = 视口拖拽::框选 {
+            起点: egui::vec2(按下.x - 内容矩形.min.x, 按下.y - 内容矩形.min.y),
+        };
+    }
+
+    // 相机交互：操纵器被悬停/拖拽、或正在框选时一律让路。
+    if 响应.dragged() && !操纵器占用 && !正在框选 && !matches!(
+        上下文.界面.拖拽,
+        视口拖拽::框选 { .. }
+    ) {
         let 是平移 = 修饰键.shift;
         let 是轨道 = ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Secondary))
             || ui.input(|输入| 输入.pointer.button_down(egui::PointerButton::Middle))
@@ -121,6 +149,34 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
             新相机.旋转(拖拽);
         }
     }
+    // 框选松手：把矩形内的实体设为选择集。
+    if 响应.drag_stopped_by(主键)
+        && let 视口拖拽::框选 { 起点 } = 上下文.界面.拖拽.clone()
+    {
+        if let Some(终点) = 局部指针 {
+            let 矩形 = crate::picking3d::屏幕矩形::由两点(起点, 终点);
+            if 矩形.是有效框选() {
+                let 相机位置 = 新相机.位置();
+                let 候选: Vec<(scene_doc::document::实体标识, egui::Vec2)> = 上下文
+                    .编辑器
+                    .会话
+                    .文档
+                    .实体表
+                    .values()
+                    .filter_map(|实体| {
+                        let 变换 = 实体.变换?;
+                        let 屏幕 = 新相机.投影(变换.平移, 尺寸)?;
+                        Some((实体.标识, 屏幕))
+                    })
+                    .collect();
+                let _ = 相机位置;
+                let 命中 = crate::picking3d::框选命中(&候选, 矩形);
+                上下文.动作.推(UiAction::选择(选择意图::设为(命中)));
+            }
+        }
+        上下文.界面.拖拽 = 视口拖拽::无;
+    }
+
     let 滚轮 = ui.input(|输入| 输入.smooth_scroll_delta.y);
     if 响应.hovered() && 滚轮.abs() > 0.01 && !操纵器占用 {
         新相机.缩放((-滚轮 * 0.0015).exp());
@@ -189,6 +245,31 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
         }
     }
     上下文.界面.三维相机 = 新相机;
+
+    // 框选矩形：画在实体之上、操纵器之下。
+    if let (视口拖拽::框选 { 起点 }, Some(终点)) =
+        (&上下文.界面.拖拽, 局部指针)
+    {
+        let 矩形 = crate::picking3d::屏幕矩形::由两点(*起点, 终点);
+        if 矩形.是有效框选() {
+            let 画面 = ui.painter_at(内容矩形);
+            let 屏幕矩形 = egui::Rect::from_min_max(
+                egui::pos2(内容矩形.min.x + 矩形.最小.x, 内容矩形.min.y + 矩形.最小.y),
+                egui::pos2(内容矩形.min.x + 矩形.最大.x, 内容矩形.min.y + 矩形.最大.y),
+            );
+            画面.rect_filled(
+                屏幕矩形,
+                0.0,
+                上下文.配色.强调.gamma_multiply(0.12),
+            );
+            画面.rect_stroke(
+                屏幕矩形,
+                0.0,
+                egui::Stroke::new(1.0, 上下文.配色.强调),
+                egui::StrokeKind::Inside,
+            );
+        }
+    }
 
     // ⑤ 叠加层：网格 → 坐标轴 → 实体 → 操纵器（操纵器在最上面）。
     let 画布 = ui.painter_at(内容矩形);

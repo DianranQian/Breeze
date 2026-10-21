@@ -112,3 +112,6 @@
 | R5 单元 | `cargo test -p editor_ui --lib picking3d` | 8 通过 |
 | R5 全量 | `cargo test --workspace` | 1101 通过 / 0 失败（`.verify/multi_select/all_tests.log`） |
 | R5 GUI | `.verify/multi_select/3d_demo/` | 3D 模式选中 3 个实体，场景树/检查器/视口一致 |
+| R6 单元 | `cargo test -p editor_ui --lib picking3d` | 11 通过 |
+| R6 真实指针 | `gui_probe drag`（`.verify/box_select/drag3/`） | 逻辑 (650,380)→(860,520)，选择数 0→3，日志"执行选择动作 设为(3 项)" |
+| R6 全量 | `cargo test --workspace` | 1104 通过 / 0 失败（`.verify/box_select/all_tests.log`） |

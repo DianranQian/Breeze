@@ -130,3 +130,6 @@
 | R10 集成 | `cargo test -p editor_app --test 动画事件` | 7 通过（新增改名+撤销、拒绝空名/失效下标） |
 | R10 全量 | `cargo test --workspace` | 1129 通过 / 0 失败（`.verify/anim_event_edit/all_tests.log`） |
 | R10 GUI | `.verify/anim_event_edit/dialog2/` | 事件编辑区可见（类型/名称/参数/时间），probe 14 条断言通过 |
+| R11 集成 | `cargo test -p editor_core --test 场景Uid补全` | 3 通过（打开标脏、保存后重开不脏、无资源不脏） |
+| R11 全量 | `cargo test --workspace` | 1132 通过 / 0 失败（`.verify/uid_on_open/all_tests.log`） |
+| R11 GUI | `.verify/uid_on_open/gui3/` | 控制台"已为 12 个资源补全稳定标识"，状态栏未保存 |

@@ -1037,6 +1037,10 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+runtime_debug_asset_scale	资产规模	Asset scale
+runtime_debug_mesh_vertices	网格顶点	Mesh vertices
+runtime_debug_image_pixels	图片像素	Image pixels
+runtime_debug_audio_bytes	音频字节	Audio bytes
 refresh_scene_instance	用源场景刷新实例	Refresh Instance from Source Scene
 arrange_title	对齐	Align
 align_left	左对齐	Align left

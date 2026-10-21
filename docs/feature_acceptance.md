@@ -123,3 +123,7 @@
 | R8 集成 | `cargo test -p editor_app --test 场景实例刷新` | 3 通过（带入新内容、一步撤销、拒绝非实例） |
 | R8 全量 | `cargo test --workspace` | 1122 通过 / 0 失败（`.verify/instance_refresh/all_tests.log`） |
 | R8 GUI | `.verify/instance_refresh/gui/` | 真实刷新：名称「门口宝箱」与位置 (120,60) 保留，来源组件可见 |
+| R9 单元 | `cargo test -p breeze_debug_adapter 资产统计` | 3 通过（真实 Assets 夹具） |
+| R9 协议 | `cargo test -p runtime_protocol 资产` | 2 通过（旧格式缺字段兼容、往返） |
+| R9 E2E | `cargo test -p editor_app --test 运行时调试桥 -- --ignored` | 1 通过（真实握手；demo 无资产时统计为空） |
+| R9 全量 | `cargo test --workspace` | 1127 通过 / 0 失败（`.verify/runtime_assets/all_tests.log`） |

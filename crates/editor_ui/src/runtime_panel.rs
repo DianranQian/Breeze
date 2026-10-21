@@ -312,6 +312,48 @@ fn 绘制数据区(
                     .color(配色.次要文字),
                 );
             }
+            if !概览.资产.为空() {
+                ui.label(
+                    RichText::new(format!(
+                        "{} {}",
+                        语言.取("runtime_debug_asset_scale"),
+                        概览.资产.摘要()
+                    ))
+                    .small()
+                    .color(配色.次要文字),
+                );
+                // 规模细节：只说测得出来的东西，不写"内存占用"。
+                let mut 细节 = Vec::new();
+                if 概览.资产.网格顶点数 > 0 {
+                    细节.push(format!(
+                        "{} {}",
+                        语言.取("runtime_debug_mesh_vertices"),
+                        概览.资产.网格顶点数
+                    ));
+                }
+                if 概览.资产.图片像素数 > 0 {
+                    细节.push(format!(
+                        "{} {}",
+                        语言.取("runtime_debug_image_pixels"),
+                        概览.资产.图片像素数
+                    ));
+                }
+                if 概览.资产.音频字节数 > 0 {
+                    细节.push(format!(
+                        "{} {}",
+                        语言.取("runtime_debug_audio_bytes"),
+                        editor_core::package::人类可读字节(概览.资产.音频字节数)
+                    ));
+                }
+                if !细节.is_empty() {
+                    ui.label(
+                        RichText::new(细节.join(" · "))
+                            .small()
+                            .monospace()
+                            .color(配色.次要文字),
+                    );
+                }
+            }
             if let Some(耗时) = 调试.最近请求耗时微秒 {
                 ui.label(
                     RichText::new(format!(

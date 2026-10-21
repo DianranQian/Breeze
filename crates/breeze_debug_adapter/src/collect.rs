@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use bevy::prelude::*;
 use runtime_protocol::{
-    世界快照数据, 世界快照请求, 世界概览, 夹紧每页, 字段值, 实体列表请求, 实体列表页, 实体摘要,
+    世界快照数据, 世界快照请求, 世界概览, 资产统计, 夹紧每页, 字段值, 实体列表请求, 实体列表页, 实体摘要,
     实体详情, 属性修改结果, 属性修改请求, 应用元信息, 操作错误, 操作错误代码, 检查支持级别,
     游标编码, 游标解析, 调试响应, 调试请求, 资源摘要, 资源详情,
 };
@@ -556,6 +556,7 @@ fn 采集概览(
                     .clamp(0.0, u64::MAX as f64) as u64
             })
             .unwrap_or(0),
+        资产: 采集资产统计(世界),
         应用: 应用元信息 {
             应用名称: 配置.应用名称.clone(),
             bevy版本: 支持的BEVY版本.to_string(),
@@ -565,6 +566,53 @@ fn 采集概览(
             帧序号: 状态.帧序号,
         },
     }
+}
+
+/// 采集资产规模。
+///
+/// 所有数字都来自 Bevy `Assets<T>` 的真实条目：
+/// `Mesh` 的顶点/索引数、`Image` 的像素数、`AudioSource` 的字节数。
+/// 拿不到某类资产资源（例如游戏没注册 `AudioPlugin`）时记 0 并**不报错**——
+/// 那是正常的"没有这一类资产"，不是采集失败。
+fn 采集资产统计(世界: &World) -> 资产统计 {
+    let mut 统计 = 资产统计::default();
+
+    if let Some(网格) = 世界.get_resource::<Assets<Mesh>>() {
+        统计.网格数 = 网格.len().min(u32::MAX as usize) as u32;
+        for (_, 资产) in 网格.iter() {
+            统计.网格顶点数 = 统计
+                .网格顶点数
+                .saturating_add(资产.count_vertices() as u64);
+            统计.网格索引数 = 统计
+                .网格索引数
+                .saturating_add(资产.indices().map_or(0, |索引| 索引.len()) as u64);
+        }
+    }
+
+    if let Some(图片) = 世界.get_resource::<Assets<Image>>() {
+        统计.图片数 = 图片.len().min(u32::MAX as usize) as u32;
+        for (_, 资产) in 图片.iter() {
+            let 尺寸 = 资产.texture_descriptor.size;
+            统计.图片像素数 = 统计
+                .图片像素数
+                .saturating_add(u64::from(尺寸.width).saturating_mul(u64::from(尺寸.height)));
+        }
+    }
+
+    if let Some(音频) = 世界.get_resource::<Assets<AudioSource>>() {
+        统计.音频数 = 音频.len().min(u32::MAX as usize) as u32;
+        for (_, 资产) in 音频.iter() {
+            统计.音频字节数 = 统计
+                .音频字节数
+                .saturating_add(资产.bytes.len() as u64);
+        }
+    }
+
+    if let Some(字体) = 世界.get_resource::<Assets<Font>>() {
+        统计.字体数 = 字体.len().min(u32::MAX as usize) as u32;
+    }
+
+    统计
 }
 
 fn 采集实体列表(
@@ -1101,5 +1149,68 @@ mod 测试 {
             未注册.错误.as_ref().map(|错误| 错误.代码),
             Some(操作错误代码::字段不可写)
         );
+    }
+}
+
+#[cfg(test)]
+mod 资产统计测试 {
+    use super::*;
+
+    #[test]
+    fn 没有资产资源时统计全为零且不报错() {
+        let 世界 = World::new();
+        let 统计 = 采集资产统计(&世界);
+        assert!(统计.为空());
+        assert_eq!(统计.网格数, 0);
+        assert_eq!(统计.图片数, 0);
+    }
+
+    #[test]
+    fn 网格与图片按真实条目统计() {
+        let mut 世界 = World::new();
+        世界.init_resource::<Assets<Mesh>>();
+        世界.init_resource::<Assets<Image>>();
+        {
+            let mut 网格 = 世界.resource_mut::<Assets<Mesh>>();
+            let 一个 = 网格.add(Mesh::from(bevy::prelude::Cuboid::new(1.0, 1.0, 1.0)));
+            let _ = 一个;
+            let _ = 网格.len();
+            assert_eq!(网格.len(), 1, "夹具应当真的插入了网格");
+        }
+        {
+            let mut 图片 = 世界.resource_mut::<Assets<Image>>();
+            let 图 = Image::new_fill(
+                bevy::render::render_resource::Extent3d {
+                    width: 4,
+                    height: 2,
+                    depth_or_array_layers: 1,
+                },
+                bevy::render::render_resource::TextureDimension::D2,
+                &[255, 0, 0, 255],
+                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+                bevy::asset::RenderAssetUsages::default(),
+            );
+            let _ = 图片.add(图);
+        }
+
+        let 统计 = 采集资产统计(&世界);
+        assert_eq!(统计.网格数, 1, "统计：{统计:?}");
+        assert!(统计.网格顶点数 > 0, "网格顶点应当被计入");
+        assert_eq!(统计.图片数, 1);
+        assert_eq!(统计.图片像素数, 8, "4×2 像素");
+    }
+
+    #[test]
+    fn 部分资产类型缺失时其余仍然统计() {
+        let mut 世界 = World::new();
+        世界.init_resource::<Assets<Mesh>>();
+        {
+            let mut 网格 = 世界.resource_mut::<Assets<Mesh>>();
+            let _ = 网格.add(Mesh::from(bevy::prelude::Cuboid::new(2.0, 2.0, 2.0)));
+        }
+        let 统计 = 采集资产统计(&世界);
+        assert_eq!(统计.网格数, 1);
+        assert_eq!(统计.图片数, 0, "没有图片资源就记 0，不是失败");
+        assert!(!统计.为空());
     }
 }

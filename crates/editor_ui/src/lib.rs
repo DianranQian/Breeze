@@ -17,6 +17,7 @@ pub mod agent_permission;
 pub mod agent_repair;
 pub mod agent_review;
 pub mod agent_store;
+pub mod asset_refs_panel;
 pub mod assets_panel;
 pub mod build_panel;
 pub mod collision_overlay;
@@ -1214,6 +1215,15 @@ impl 面板查看器<'_, '_> {
             egui上下文,
             self.上下文.界面,
             self.上下文.编辑器.项目.as_ref().map(|项目| 项目.根目录()),
+            配色,
+            语言,
+        ) {
+            self.上下文.动作.推(动作);
+        }
+        // 查找引用：资源被哪些场景/实体/字段引用，并可直接定位。
+        if let Some(动作) = asset_refs_panel::绘制(
+            egui上下文,
+            self.上下文.界面,
             配色,
             语言,
         ) {

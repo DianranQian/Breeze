@@ -485,6 +485,14 @@ fn 绘制文件行(
                 ui.separator();
             }
             if ui
+                .button(上下文.语言.取("asset_find_refs"))
+                .on_hover_text(上下文.语言.取("asset_find_refs_hint"))
+                .clicked()
+            {
+                上下文.动作.推(UiAction::请求查找引用(路径.clone()));
+                ui.close();
+            }
+            if ui
                 .button(上下文.语言.取("add_this_asset_to_the_scene"))
                 .clicked()
             {

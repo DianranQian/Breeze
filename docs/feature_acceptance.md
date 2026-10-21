@@ -106,3 +106,6 @@
 | R3 集成 | `cargo test -p editor_app --test 动画事件` | 5 通过 |
 | R3 全量 | `cargo test --workspace` | 1088 通过 / 0 失败（`.verify/anim_events/all_tests.log`） |
 | R3 GUI | `.verify/anim_events/timeline_clean/` | 时间轴事件行两个标记，probe 14 条断言通过 |
+| R4 集成 | `cargo test -p editor_app --test 资源查找引用` | 5 通过 |
+| R4 全量 | `cargo test --workspace` | 1093 通过 / 0 失败（`.verify/find_refs/all_tests.log`） |
+| R4 GUI | `.verify/find_refs/dialog/` | 真实引用位置 + 定位按钮，probe 14 条断言通过 |

@@ -1037,6 +1037,14 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+asset_find_refs	查找引用	Find References
+asset_find_refs_hint	列出所有引用这个资源的场景与实体，可一键定位	List every scene and entity referencing this asset, with jump-to
+asset_find_refs_title	资源引用位置	Asset References
+asset_find_refs_count	共 {} 处引用	{} references
+asset_find_refs_none	项目里没有任何场景引用它	No scene in this project references it
+asset_find_refs_go	定位	Go to
+asset_find_refs_scene_unreadable	有场景无法读取，结果可能不完整：{}	Some scenes could not be read; the list may be incomplete: {}
+asset_find_refs_unsaved	当前场景有未保存修改，已阻止跳转到其它场景；请先保存	The current scene has unsaved changes; jumping to another scene was blocked. Save first.
 anim_event_audio	音效	Audio
 anim_event_logic	逻辑	Logic
 anim_event_custom	自定义	Custom

@@ -1316,6 +1316,69 @@ fn 执行单个动作(
             界面状态.恢复点错误 = None;
         }
 
+        UiAction::请求查找引用(资源) => {
+            let Some(项目) = 编辑器.项目.clone() else {
+                编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());
+                return;
+            };
+            let 索引 = editor_core::asset_index::项目资源索引::构建(
+                &项目,
+                编辑器.会话.路径.as_ref(),
+                Some(&编辑器.会话.文档),
+            );
+            let 行 = 索引
+                .引用位置(&资源)
+                .iter()
+                .map(|项| editor_ui::state::查找引用行 {
+                    场景: 项.场景.clone(),
+                    实体: 项.位置.实体,
+                    实体名称: 项.实体名称.clone(),
+                    组件: 项.位置.组件.clone(),
+                    属性路径: 项.位置.属性路径.clone(),
+                })
+                .collect();
+            let 问题: Vec<String> = 索引
+                .无法读取的场景
+                .iter()
+                .map(|(场景, 原因)| {
+                    界面状态.语言.填充(
+                        "asset_find_refs_scene_unreadable",
+                        &[&format!("{}（{原因}）", 场景.文本())],
+                    )
+                })
+                .collect();
+            界面状态.查找引用 = Some(editor_ui::state::查找引用草稿 { 资源, 行, 问题 });
+        }
+
+        UiAction::打开引用位置 { 场景, 实体 } => {
+            // 跨场景跳转会丢弃当前未保存修改：必须拒绝并说清，
+            // 而不是"帮用户做了决定"。
+            let 当前 = 编辑器.会话.路径.clone();
+            if 当前.as_ref() != Some(&场景) && 编辑器.有未保存修改() {
+                编辑器.警告(界面状态.语言.取("asset_find_refs_unsaved").to_string());
+                return;
+            }
+            if 当前.as_ref() != Some(&场景) {
+                match 编辑器.打开场景(&场景) {
+                    Ok(()) => {}
+                    Err(错误) => {
+                        编辑器.错误(format!("打开场景失败：{错误}"));
+                        return;
+                    }
+                }
+                // 打开场景会清空选择；跳转的意义就是选中那一行对应的实体。
+                编辑器.选择.单选(实体);
+                编辑器.信息(format!("已跳转到 {}", 场景.文本()));
+            } else {
+                编辑器.选择.单选(实体);
+            }
+            界面状态.查找引用 = None;
+        }
+
+        UiAction::关闭查找引用 => {
+            界面状态.查找引用 = None;
+        }
+
         UiAction::检查资源使用 => {
             let Some(项目) = 编辑器.项目.clone() else {
                 编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());

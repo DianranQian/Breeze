@@ -830,7 +830,7 @@ pub const 打开项目设置环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT_SETTI
 
 /// 启动时直接打开资源重命名/删除对话框（自动验收用）。
 ///
-/// 取值 `rename` 或 `delete`。只用于截图与回归，不是产品功能；
+/// 取值 `rename`、`delete` 或 `refs`（查找引用）。只用于截图与回归，不是产品功能；
 /// 它打开的是**真实的**对话框状态，引用列表也是真索引算出来的。
 pub const 资源对话框环境变量: &str = "BEVY_STUDIO_OPEN_ASSET_DIALOG";
 
@@ -1022,8 +1022,8 @@ fn 按环境变量打开资源对话框(
         return;
     };
     let 模式 = 模式.trim().to_ascii_lowercase();
-    if 模式 != "rename" && 模式 != "delete" {
-        warn!("{资源对话框环境变量} 只接受 rename 或 delete，收到：{模式}");
+    if 模式 != "rename" && 模式 != "delete" && 模式 != "refs" {
+        warn!("{资源对话框环境变量} 只接受 rename / delete / refs，收到：{模式}");
         return;
     }
     let Some(项目) = 编辑器.状态.项目.as_ref() else {
@@ -1039,6 +1039,39 @@ fn 按环境变量打开资源对话框(
         warn!("项目里没有任何资源文件，无法打开资源对话框");
         return;
     };
+
+    if 模式 == "refs" {
+        let 索引 = editor_core::asset_index::项目资源索引::构建(
+            项目,
+            编辑器.状态.会话.路径.as_ref(),
+            Some(&编辑器.状态.会话.文档),
+        );
+        // 选一个**真的有引用**的资源，截图才有内容；没有就用第一个文件。
+        let 目标 = 索引
+            .按资源
+            .keys()
+            .next()
+            .cloned()
+            .unwrap_or_else(|| 资源.clone());
+        let 行 = 索引
+            .引用位置(&目标)
+            .iter()
+            .map(|项| editor_ui::state::查找引用行 {
+                场景: 项.场景.clone(),
+                实体: 项.位置.实体,
+                实体名称: 项.实体名称.clone(),
+                组件: 项.位置.组件.clone(),
+                属性路径: 项.位置.属性路径.clone(),
+            })
+            .collect();
+        界面.状态.查找引用 = Some(editor_ui::state::查找引用草稿 {
+            资源: 目标,
+            行,
+            问题: Vec::new(),
+        });
+        info!("已按环境变量打开查找引用对话框");
+        return;
+    }
 
     if 模式 == "rename" {
         界面.状态.资源重命名 = Some(editor_ui::state::资源重命名草稿 {
@@ -1597,6 +1630,13 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         }
         UiAction::关闭删除资源 => "关闭删除资源".to_string(),
         UiAction::检查资源使用 => "检查资源使用".to_string(),
+        UiAction::请求查找引用(资源) => {
+            format!("请求查找引用({})", 资源.文本())
+        }
+        UiAction::打开引用位置 { 场景, .. } => {
+            format!("打开引用位置({})", 场景.文本())
+        }
+        UiAction::关闭查找引用 => "关闭查找引用".to_string(),
         UiAction::添加动画事件 { 类型, .. } => {
             format!("添加动画事件({})", 类型.代号())
         }

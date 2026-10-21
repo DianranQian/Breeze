@@ -1037,6 +1037,7 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+refresh_scene_instance	用源场景刷新实例	Refresh Instance from Source Scene
 arrange_title	对齐	Align
 align_left	左对齐	Align left
 align_center_h	水平居中	Center horizontally

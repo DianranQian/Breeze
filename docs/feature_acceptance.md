@@ -119,3 +119,7 @@
 | R7 集成 | `cargo test -p editor_app --test 对齐分布` | 4 通过（含"已对齐不产生撤销步"） |
 | R7 全量 | `cargo test --workspace` | 1116 通过 / 0 失败（`.verify/arrange/all_tests.log`） |
 | R7 GUI | `.verify/arrange/bar3/` | 2D 多选 3 个实体时视口右上出现对齐条（浮层），probe 14 条断言通过 |
+| R8 单元 | `cargo test -p editor_core --lib instance` | 13 通过（含刷新保留位置/拒绝非实例/拒绝空源） |
+| R8 集成 | `cargo test -p editor_app --test 场景实例刷新` | 3 通过（带入新内容、一步撤销、拒绝非实例） |
+| R8 全量 | `cargo test --workspace` | 1122 通过 / 0 失败（`.verify/instance_refresh/all_tests.log`） |
+| R8 GUI | `.verify/instance_refresh/gui/` | 真实刷新：名称「门口宝箱」与位置 (120,60) 保留，来源组件可见 |

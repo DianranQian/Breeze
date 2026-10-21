@@ -507,6 +507,10 @@ impl Plugin for BevyStudio插件 {
                 Startup,
                 按环境变量多选.after(按环境变量打开项目),
             )
+            .add_systems(
+                Startup,
+                按环境变量刷新实例.after(按环境变量打开项目),
+            )
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
@@ -845,6 +849,12 @@ pub const 资源对话框环境变量: &str = "BEVY_STUDIO_OPEN_ASSET_DIALOG";
 /// 视口里确实被画出来、Inspector 也认得"，不假装验证了点击路径。
 pub const 多选验收环境变量: &str = "BEVY_STUDIO_SELECT_COUNT";
 
+/// 启动时选中第一个场景实例并触发「刷新场景实例」（自动验收用）。
+///
+/// 真实菜单需要展开两层菜单才能点到，`gui_probe` 做不到；这个入口只是
+/// 把"用户点击那条菜单项"换成环境变量触发，动作本身完全相同。
+pub const 刷新实例验收环境变量: &str = "BEVY_STUDIO_REFRESH_INSTANCE";
+
 /// 启动时生成一条**真实**恢复点并打开恢复对话框（自动验收用）。
 ///
 /// 只用于截图与回归：它用当前场景真实内容写恢复点，再走与启动扫描
@@ -1147,6 +1157,39 @@ fn 按环境变量打开恢复对话框(
         }
         Err(错误) => warn!("生成恢复点失败：{错误}"),
     }
+}
+
+/// 启动时选中第一个场景实例并排队一条「刷新场景实例」。
+fn 按环境变量刷新实例(
+    mut 界面: ResMut<UiStateHolder>,
+    mut 编辑器: ResMut<EditorStateHolder>,
+) {
+    if std::env::var(刷新实例验收环境变量).is_err() {
+        return;
+    }
+    let 候选 = 编辑器
+        .状态
+        .会话
+        .文档
+        .深度优先遍历()
+        .into_iter()
+        .find(|(标识, _)| {
+            编辑器
+                .状态
+                .会话
+                .文档
+                .取(*标识)
+                .and_then(editor_core::instance::实例来源)
+                .is_some()
+        })
+        .map(|(标识, _)| 标识);
+    let Some(标识) = 候选 else {
+        warn!("场景里没有实例，无法演示刷新");
+        return;
+    };
+    编辑器.状态.选择.单选(标识);
+    界面.动作.推(editor_ui::state::UiAction::刷新场景实例);
+    info!("已按环境变量选中实例并请求刷新");
 }
 
 /// 启动时按环境变量选中前 N 个实体（自动验收用）。
@@ -1675,6 +1718,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
             format!("打开引用位置({})", 场景.文本())
         }
         UiAction::关闭查找引用 => "关闭查找引用".to_string(),
+        UiAction::刷新场景实例 => "刷新场景实例".to_string(),
         UiAction::对齐选中 { 边 } => format!("对齐选中({})", 边.词条键()),
         UiAction::分布选中 { 轴 } => format!("分布选中({})", 轴.词条键()),
         UiAction::添加动画事件 { 类型, .. } => {

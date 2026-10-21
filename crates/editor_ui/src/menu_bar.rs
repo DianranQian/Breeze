@@ -184,6 +184,8 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                     项: vec![
                         菜单项::常可用("instantiate_scene", None).需要(可用性::需要项目),
                         菜单项::常可用("save_subscene", None).需要(可用性::需要选中),
+                        菜单项::常可用("refresh_scene_instance", None)
+                            .需要(可用性::需要选中),
                         菜单项::常可用("focus_selection", Some("F")).需要(可用性::需要选中),
                     ],
                 },
@@ -418,6 +420,7 @@ pub fn 菜单项动作(
         "instantiate_scene" => Some(UiAction::请求实例化场景),
         // 把选中子树另存为独立场景：实例化的反向操作。
         "save_subscene" => Some(UiAction::请求导出子场景),
+        "refresh_scene_instance" => Some(UiAction::刷新场景实例),
         "focus_selection" => Some(UiAction::聚焦面板(Tab::视口)),
 
         // ---- 实体 ----

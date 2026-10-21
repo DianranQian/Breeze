@@ -750,6 +750,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "redo_2", 中文: "重做", 英文: "Redo" },
     词条 { 键: "redo_ctrl_y", 中文: "重做（Ctrl+Y）", 英文: "Redo (Ctrl+Y)" },
     词条 { 键: "refresh", 中文: "刷新", 英文: "Refresh" },
+    词条 { 键: "refresh_scene_instance", 中文: "用源场景刷新实例", 英文: "Refresh Instance from Source Scene" },
     词条 { 键: "refresh_the_asset_list", 中文: "刷新资源列表", 英文: "Refresh the asset list" },
     词条 { 键: "registered_component_types", 中文: "已注册组件类型", 英文: "Registered Component Types" },
     词条 { 键: "remove", 中文: "移除", 英文: "Remove" },

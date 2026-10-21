@@ -1316,6 +1316,61 @@ fn 执行单个动作(
             界面状态.恢复点错误 = None;
         }
 
+        UiAction::刷新场景实例 => {
+            let Some(选中) = 编辑器.选择.主选中() else {
+                编辑器.警告("请先选中一个场景实例".to_string());
+                return;
+            };
+            let 来源 = 编辑器
+                .会话
+                .文档
+                .取(选中)
+                .and_then(editor_core::instance::实例来源)
+                .map(str::to_string);
+            let Some(来源) = 来源 else {
+                编辑器.警告("选中的实体不是场景实例（没有「场景实例」组件）".to_string());
+                return;
+            };
+            let Ok(源路径) = scene_doc::path::项目相对路径::解析(&来源) else {
+                编辑器.警告(format!("来源路径不合法：{来源}"));
+                return;
+            };
+            let Some(项目) = 编辑器.项目.clone() else {
+                编辑器.警告("没有打开的项目".to_string());
+                return;
+            };
+            let 源文档 = match 项目.读取场景(&源路径) {
+                Ok(读取) => 读取.文档,
+                Err(错误) => {
+                    编辑器.错误(format!("读取源场景失败：{错误}"));
+                    return;
+                }
+            };
+
+            // 在克隆上改，成功才提交成一条 `设为快照` 命令：
+            // 刷新是整棵子树的替换，用快照命令撤销恰好一步。
+            let mut 文档 = 编辑器.会话.文档.clone();
+            match editor_core::instance::刷新实例(&mut 文档, 选中, &源路径, &源文档) {
+                Some(结果) => {
+                    let 根 = 结果.根实体;
+                    if 编辑器
+                        .执行并记录(editor_core::command::编辑器命令::设为快照 {
+                            文档: Box::new(文档),
+                        })
+                        .is_some()
+                    {
+                        if let Some(根) = 根 {
+                            编辑器.选择.单选(根);
+                        }
+                        编辑器.信息(format!("已从 {} 刷新场景实例", 源路径.文本()));
+                    }
+                }
+                None => {
+                    编辑器.警告("刷新失败：源场景为空或该实体已不是实例".to_string());
+                }
+            }
+        }
+
         UiAction::对齐选中 { 边 } => {
             对齐或分布选中(编辑器, 对齐请求::对齐(边));
         }

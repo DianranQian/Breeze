@@ -208,6 +208,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                 项: vec![
                     菜单项::常可用("refresh_the_asset_list", None).需要(可用性::需要项目),
                     菜单项::常可用("check_asset_dependencies", None).需要(可用性::需要项目),
+                    菜单项::常可用("savegame_menu", None).需要(可用性::需要项目),
                     菜单项::常可用("tooltip_open_assets_folder", None).需要(可用性::需要项目),
                 ],
             }],
@@ -442,6 +443,7 @@ pub fn 菜单项动作(
         // （因为列表本来就是每帧扫描的），那个按钮等于什么都不做。
         "refresh_the_asset_list" => Some(UiAction::重新导入资源),
         "check_asset_dependencies" => Some(UiAction::检查资源依赖),
+        "savegame_menu" => Some(UiAction::显示存档槽位(true)),
         "tooltip_open_assets_folder" => Some(UiAction::在资源管理器中显示(
             scene_doc::path::项目相对路径::解析("assets").ok()?,
         )),

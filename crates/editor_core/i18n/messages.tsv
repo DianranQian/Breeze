@@ -1037,6 +1037,16 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+savegame_browser_title	游戏存档槽位	Game Save Slots
+savegame_readonly_hint	只读浏览：存档由游戏运行时写入，编辑器不会删除或覆盖它们	Read-only: saves are written by the game runtime; the editor never deletes or overwrites them
+savegame_no_project	没有打开项目，无法定位 saves 目录	No project open, cannot locate the saves directory
+savegame_empty	还没有存档。运行游戏并保存一次即可在这里看到。	No saves yet. Run the game and save once to see them here.
+savegame_no_preview	（无预览）	(no preview)
+savegame_meta	格式 v{} · 数据 v{}	format v{} · data v{}
+savegame_saved_at	保存于 {}	 saved at {}
+savegame_corrupt_count	{} 个槽位无法读取	{} unreadable slot(s)
+savegame_menu	存档槽位	Save Slots
+savegame_menu_hint	只读查看项目 saves/ 下的游戏存档	Read-only view of game saves under the project's saves/
 asset_find_refs_deleted_entity	(已删除实体)	(deleted entity)
 anim_event_edit	事件	Event
 anim_event_name_hint	音效填资源路径，逻辑填事件名	Asset path for audio, event name for logic

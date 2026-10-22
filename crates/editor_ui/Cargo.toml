@@ -10,6 +10,9 @@ license.workspace = true
 scene_doc.workspace = true
 runtime_protocol.workspace = true
 editor_core.workspace = true
+# 存档浏览器只做**只读**展示：槽位元数据由 savegame 解析，
+# 界面层不重复实现文件格式。
+savegame.workspace = true
 egui.workspace = true
 egui_dock.workspace = true
 serde.workspace = true

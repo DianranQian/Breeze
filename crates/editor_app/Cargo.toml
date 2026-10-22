@@ -46,6 +46,9 @@ opener = "0.8"
 
 [dev-dependencies]
 tempfile = "3.13"
+# 存档槽位浏览器测试要真实写入 `.sav` 文件（见 tests/存档槽位.rs）。
+savegame.workspace = true
+serde_json.workspace = true
 # 布局持久化的测试需要直接构造/检查 `DockState`
 # （例如验证"不含视口的布局会被拒绝"），
 # 因此测试里需要直接使用 egui_dock。

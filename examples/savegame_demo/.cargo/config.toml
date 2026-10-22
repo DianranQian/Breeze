@@ -1,0 +1,4 @@
+# 本示例是独立工程，不并入微风 workspace。
+# 把构建产物放在示例目录内，避免写到全局 target。
+[build]
+target-dir = "target"

@@ -186,7 +186,7 @@
 | W1 | 插件/扩展 API | M2 | 核心原生 | `架构预留`、模块边界 | 无注册式扩展点 |
 | X1 | Git 状态/差异/提交可视化 | M1 | 暂缓 | Agent 侧有 worktree 差异/回退 | 无版本控制面板 |
 | X2 | 自动保存/崩溃恢复 | M4 | 核心原生 | **R1.5**：`editor_core::recovery` + `editor_app::recovery_autosave` + 恢复对话框；7+6 条测试，GUI 截图 | 恢复点不监听崩溃瞬间，最多丢 30 秒；不自动恢复（有意） |
-| Y1 | 游戏存档数据体系 | M1 | 暂缓 | — | — |
+| Y1 | 游戏存档数据体系 | **M4（库 + 只读浏览器 + 示例）** | 核心原生 | **R12**：`crates/savegame`（槽位/版本/原子写/备份回退/损坏检测/迁移）+ 示例游戏 + 编辑器只读槽位浏览器；9 单测 + 3 集成 + 6 场景端到端 | 编辑器不写存档（刻意只读）；无云同步、无加密 |
 | Z1 | 内置文档/教程/示例 | M3 | 核心原生 | `docs/教程.md`、示例工程 | 示例与代码版本一致性靠人工 |
 | AA1 | AI Agent 模式（会话/审查/修复） | M4 | 外部工具（DSH） | `agent_*`、真实 headless 验收 | 风险分级非逐次审批 |
 | AB1 | 稳定性（长跑/损坏文件/进程清理） | M3 | 核心原生 | 备份恢复、进程树终止 | 无长时间 soak 测试 |
@@ -214,3 +214,18 @@
 | 资源重命名对话框 | `.verify/asset_ops/rename_dialog/asset_rename_dialog.png` |
 | probe 判定报告 | 同目录 `*.report.json` / `*.report.md` |
 | 资源工作区 GUI 场景 | `.verify/runs/acceptance/assets_zh_dark/` |
+
+## 游戏存档（R12 新增）
+
+| 项 | 状态 | 位置 | 说明 |
+| --- | --- | --- | --- |
+| 存档格式与版本 | M4 | `crates/savegame/src/lib.rs` | `format_version` 由库负责迁移；`game_version` 由游戏负责 |
+| 槽位管理 | M4 | `存档仓库::{列表, 读取, 写入, 删除}` | 槽位名白名单校验，阻止目录穿越 |
+| 原子写入 | M4 | `存档仓库::写入` | tmp → fsync → bak → rename；失败回滚 |
+| 备份回退 | M4 | `读取文件` | 主文件坏了依次试 `.bak` / `.tmp`，并标记来源 |
+| 损坏检测 | M4 | `列表` + 面板 | 损坏槽位单独列出，不静默丢弃 |
+| 版本过新 | M4 | `解码` / `迁移` | 明确报错，不删未来版本文件 |
+| 玩法扩展 | M4 | `payload: serde_json::Value` | 背包/等级/任务由游戏定义，不进编辑器核心 |
+| 编辑器浏览 | M4 | `editor_ui::savegame_panel` | **只读**：不删、不改、不覆盖 |
+| 示例游戏 | M4 | `examples/savegame_demo` | `init/play/load/verify/corrupt/future` 六个真跑场景 |
+| 云同步/加密 | M0 | — | 未实现，也不打算在编辑器内做 |

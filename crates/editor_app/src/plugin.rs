@@ -496,6 +496,7 @@ impl Plugin for BevyStudio插件 {
             .add_systems(Startup, 按环境变量演示动画事件.after(按环境变量打开项目))
             .add_systems(Startup, 按环境变量多选.after(按环境变量打开项目))
             .add_systems(Startup, 按环境变量刷新实例.after(按环境变量打开项目))
+            .add_systems(Startup, 按环境变量打开存档浏览器.after(按环境变量打开项目))
             // ---- Update：只改数据，不碰 egui ----
             //
             // 顺序即数据流，见模块头部说明。
@@ -840,6 +841,12 @@ pub const 多选验收环境变量: &str = "BEVY_STUDIO_SELECT_COUNT";
 /// 把"用户点击那条菜单项"换成环境变量触发，动作本身完全相同。
 pub const 刷新实例验收环境变量: &str = "BEVY_STUDIO_REFRESH_INSTANCE";
 
+/// 启动时打开「游戏存档槽位」浏览器（自动验收用）。
+///
+/// 菜单需要展开一层才能点到，`gui_probe` 做不到；这个入口把
+/// "用户点菜单"换成环境变量，动作本身完全相同。
+pub const 存档浏览器验收环境变量: &str = "BEVY_STUDIO_OPEN_SAVES";
+
 /// 启动时生成一条**真实**恢复点并打开恢复对话框（自动验收用）。
 ///
 /// 只用于截图与回归：它用当前场景真实内容写恢复点，再走与启动扫描
@@ -1142,6 +1149,15 @@ fn 按环境变量打开恢复对话框(
         }
         Err(错误) => warn!("生成恢复点失败：{错误}"),
     }
+}
+
+/// 启动时打开存档浏览器（自动验收用）。
+fn 按环境变量打开存档浏览器(mut 界面: ResMut<UiStateHolder>) {
+    if std::env::var(存档浏览器验收环境变量).is_err() {
+        return;
+    }
+    界面.动作.推(editor_ui::state::UiAction::显示存档槽位(true));
+    info!("已按环境变量请求打开存档槽位浏览器");
 }
 
 /// 启动时选中第一个场景实例并排队一条「刷新场景实例」。
@@ -1704,6 +1720,8 @@ pub fn 动作摘要(动作: &UiAction) -> String {
             format!("打开引用位置({})", 场景.文本())
         }
         UiAction::关闭查找引用 => "关闭查找引用".to_string(),
+        UiAction::显示存档槽位(显示) => format!("显示存档槽位({显示})"),
+        UiAction::刷新存档槽位 => "刷新存档槽位".to_string(),
         UiAction::刷新场景实例 => "刷新场景实例".to_string(),
         UiAction::对齐选中 { 边 } => format!("对齐选中({})", 边.词条键()),
         UiAction::分布选中 { 轴 } => format!("分布选中({})", 轴.词条键()),

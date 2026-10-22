@@ -152,3 +152,14 @@
 `查找引用行::文本()` 里把「(已删除实体)」硬编码成中文——英文界面会冒出一行中文。
 现在改为走词表（`asset_find_refs_deleted_entity`），并让函数接收语言参数。
 扫描脚本因此少了一条失败（6 → 5）。
+
+## 11. R12 游戏存档体系
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 单元 | `cargo test -p savegame` | 9 通过（往返、倒序列表、写入失败不毁旧档、备份恢复、版本过新、槽位名、删除、迁移、编码往返） |
+| 集成 | `cargo test -p editor_app --test 存档槽位` | 3 通过（扫描+损坏标记、无项目、刷新看到新槽位） |
+| 全量 | `cargo test --workspace` | **1144 通过 / 0 失败**（`.verify/savegame/all_tests.log`） |
+| 端到端（真实进程） | `savegame_demo` 六个场景 | 全部 exit 0（`.verify/savegame/demo_run.log`）：init / play / load（读回初始态）/ verify（两槽互不覆盖）/ corrupt（备份恢复）/ future（拒绝新版本且不删文件） |
+| 静态检查 | `cargo clippy -p savegame -p editor_ui -p editor_app --all-targets` | 无新增告警 |
+| GUI | `gui_probe run` + `BEVY_STUDIO_OPEN_SAVES=1` | 存档浏览器显示 slot_2/slot_1 的预览、格式/数据版本、保存时间、游玩时长，并把 `slot_broken.sav` 列为无法读取（`.verify/savegame/gui2/`） |

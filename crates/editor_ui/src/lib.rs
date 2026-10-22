@@ -40,6 +40,7 @@ pub mod node_icons;
 pub mod picking3d;
 pub mod recovery_panel;
 pub mod runtime_panel;
+pub mod savegame_panel;
 pub mod script;
 pub mod state;
 pub mod theme;
@@ -1238,6 +1239,11 @@ impl 面板查看器<'_, '_> {
         let 视口矩形 = self.上下文.界面.上一帧视口矩形;
         if let Some(视口矩形) = 视口矩形
             && let Some(动作) = arrange_bar::绘制(egui上下文, self.上下文, 视口矩形, 配色, 语言)
+        {
+            self.上下文.动作.推(动作);
+        }
+        // 游戏存档槽位：只读浏览项目 `saves/`，不替玩家删改。
+        if let Some(动作) = savegame_panel::绘制(egui上下文, self.上下文.界面, 配色, 语言)
         {
             self.上下文.动作.推(动作);
         }

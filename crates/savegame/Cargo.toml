@@ -1,0 +1,17 @@
+[package]
+name = "savegame"
+description = "游戏运行时存档：版本化槽位、原子写入、备份回退、损坏检测与迁移。不依赖 Bevy，也不依赖编辑器核心。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ron.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

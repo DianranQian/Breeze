@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/scene_doc",
+    "crates/savegame",
     "crates/runtime_protocol",
     "crates/breeze_debug_adapter",
     "crates/bsn_bridge",
@@ -92,6 +93,7 @@ image = { version = "0.25.10", default-features = false, features = [
 ] }
 
 scene_doc = { path = "crates/scene_doc" }
+savegame = { path = "crates/savegame" }
 runtime_protocol = { path = "crates/runtime_protocol" }
 breeze_debug_adapter = { path = "crates/breeze_debug_adapter" }
 bsn_bridge = { path = "crates/bsn_bridge" }

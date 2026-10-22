@@ -45,7 +45,12 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use bevy_egui::{EguiContexts, EguiTextureHandle, EguiUserTextures};
+
+use crate::pie_input::{
+    Pie焦点状态, Pie输入焦点, 原始按键, 焦点变化原因, 路由键盘
+};
 
 /// 原型验收用的环境变量：设置后启动即自动开跑。
 pub const 原型启动环境变量: &str = "BEVY_STUDIO_PIE";
@@ -56,6 +61,15 @@ pub const 原型启动环境变量: &str = "BEVY_STUDIO_PIE";
 /// 代码，环境变量只是触发时机不同。这样"停止后重启仍可用"是被真实
 /// 进程验证的，而不是被单元测试模拟的。
 pub const 原型场景环境变量: &str = "BEVY_STUDIO_PIE_SCENARIO";
+
+/// 验收脚本：第 N 帧自动请求捕获（模拟"用户点击画面"）。
+///
+/// 为什么需要它：`gui_probe` 能注入鼠标点击、也能被日志证实捕获成功，
+/// 但它不能在应用运行中途注入**键盘**——键盘注入要靠操作系统级
+/// `SendKeys`，那需要应用已经在跑。两者凑不进同一次运行，
+/// 所以键盘验收用"同一状态机方法、不同触发源"的方式：
+/// 点击捕获有独立证据（drag 日志），键盘路由用这个入口 + 真实按键。
+pub const 原型自动捕获环境变量: &str = "BEVY_STUDIO_PIE_AUTOCAPTURE";
 
 /// 运行时画面所在的渲染层。
 ///
@@ -100,9 +114,17 @@ pub struct Pie输入 {
     /// 鼠标在 PIE 画面里的水平位置（-1 左、+1 右）。
     ///
     /// `None` 表示指针不在画面上。按住左键时方块会朝这个位置移动 ——
-    /// 这是原型里第二条输入链路，用来被**系统级鼠标注入**驱动
-    /// （键盘注入在当前验收工具里不可用，见模块文档）。
+    /// 这是"未捕获"状态下的鼠标链路，用来被**系统级鼠标注入**驱动。
     pub 指针目标: Option<f32>,
+    /// 捕获状态下本帧的相对鼠标水平位移（像素）。
+    ///
+    /// 捕获时指针被系统锁定，绝对坐标不再有意义，只能用相对位移。
+    /// 这条与 `指针目标` 互斥：捕获时读这个，未捕获时读那个。
+    pub 鼠标位移x: f32,
+    /// 捕获状态下鼠标左键是否按下。
+    pub 左键按下: bool,
+    /// 本帧是否收到"退出捕获"（Esc）。由焦点状态机消费一次。
+    pub 退出捕获: bool,
 }
 
 /// 原型状态。
@@ -124,6 +146,8 @@ pub struct Pie原型状态 {
     pub 上次启动毫秒: f32,
     /// 被指针输入驱动的帧数（证明输入链路真的在工作，而不是只有一帧）。
     pub 指针驱动帧数: u64,
+    /// 被捕获态鼠标位移驱动的帧数。
+    pub 鼠标驱动帧数: u64,
     /// 应用帧计数（**停止时也继续增长**）。
     ///
     /// 验收脚本不能按"运行帧"触发停止/重启：停止后运行帧不再增长，
@@ -154,6 +178,7 @@ impl Default for Pie原型状态 {
             上一帧毫秒: 0.0,
             上次启动毫秒: 0.0,
             指针驱动帧数: 0,
+            鼠标驱动帧数: 0,
             场景帧: 0,
             启动次数: 0,
             图片: None,
@@ -172,13 +197,24 @@ impl Plugin for Pie原型插件 {
     fn build(&self, app: &mut App) {
         app.init_resource::<Pie原型状态>()
             .init_resource::<Pie输入>()
+            .init_resource::<Pie输入焦点>()
             // 纹理注册在 Startup：与 `preview.rs` 创建预览纹理同批，
             // `EguiUserTextures::add_image` 只登记资源与 id，不碰字体。
             .add_systems(Startup, 自动启动)
             .add_systems(
                 Update,
-                (同步输入, 推进原型, 按场景停止并重启, 记录连续帧证据).chain(),
+                (
+                    同步焦点,
+                    按帧自动捕获,
+                    同步输入,
+                    推进原型,
+                    按场景停止并重启,
+                    记录连续帧证据,
+                )
+                    .chain(),
             )
+            // 指针锁定必须在窗口系统更新之后、渲染之前生效。
+            .add_systems(PostUpdate, 应用鼠标捕获)
             // 原型窗口必须在 egui 的 context pass 里画：那里 `Context`
             // 已经跑过、字体已就绪。放在 `Update` 里会 panic：
             // "No fonts available until first call to Context::run()"。
@@ -327,6 +363,22 @@ pub fn 停止_实现(
     info!("PIE 原型已停止（本次运行 {} 帧）", 状态.帧);
 }
 
+/// 验收脚本：在第 N 帧自动请求捕获。
+fn 按帧自动捕获(mut 焦点: ResMut<Pie输入焦点>, 状态: Res<Pie原型状态>) {
+    let Ok(帧文本) = std::env::var(原型自动捕获环境变量) else {
+        return;
+    };
+    let Ok(帧号) = 帧文本.parse::<u64>() else {
+        return;
+    };
+    if !状态.运行中 || 状态.帧 != 帧号 {
+        return;
+    }
+    if 焦点.请求捕获() {
+        info!("PIE 自动捕获（验收脚本，第 {帧号} 帧）：{}", 焦点.摘要());
+    }
+}
+
 /// 验收脚本：按帧号停止并重启，验证"停止 → 再次启动"链路。
 ///
 /// 只有在 `BEVY_STUDIO_PIE_SCENARIO=restart` 时才动作。
@@ -359,22 +411,188 @@ fn 按场景停止并重启(
     }
 }
 
-/// 读取真实键盘输入。
+/// 同步输入焦点：**所有**焦点状态转换都经过这里。
+///
+/// # 为什么集中在一个系统里
+///
+/// 焦点是最容易分裂成多个布尔值的东西：视口 UI 想改"是否捕获"，
+/// 运行生命周期想改"是否运行"，窗口事件想改"是否活跃"。三处各改一半，
+/// 就会出现"按 Esc 释放了鼠标但键盘还在路由""停止后游戏还在动"这类
+/// 互相矛盾的中间态。
+///
+/// 这里把状态机（`pie_input::Pie输入焦点`）当作唯一权威，本系统只负责
+/// 把"外部发生了什么事"翻译成状态机的一次调用：
+///
+/// ```text
+///  窗口 focused 变化 ──▶ 窗口失焦 / 窗口恢复
+///  Esc 按下（捕获中）──▶ 释放(用户按Esc)
+///  运行开始/停止 ────▶ 开始会话 / 会话结束
+///  视口纹理消失 ─────▶ 目标失效
+/// ```
+#[allow(clippy::too_many_arguments)]
+fn 同步焦点(
+    mut 焦点: ResMut<Pie输入焦点>,
+    状态: Res<Pie原型状态>,
+    mut 输入: ResMut<Pie输入>,
+    窗口: Query<&Window, With<PrimaryWindow>>,
+    键盘: Res<ButtonInput<KeyCode>>,
+) {
+    // ---- 运行开始 / 停止 ----
+    let 运行中 = 状态.运行中;
+    let 有会话 = 焦点.状态 != Pie焦点状态::无会话;
+    if 运行中 && !有会话 {
+        焦点.开始会话();
+        清空游戏输入(&mut 输入);
+        info!("PIE 输入焦点：{}", 焦点.摘要());
+    } else if !运行中 && 有会话 {
+        焦点.会话结束();
+        清空游戏输入(&mut 输入);
+        info!("PIE 输入焦点：{}", 焦点.摘要());
+    }
+
+    // ---- 视口目标失效 ----
+    if 运行中 && 状态.纹理.is_none() {
+        焦点.目标失效();
+        清空游戏输入(&mut 输入);
+        info!("PIE 输入目标失效，已退回未捕获");
+    }
+
+    // ---- 窗口操作焦点 ----
+    if let Ok(窗口) = 窗口.single() {
+        if 窗口.focused && !焦点.窗口活跃 {
+            焦点.窗口恢复();
+            info!("PIE 输入焦点：{}", 焦点.摘要());
+        } else if !窗口.focused && 焦点.窗口活跃 {
+            焦点.窗口失焦();
+            清空游戏输入(&mut 输入);
+            info!("PIE 输入焦点：{}", 焦点.摘要());
+        }
+    }
+
+    // ---- Esc：只在捕获时归游戏 ----
+    // 未捕获时 Esc 完全不动（编辑器的"取消选择"仍然生效，见 actions）。
+    if 焦点.游戏接收键盘() && 键盘.just_pressed(KeyCode::Escape) {
+        焦点.释放(焦点变化原因::用户按Esc);
+        清空游戏输入(&mut 输入);
+        info!("PIE 输入焦点：{}", 焦点.摘要());
+    }
+}
+
+/// 本帧的原始按键快照（交给 `pie_input::路由键盘` 决定归属）。
+fn 读原始按键(键盘: &ButtonInput<KeyCode>) -> 原始按键 {
+    原始按键 {
+        左: 键盘.pressed(KeyCode::KeyA) || 键盘.pressed(KeyCode::ArrowLeft),
+        右: 键盘.pressed(KeyCode::KeyD) || 键盘.pressed(KeyCode::ArrowRight),
+        加速: 键盘.pressed(KeyCode::ShiftLeft) || 键盘.pressed(KeyCode::ShiftRight),
+        空格按下: 键盘.just_pressed(KeyCode::Space),
+        esc按下: 键盘.just_pressed(KeyCode::Escape),
+    }
+}
+
+/// 测试专用：把 Bevy 键盘快照读成 `原始按键`。
+///
+/// 生产路径用私有函数 `读原始按键`；集成测试要验证"从真实 `ButtonInput`
+/// 到路由结果"这一段，因此暴露一个只读包装，而不是把私有函数改成 pub。
+pub fn 读原始按键为测试用(键盘: &ButtonInput<KeyCode>) -> 原始按键 {
+    读原始按键(键盘)
+}
+
+/// 清空 PIE 自己的输入状态。
+///
+/// **只清自己的**：绝不 `键盘.clear()` / `键盘.reset()` —— 那会把编辑器
+/// 快捷键与其它系统的按键状态一起抹掉，属于"为了修一个 bug 制造三个"。
+pub fn 清空游戏输入(输入: &mut Pie输入) {
+    输入.左 = false;
+    输入.右 = false;
+    输入.加速 = false;
+    输入.指针目标 = None;
+    输入.鼠标位移x = 0.0;
+    输入.左键按下 = false;
+    输入.退出捕获 = false;
+}
+
+/// 应用鼠标捕获（指针锁定 + 隐藏光标）。
+///
+/// # 这是**系统级**捕获，不是"只在 egui 矩形里锁"
+///
+/// `CursorGrabMode::Locked` 由 winit 下发到窗口：捕获期间指针被锁定在
+/// 窗口内某点，不再能移动到别的窗口/桌面边缘。因此提示文案不能用
+/// "画面区域内锁定"这类会误导人的说法。
+///
+/// Windows 支持 `Locked`；若平台不支持，winit 会退回 `Confined`
+/// 或 `None`。这里按"状态要求捕获 → 设 Locked；状态不要求 → 设 None"
+/// 写，不判断返回值，因为"设置失败"不该让编辑器 panic —— 提示文案
+/// 仍然显示当前状态，用户按 Esc 仍可释放。
+fn 应用鼠标捕获(
+    焦点: Res<Pie输入焦点>,
+    窗口: Query<&mut CursorOptions, With<PrimaryWindow>>,
+) {
+    let mut 窗口 = 窗口;
+    if !焦点.is_changed() {
+        return;
+    }
+    let Ok(mut 光标) = 窗口.single_mut() else {
+        return;
+    };
+    // 用 Bool 比较而不是"每帧都写"：每帧写 `cursor_options` 会触发
+    // 变更检测，窗口系统每帧都做一次无意义的抓取/释放。
+    let 想要捕获 = 焦点.鼠标捕获;
+    let 当前捕获 = 光标.grab_mode != CursorGrabMode::None;
+    if 想要捕获 == 当前捕获 {
+        return;
+    }
+    if 想要捕获 {
+        光标.grab_mode = CursorGrabMode::Locked;
+        光标.visible = false;
+    } else {
+        光标.grab_mode = CursorGrabMode::None;
+        光标.visible = true;
+    }
+}
+
+/// 读取真实键盘与鼠标，经**路由**决定这一帧谁拿到输入。
+///
+/// 路由本身在 `pie_input::路由键盘`（纯函数、有单测）；这里只做两件事：
+/// 把 Bevy 输入读成 `原始按键`，把结果写进 `Pie输入`。
 fn 同步输入(
     键盘: Res<ButtonInput<KeyCode>>,
+    鼠标按键: Res<ButtonInput<MouseButton>>,
+    mut 鼠标位移: MessageReader<bevy::input::mouse::MouseMotion>,
+    焦点: Res<Pie输入焦点>,
     mut 输入: ResMut<Pie输入>,
     状态: Res<Pie原型状态>,
 ) {
     if !状态.运行中 {
-        输入.左 = false;
-        输入.右 = false;
-        输入.加速 = false;
-        输入.指针目标 = None;
+        清空游戏输入(&mut 输入);
         return;
     }
-    输入.左 = 键盘.pressed(KeyCode::KeyA) || 键盘.pressed(KeyCode::ArrowLeft);
-    输入.右 = 键盘.pressed(KeyCode::KeyD) || 键盘.pressed(KeyCode::ArrowRight);
-    输入.加速 = 键盘.pressed(KeyCode::ShiftLeft) || 键盘.pressed(KeyCode::ShiftRight);
+
+    let 结果 = 路由键盘(&焦点, 读原始按键(&键盘));
+
+    // 键盘：只有路由给游戏时才有值；未捕获时全部为 false。
+    输入.左 = 结果.游戏.左;
+    输入.右 = 结果.游戏.右;
+    输入.加速 = 结果.游戏.加速;
+    输入.退出捕获 = 结果.游戏.退出捕获;
+
+    // 鼠标：两条链路，按焦点状态二选一，绝不混用。
+    if 焦点.游戏接收鼠标() {
+        // 捕获态：指针被锁定，只能用相对位移。
+        let mut dx = 0.0;
+        for 事件 in 鼠标位移.read() {
+            dx += 事件.delta.x;
+        }
+        输入.鼠标位移x = dx;
+        输入.左键按下 = 鼠标按键.pressed(MouseButton::Left);
+        // 捕获时禁用"朝指针位置走"：那个目标是相对画面矩形的绝对坐标，
+        // 指针锁定后它没有意义，两者同时生效会让方块乱跳。
+        输入.指针目标 = None;
+    } else {
+        输入.鼠标位移x = 0.0;
+        输入.左键按下 = false;
+        // 未捕获时不清 `指针目标`：它由视口 UI 在拖拽时写入，
+        // 这里清掉会把 UI 刚写进去的值抹掉（同一帧内两个系统争同一字段）。
+    }
 }
 
 /// 推进一步原型世界（纯逻辑，不碰 ECS）。
@@ -439,6 +657,18 @@ fn 推进原型(
         return;
     }
     let 开始 = std::time::Instant::now();
+    if 输入.鼠标位移x.abs() > 0.0 {
+        // 捕获态的鼠标控制：相对位移 → 水平移动。
+        //
+        // 灵敏度 0.01 世界单位/像素：1280 像素横扫约 12.8 个单位，
+        // 正好覆盖 12 单位宽的场地。这个数字属于原型手感，不是物理量。
+        let 位移 = 输入.鼠标位移x * 0.01;
+        let 新x = (状态.方块x + 位移).clamp(左边界, 右边界);
+        if 新x != 状态.方块x {
+            状态.方块x = 新x;
+            状态.鼠标驱动帧数 += 1;
+        }
+    }
     步进(&mut 状态, &输入, 时间.delta_secs());
     for mut 变换 in &mut 查询 {
         变换.translation.x = 状态.方块x;
@@ -453,7 +683,9 @@ fn 推进原型(
 /// 截图只能证明某一时刻。日志里出现 `帧 30 x=-2.13`、`帧 60 x=1.77`…
 /// 是同一个进程里连续推进的序列，配合"同一会话内两帧截图不同"，
 /// 才构成"画面在动"的证据链。
-fn 记录连续帧证据(状态: Res<Pie原型状态>, 输入: Res<Pie输入>) {
+fn 记录连续帧证据(
+    状态: Res<Pie原型状态>, 输入: Res<Pie输入>, 焦点: Res<Pie输入焦点>
+) {
     if !状态.运行中 {
         return;
     }
@@ -461,16 +693,26 @@ fn 记录连续帧证据(状态: Res<Pie原型状态>, 输入: Res<Pie输入>) {
         return;
     }
     info!(
-        "PIE 帧 {} · 方块 x={:.3} · 指针 {:?} · 输入驱动 {} 帧 · 推进 {:.3} ms",
-        状态.帧, 状态.方块x, 输入.指针目标, 状态.指针驱动帧数, 状态.上一帧毫秒
+        "PIE 帧 {} · 方块 x={:.3} · 焦点 {} · 键盘 左={} 右={} · \
+         指针 {:?} · 输入驱动 {} 帧 · 推进 {:.3} ms",
+        状态.帧,
+        状态.方块x,
+        焦点.状态.名称(),
+        输入.左,
+        输入.右,
+        输入.指针目标,
+        状态.指针驱动帧数,
+        状态.上一帧毫秒
     );
 }
 
 /// 原型窗口：把渲染目标当成普通 egui 纹理显示，并提供启动/停止/重启。
+#[allow(clippy::too_many_arguments)]
 fn 绘制原型窗口(
     mut 上下文: EguiContexts,
     mut 状态: ResMut<Pie原型状态>,
     mut 输入: ResMut<Pie输入>,
+    mut 焦点: ResMut<Pie输入焦点>,
     mut 命令: Commands,
     相机: Query<Entity, With<Pie相机>>,
     地面: Query<Entity, With<Pie地面>>,
@@ -511,12 +753,25 @@ fn 绘制原型窗口(
                 }
                 ui.label(format!("帧 {帧} · 方块 x={方块x:.3} · 启动 {启动次数} 次"));
             });
-            ui.label(
-                egui::RichText::new(format!(
-                    "推进 {上一帧毫秒:.3} ms · A/D 或 ←/→ 改变方向（需窗口聚焦）"
-                ))
-                .small(),
-            );
+            ui.label(egui::RichText::new(format!("推进 {上一帧毫秒:.3} ms")).small());
+            // 焦点提示：**状态驱动**，不是"上次点击残留"。
+            // 同时给文字与颜色：只靠颜色对色觉障碍用户等于没提示。
+            let (提示, 提示色) = match 焦点.状态 {
+                Pie焦点状态::无会话 => ("未运行：点「启动」开始", egui::Color32::GRAY),
+                Pie焦点状态::未捕获 if 运行中 => (
+                    "点击画面开始交互（键盘与鼠标交给游戏）",
+                    egui::Color32::LIGHT_BLUE,
+                ),
+                Pie焦点状态::未捕获 => ("未运行：点「启动」开始", egui::Color32::GRAY),
+                Pie焦点状态::已捕获 => (
+                    "已捕获：WASD / ←→ 控制，Esc 释放",
+                    egui::Color32::LIGHT_GREEN,
+                ),
+                Pie焦点状态::挂起 => {
+                    ("窗口失焦，已释放；点回画面继续", egui::Color32::YELLOW)
+                }
+            };
+            ui.label(egui::RichText::new(提示).small().color(提示色));
             ui.separator();
             match 纹理 {
                 Some(纹理) => {
@@ -529,13 +784,25 @@ fn 绘制原型窗口(
                     // 第二条输入链路：按住左键时，方块朝指针在画面里的
                     // 水平位置移动。`gui_probe drag` 能注入真实鼠标事件，
                     // 因此这条链路是可被系统级验证的。
-                    let 指针 = 响应.interact_pointer_pos();
-                    let 按住 = 响应.dragged() || 响应.clicked();
-                    if let (true, Some(位置)) = (按住, 指针) {
-                        let t = ((位置.x - 响应.rect.left()) / 响应.rect.width()) * 2.0 - 1.0;
-                        输入.指针目标 = Some(t.clamp(-1.0, 1.0));
-                    } else {
+                    // 点击画面 = 请求捕获。只有命中**图像矩形**的点击才算：
+                    // egui 的 `Response` 只覆盖这张图，点工具栏/检查器拿不到它。
+                    if 响应.clicked() {
+                        焦点.请求捕获();
+                    }
+
+                    if 焦点.游戏接收鼠标() {
+                        // 捕获态：指针被系统锁定，绝对坐标没有意义，
+                        // 鼠标输入走 `同步输入` 里的相对位移链路。
                         输入.指针目标 = None;
+                    } else {
+                        let 指针 = 响应.interact_pointer_pos();
+                        let 按住 = 响应.dragged();
+                        if let (true, Some(位置)) = (按住, 指针) {
+                            let t = ((位置.x - 响应.rect.left()) / 响应.rect.width()) * 2.0 - 1.0;
+                            输入.指针目标 = Some(t.clamp(-1.0, 1.0));
+                        } else {
+                            输入.指针目标 = None;
+                        }
                     }
                 }
                 None => {
@@ -548,6 +815,10 @@ fn 绘制原型窗口(
         状态.显示窗口 = false;
     }
     if 请求停止 || 请求重启 {
+        // 立即释放捕获：不能等下一帧的 `同步焦点` —— 那一帧里 `运行中`
+        // 可能还是 true，游戏仍会收到一次按键。
+        焦点.释放(焦点变化原因::运行停止);
+        清空游戏输入(&mut 输入);
         停止_实现(
             &mut 命令,
             &mut 状态,

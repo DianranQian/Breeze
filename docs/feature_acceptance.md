@@ -176,3 +176,19 @@
 | 输入（真实鼠标） | `gui_probe drag --from 886,467 --to 1140,467` | 日志 `指针 Some(0.5097)`、`输入驱动 48 帧`，方块 x −1.499 → 3.000 |
 | 启停/重启 | `BEVY_STUDIO_PIE_SCENARIO=restart` | `已停止（120 帧）` → `已启动（第 2 次）` → 继续推进到 240 帧 |
 | 编辑态隔离 | 三次 GUI 证据 json | `document_dirty=false`、`实体 0`、场景文件路径不变 |
+
+## 13. R13.1 PIE 输入捕获与焦点路由
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 单元 | `cargo test -p editor_app --lib pie_input` | 11 通过 |
+| 集成 | `cargo test -p editor_app --test pie输入` | 6 通过（路由驱动步进、未捕获全空、Esc 释放、停止清空、重启不继承、真实 `ButtonInput` → 路由） |
+| 全量 | `cargo test --workspace` | **1169 通过 / 0 失败**（`.verify/pie_input/all_tests.log`） |
+| GUI 点击捕获 | `gui_probe run --pie-keys "click=886,467;..."` | 真实鼠标点击后日志 `PIE 输入焦点：已捕获` |
+| GUI 键盘路由 | 同上 | 帧 120/150 `键盘 左=true`（按住 A，方块到 -6 边界），帧 180 `键盘 右=true`（切到 D） |
+| GUI Esc 释放 | 同上 | `原因 用户按 Esc` → `未捕获`，后续帧 `键盘 左=false 右=false` |
+| GUI 快捷键门控 | `.verify/pie_input/shortcut/` | 捕获期 Ctrl+F1：日志 `PIE 捕获中：编辑器快捷键已停用`，未出现 `float_help` |
+| GUI 快捷键恢复 | `.verify/pie_input/after_release/` | Esc 后 F1：证据区域出现 `float_help` |
+| GUI 停止/重启 | `.verify/pie_input/stop_restart/` | 已捕获 → 停止 → `无会话` → 重启 → `会话 2 · 未捕获` |
+| 方向键 | 同 GUI 键盘路由 | **未通过**：VK 0x25/0x27 注入后 Bevy 未收到（补扩展键标志仍无效）；WASD 已验证 |
+| 真实 Alt+Tab 失焦 | — | **未执行**（前台锁）；由单元测试覆盖 |

@@ -41,6 +41,7 @@ pub mod diagnostics;
 pub mod light_preview;
 pub mod physics_components;
 pub mod physics_runtime;
+pub mod pie_input;
 pub mod pie_proto;
 pub mod plugin;
 pub mod preview;

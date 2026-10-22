@@ -59,6 +59,7 @@ pub fn 处理快捷键(
     mut 上下文: EguiContexts,
     mut 界面: ResMut<UiStateHolder>,
     当前运行: Res<运行时宿主>,
+    pie焦点: Res<crate::pie_input::Pie输入焦点>,
 ) {
     let Ok(上下文) = 上下文.ctx_mut() else {
         return;
@@ -67,6 +68,29 @@ pub fn 处理快捷键(
     // 有文本输入框在编辑时不响应全局快捷键，
     // 否则用户重命名实体时按 Ctrl+S 会同时保存并打断输入。
     if 界面.状态.文本编辑.is_some() {
+        return;
+    }
+
+    // # PIE 捕获期间：键盘归游戏
+    //
+    // 这是**唯一**的快捷键门控点。不在每个分支里写 `if pie捕获`：
+    // 那种散落判断迟早会漏一个，表现为"捕获时按 Delete 把实体删了"。
+    //
+    // 放行 F7（停止运行）的理由：用户必须有一个"不用先释放捕获"的
+    // 紧急出口。Esc 也能释放，但 Esc 同时是游戏自己的键，不能指望它。
+    let pie捕获 = !pie焦点.编辑器快捷键可用();
+    if pie捕获 && !上下文.input(|输入| 输入.key_pressed(egui::Key::F7)) {
+        // 记一次"确实拦下了输入"：验收要能证明门控路径真的执行了，
+        // 而不是"恰好这次没按键"。同一帧可能多次进入，用 `just_pressed`
+        // 的任一键作为节流条件。
+        let 有按键 = 上下文.input(|输入| {
+            输入.key_pressed(egui::Key::F1)
+                || 输入.key_pressed(egui::Key::Delete)
+                || 输入.key_pressed(egui::Key::S)
+        });
+        if 有按键 {
+            info!("PIE 捕获中：编辑器快捷键已停用（{}）", pie焦点.摘要());
+        }
         return;
     }
 

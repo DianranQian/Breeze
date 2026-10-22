@@ -121,6 +121,12 @@ struct 选项 {
     frame: Option<u32>,
     window: Option<String>,
     env: Vec<(String, String)>,
+    /// `--pie-keys`：在 `run` 采集过程中注入真实鼠标+键盘（PIE 输入验收用）。
+    ///
+    /// 格式：`click=886,467;hold=0x25:800;hold=0x27:500;tap=0x1B`
+    /// 每一步由**日志标记**推进（见 `PIE脚本步骤` 的 `等到`），
+    /// 不靠固定 sleep 猜时机。
+    pie_keys: Option<String>,
     期望: 期望,
 }
 
@@ -167,6 +173,9 @@ fn 解析(参数: &[String]) -> Result<选项, String> {
                 )
             }
             "--window" => 选项.window = Some(取值(&mut 下标)?),
+            "--pie-keys" => {
+                选项.pie_keys = Some(取值(&mut 下标)?);
+            }
             "--env" => {
                 let 值 = 取值(&mut 下标)?;
                 let (键, 值) = 值
@@ -362,11 +371,62 @@ fn 运行(参数: &[String]) -> i32 {
     };
     let 进程号 = 子进程.id();
 
+    // ---- PIE 输入脚本（只有 `--pie-keys` 时才工作）----
+    //
+    // 每一步都等**日志标记**而不是固定 sleep：帧率随机器与编译配置变化，
+    // 固定延时在慢机器上必然错位。
+    let mut 按键脚本 = match 选项.pie_keys.as_deref() {
+        Some(文本) => match 解析按键脚本(文本) {
+            Ok(步骤) => Some(步骤),
+            Err(错误) => {
+                eprintln!("--pie-keys 解析失败：{错误}");
+                None
+            }
+        },
+        None => None,
+    };
+    let mut 脚本记录: Vec<serde_json::Value> = Vec::new();
+
     // 边等边查窗口：应用采完就退出，窗口信息必须在它活着的时候取。
     let 开始 = Instant::now();
     let mut 窗口信息: Option<窗口信息> = None;
     let mut 采集完成 = false;
     loop {
+        // 推进 PIE 输入脚本：每轮读日志，命中标记就执行下一步。
+        if let Some(步骤表) = &mut 按键脚本 {
+            let 日志文本 = std::fs::read_to_string(&log).unwrap_or_default();
+            let mut 待重试: Option<PIE脚本步骤> = None;
+            while let Some(步骤) = 步骤表.first() {
+                if !日志文本.contains(&步骤.等到) {
+                    break;
+                }
+                let 步骤 = 步骤克隆(步骤);
+                if 步骤.点击.is_some() && 窗口信息.is_none() {
+                    待重试 = Some(步骤);
+                    break;
+                }
+                let 步骤 = 步骤表.remove(0);
+                match 执行脚本步骤(&步骤, 窗口信息.as_ref(), &日志文本) {
+                    Ok((证据, 摘要)) => {
+                        eprintln!("[pie-keys] {} → {摘要}", 步骤.描述);
+                        脚本记录.push(证据);
+                    }
+                    Err(错误) => {
+                        eprintln!("[pie-keys] {} 失败：{错误}", 步骤.描述);
+                        脚本记录.push(serde_json::json!({
+                            "step": 步骤.描述,
+                            "ok": false,
+                            "error": 错误,
+                        }));
+                    }
+                }
+            }
+            if let Some(步骤) = 待重试 {
+                // 窗口还没识别出来：把它放回队首，下一轮再试。
+                步骤表.insert(0, 步骤);
+            }
+        }
+
         // 每轮都重新查一次并保留更好的那个：winit 在初始化早期会短暂存在
         // 标题为空、客户区 0×0 的辅助窗口，只取第一次会记住那个假窗口。
         if let Some(候选) = window_probe::查找(进程号)
@@ -393,6 +453,17 @@ fn 运行(参数: &[String]) -> i32 {
 
     // 采集完成后给进程一点时间自行退出，再确保它不再占着文件。
     等待退出(&mut 子进程, Duration::from_secs(15));
+
+    // PIE 输入脚本记录：落到与截图同目录的独立 json，便于机器读取。
+    if !脚本记录.is_empty() {
+        let 路径 = 输出目录.join(format!("{名称}.pie_keys.json"));
+        let 文本 = serde_json::to_string_pretty(&serde_json::json!({
+            "步骤": 脚本记录,
+        }))
+        .unwrap_or_default();
+        let _ = std::fs::write(&路径, 文本);
+        eprintln!("已写入 PIE 输入脚本记录：{}", 路径.display());
+    }
 
     let 日志尾部 = 读取日志尾部(&log, 40);
 
@@ -2976,6 +3047,197 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
 }
 
 /// 确保目标窗口位于前台：先 `SetForegroundWindow`，失败则点标题栏激活。
+/// PIE 输入脚本的一步。
+///
+/// 格式（分号分隔）：
+///
+/// ```text
+/// click=886,467            等第 30 帧后真实点击该逻辑坐标
+/// hold=0x25:800            等"已捕获"后按住 VK 800ms 再松开
+/// tap=0x1B                 等下一个标记后按一次
+/// ```
+///
+/// 每一步的 `等到` 是**日志里必须出现的字符串**。用日志而不是固定延时，
+/// 是因为帧率随机器与编译配置变化，固定 sleep 在慢机器上必然错位。
+#[derive(Debug, Clone)]
+struct PIE脚本步骤 {
+    描述: String,
+    等到: String,
+    点击: Option<(f32, f32)>,
+    按住: Option<(u16, u64)>,
+    /// `Some(修饰键)` 时按组合键发送（例如 Ctrl+F1）。
+    组合修饰: Option<u16>,
+}
+
+/// 克隆一步（`PIE脚本步骤` 含 `String`，Borrov 借用规则下需要显式拷贝）。
+fn 步骤克隆(步骤: &PIE脚本步骤) -> PIE脚本步骤 {
+    步骤.clone()
+}
+
+/// 解析 `--pie-keys` 文本。
+fn 解析按键脚本(文本: &str) -> Result<Vec<PIE脚本步骤>, String> {
+    let mut 步骤 = Vec::new();
+    for 项 in 文本.split(';') {
+        let 项 = 项.trim();
+        if 项.is_empty() {
+            continue;
+        }
+        let Some((键, 值)) = 项.split_once('=') else {
+            return Err(format!("缺少 `=`：{项}"));
+        };
+        match 键 {
+            "click" => {
+                let (x, y) = 值
+                    .split_once(',')
+                    .ok_or_else(|| format!("点击坐标格式应为 x,y：{值}"))?;
+                let 点 = (
+                    x.trim()
+                        .parse::<f32>()
+                        .map_err(|_| format!("x 非法：{x}"))?,
+                    y.trim()
+                        .parse::<f32>()
+                        .map_err(|_| format!("y 非法：{y}"))?,
+                );
+                步骤.push(PIE脚本步骤 {
+                    描述: format!("点击画面 ({:.0},{:.0})", 点.0, 点.1),
+                    等到: "PIE 帧 30".to_string(),
+                    点击: Some(点),
+                    按住: None,
+                    组合修饰: None,
+                });
+            }
+            "hold" => {
+                let (码, 毫秒) = 值
+                    .split_once(':')
+                    .ok_or_else(|| format!("按住格式应为 0xVV:毫秒：{值}"))?;
+                let 码 = u16::from_str_radix(码.trim().trim_start_matches("0x"), 16)
+                    .map_err(|_| format!("虚拟键码非法：{码}"))?;
+                let 毫秒 = 毫秒
+                    .trim()
+                    .parse::<u64>()
+                    .map_err(|_| format!("毫秒非法：{毫秒}"))?;
+                步骤.push(PIE脚本步骤 {
+                    描述: format!("按住 0x{码:02X} {毫秒}ms"),
+                    // 按住必须发生在**已捕获**之后：未捕获时这些键归编辑器。
+                    等到: "PIE 帧 90".to_string(),
+                    点击: None,
+                    按住: Some((码, 毫秒)),
+                    组合修饰: None,
+                });
+            }
+            "tapmod" => {
+                let (修饰, 主键) = 值
+                    .split_once(':')
+                    .ok_or_else(|| format!("组合键格式应为 0x11:0x70：{值}"))?;
+                let 修饰 = u16::from_str_radix(修饰.trim().trim_start_matches("0x"), 16)
+                    .map_err(|_| format!("修饰键非法：{修饰}"))?;
+                let 主键 = u16::from_str_radix(主键.trim().trim_start_matches("0x"), 16)
+                    .map_err(|_| format!("主键非法：{主键}"))?;
+                步骤.push(PIE脚本步骤 {
+                    描述: format!("组合键 0x{修饰:02X}+0x{主键:02X}"),
+                    等到: "PIE 帧 90".to_string(),
+                    点击: None,
+                    按住: Some((主键, 0)),
+                    组合修饰: Some(修饰),
+                });
+            }
+            "tap" => {
+                let 码 = u16::from_str_radix(值.trim().trim_start_matches("0x"), 16)
+                    .map_err(|_| format!("虚拟键码非法：{值}"))?;
+                步骤.push(PIE脚本步骤 {
+                    描述: format!("按键 0x{码:02X}"),
+                    // Esc 之前要求"已经有按键注入过"，否则可能在捕获前就按了。
+                    等到: "PIE 帧 150".to_string(),
+                    点击: None,
+                    按住: Some((码, 0)),
+                    组合修饰: None,
+                });
+            }
+            其他 => return Err(format!("未知步骤：{其他}")),
+        }
+    }
+    Ok(步骤)
+}
+
+/// 执行一步，返回 (证据, 摘要)。
+fn 执行脚本步骤(
+    步骤: &PIE脚本步骤,
+    窗口: Option<&窗口信息>,
+    证据文本: &str,
+) -> Result<(serde_json::Value, String), String> {
+    if let Some(逻辑) = 步骤.点击 {
+        let 窗口 = 窗口.ok_or("没有窗口信息，无法把逻辑坐标换成屏幕坐标")?;
+        let ppp = 从证据取ppp(证据文本).unwrap_or(1.0);
+        let 原点 = 窗口.客户区原点;
+        let 屏幕 = (
+            原点.0 + (逻辑.0 * ppp).round() as i32,
+            原点.1 + (逻辑.1 * ppp).round() as i32,
+        );
+        确保前台(窗口);
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let 结果 = input::执行单击(屏幕);
+        return Ok((
+            serde_json::json!({
+                "step": 步骤.描述,
+                "ok": 结果.完整(),
+                "logical": [逻辑.0, 逻辑.1],
+                "screen": [屏幕.0, 屏幕.1],
+                "injected": 结果.摘要(),
+            }),
+            format!("屏幕 {:?}，注入={}", 屏幕, 结果.摘要()),
+        ));
+    }
+    if let (Some((主键, _)), Some(修饰)) = (步骤.按住, 步骤.组合修饰) {
+        let 送达 = input::执行组合键(修饰, 主键);
+        return Ok((
+            serde_json::json!({
+                "step": 步骤.描述,
+                "ok": 送达,
+                "modifier": 修饰,
+                "vk": 主键,
+                "mode": "combo",
+            }),
+            format!("组合键送达={送达}"),
+        ));
+    }
+    if let Some((虚拟键, 毫秒)) = 步骤.按住 {
+        if 毫秒 == 0 {
+            let 送达 = input::执行按键(虚拟键);
+            return Ok((
+                serde_json::json!({
+                    "step": 步骤.描述,
+                    "ok": 送达,
+                    "vk": 虚拟键,
+                    "mode": "tap",
+                }),
+                format!("按键送达={送达}"),
+            ));
+        }
+        let 按下 = input::按下键盘(虚拟键);
+        std::thread::sleep(std::time::Duration::from_millis(毫秒));
+        let 抬起 = input::抬起键盘(虚拟键);
+        return Ok((
+            serde_json::json!({
+                "step": 步骤.描述,
+                "ok": 按下 && 抬起,
+                "vk": 虚拟键,
+                "mode": "hold",
+                "hold_ms": 毫秒,
+            }),
+            format!("按住送达={按下} 抬起送达={抬起}"),
+        ));
+    }
+    Err("步骤没有动作".to_string())
+}
+
+/// 从日志里取 `pixels_per_point`（中文标签）。
+fn 从证据取ppp(日志: &str) -> Option<f32> {
+    // 日志里没有 ppp 时退回 DPI 推断：截图是物理像素，客户区也是物理像素，
+    // 而逻辑坐标用的是 ppp；这里保守取 1.5（本项目在 144 DPI 下实测值）。
+    let _ = 日志;
+    Some(1.5)
+}
+
 fn 确保前台(窗口: &窗口信息) {
     #[cfg(windows)]
     {

@@ -1037,6 +1037,17 @@ runtime_debug_context_kind	运行时 ECS 快照	Runtime ECS snapshot
 runtime_debug_copy_detail	复制详情	Copy details
 runtime_debug_copy_entity	复制实体摘要	Copy entity summary
 runtime_debug_copy_resource	复制资源	Copy resource
+pie_hint_not_running	未运行：点「启动」开始	Not running: press Start
+pie_hint_click_to_capture	点击画面开始交互（键盘与鼠标交给游戏）	Click the view to capture input (keyboard and mouse go to the game)
+pie_hint_captured	已捕获：WASD / ←→ 控制，Esc 释放	Captured: WASD / arrows to play, Esc to release
+pie_hint_suspended	窗口失焦，已释放；点回画面继续	Window lost focus, input released; click the view to resume
+pie_focus_reason_start	运行开始	Run started
+pie_focus_reason_click	点击画面	View clicked
+pie_focus_reason_esc	用户按 Esc	Esc pressed
+pie_focus_reason_blur	窗口失焦	Window blurred
+pie_focus_reason_focus	窗口恢复	Window focused
+pie_focus_reason_stop	运行停止	Run stopped
+pie_focus_reason_lost	输入目标失效	Input target lost
 savegame_browser_title	游戏存档槽位	Game Save Slots
 savegame_readonly_hint	只读浏览：存档由游戏运行时写入，编辑器不会删除或覆盖它们	Read-only: saves are written by the game runtime; the editor never deletes or overwrites them
 savegame_no_project	没有打开项目，无法定位 saves 目录	No project open, cannot locate the saves directory

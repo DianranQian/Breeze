@@ -20,10 +20,10 @@ use std::time::Duration;
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP, MOUSEEVENTF_ABSOLUTE,
-    MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN,
-    MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput,
-    VIRTUAL_KEY,
+    INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
+    KEYEVENTF_KEYUP, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+    MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK,
+    MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput, VIRTUAL_KEY,
 };
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -144,10 +144,48 @@ pub fn 抬起() -> bool {
 /// 直接改应用内部状态既不真实、也测不到"快捷键有没有接上"。
 ///
 /// 返回是否两次 `SendInput` 都送达。
+/// 是否是"扩展键"（方向键、Home/End、Insert/Delete 等）。
+///
+/// Windows 的 `SendInput` 对这类键要求带 `KEYEVENTF_EXTENDEDKEY`，
+/// 否则它们会被当成小键盘上的同名键，目标窗口收得到 `WM_KEYDOWN`
+/// 但键码不对 —— 表现是"注入成功、应用毫无反应"。
+///
+/// 这是实测踩出来的：Esc（普通键）能生效，方向键（扩展键）完全没反应。
+pub fn 是扩展键(虚拟键: u16) -> bool {
+    matches!(
+        虚拟键,
+        0x21 | 0x22 | 0x23 | 0x24 | 0x25 | 0x26 | 0x27 | 0x28 | 0x2D | 0x2E | 0x90 | 0x91
+    )
+}
+
+/// 发送一次键盘事件，自动补扩展键标志。
+fn 发送键盘_自动(虚拟键码: u16, 标志: u32) -> bool {
+    let 标志 = if 是扩展键(虚拟键码) {
+        标志 | KEYEVENTF_EXTENDEDKEY
+    } else {
+        标志
+    };
+    发送键盘(虚拟键码, 标志)
+}
+
+/// 按下键盘（不松开）。配合 [`抬起键盘`] 实现"按住 N 毫秒"。
+///
+/// `执行按键` 只能表达"按一下"，而游戏输入验证需要"按住"——
+/// 按住与按一下在 Bevy 里是 `pressed()` 与 `just_pressed()` 的区别，
+/// 用按一下去验证持续移动会得到"动了一帧"的假结果。
+pub fn 按下键盘(虚拟键: u16) -> bool {
+    发送键盘_自动(虚拟键, 0)
+}
+
+/// 抬起键盘。
+pub fn 抬起键盘(虚拟键: u16) -> bool {
+    发送键盘_自动(虚拟键, KEYEVENTF_KEYUP)
+}
+
 pub fn 执行按键(虚拟键: u16) -> bool {
-    let 按下 = 发送键盘(虚拟键, 0);
+    let 按下 = 发送键盘_自动(虚拟键, 0);
     sleep(Duration::from_millis(60));
-    let 抬起 = 发送键盘(虚拟键, KEYEVENTF_KEYUP);
+    let 抬起 = 发送键盘_自动(虚拟键, KEYEVENTF_KEYUP);
     sleep(Duration::from_millis(120));
     按下 && 抬起
 }

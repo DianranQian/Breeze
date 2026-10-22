@@ -405,7 +405,22 @@ fn 读流<R: std::io::Read>(流: R, 发送: Sender<输出行>, 是标准输出: 
 ///
 /// 不清理的后果很实际：编辑器关掉了，`cargo` 还在后台跑，
 /// 用户下次构建时会撞上 `target` 目录的文件锁。
-pub fn 退出时停止构建(mut 宿主: bevy::prelude::ResMut<构建宿主>) {
+///
+/// # 为什么必须真的读取 `AppExit`
+///
+/// 这个系统注册在 `Last`，**每帧都会执行**。早期实现只看"构建是否在运行"，
+/// 于是用户点下「构建」后的下一帧就被当成"正在退出"，正在跑的 `cargo`
+/// 立刻被取消 —— 表现为构建永远停在"运行中"、`cargo build` 从未真正完成，
+/// 依赖构建成功才启动的游戏因此永远起不来。
+///
+/// `AppExit` 是消息而不是状态：只有本帧真的收到退出消息才该清理。
+pub fn 退出时停止构建(
+    mut 退出: bevy::prelude::MessageReader<bevy::prelude::AppExit>,
+    mut 宿主: bevy::prelude::ResMut<构建宿主>,
+) {
+    if 退出.read().next().is_none() {
+        return;
+    }
     if 宿主.在运行() {
         宿主.停止();
     }
@@ -465,16 +480,24 @@ mod 测试 {
         assert!(配置.可读命令行().starts_with("cargo test"));
     }
 
+    /// 测试夹具的清单正文。
+    ///
+    /// 末尾的 `[workspace]` 不是多余的：临时目录**可能**落在另一个 Cargo 工程的
+    /// 目录树内（例如把 `TMP` 指到仓库里）。此时没有这张空表，cargo 会认为
+    /// 这个临时 crate 属于外层 workspace 并直接以 101 退出 —— 失败原因与
+    /// 被测逻辑毫无关系。空表让它自成 workspace，测试不再依赖临时目录位置。
+    fn 夹具清单(名称: &str) -> String {
+        format!(
+            "[package]\nname = \"{名称}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n"
+        )
+    }
+
     #[test]
     fn 真实构建给出真实退出码() {
         // 无依赖的最小 crate：构建成功时退出码必须是 0，而不是"默认值"。
         let 目录 = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(目录.path().join("src")).unwrap();
-        std::fs::write(
-            目录.path().join("Cargo.toml"),
-            "[package]\nname = \"exit_code_probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
-        )
-        .unwrap();
+        std::fs::write(目录.path().join("Cargo.toml"), 夹具清单("exit_code_probe")).unwrap();
         std::fs::write(目录.path().join("src/main.rs"), "fn main() {}\n").unwrap();
         let mut 宿主 = 构建宿主::新建();
         宿主
@@ -493,5 +516,88 @@ mod 测试 {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         assert_eq!(宿主.退出码(), Some(0), "成功构建必须留下真实退出码 0");
+    }
+
+    /// 造一个"构建需要几秒"的临时 crate：构建脚本睡眠，让构建在测试观察窗口内
+    /// 保持运行中。只有构建真的还在跑，"有没有被误取消"才是可判断的。
+    fn 造慢构建工程(根: &Path, 秒: u64) {
+        std::fs::create_dir_all(根.join("src")).unwrap();
+        std::fs::write(根.join("Cargo.toml"), 夹具清单("slow_build_probe")).unwrap();
+        std::fs::write(根.join("src/main.rs"), "fn main() {}\n").unwrap();
+        std::fs::write(
+            根.join("build.rs"),
+            format!(
+                "fn main() {{\n    std::thread::sleep(std::time::Duration::from_secs({秒}));\n}}\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    /// 回归：**没有收到 `AppExit` 时，最后一帧的退出清理不得取消构建**。
+    ///
+    /// 这条守的是一个真实故障：`Last` 每帧都执行退出清理，早期实现不看退出消息，
+    /// 用户点下「构建」后下一帧就把 cargo 杀掉。表现是构建永远停在"运行中"，
+    /// 依赖构建成功才启动的游戏因此永远起不来。
+    #[test]
+    fn 没有退出消息时构建不会被最后一帧取消() {
+        let 目录 = tempfile::tempdir().unwrap();
+        造慢构建工程(目录.path(), 8);
+
+        let mut 宿主 = 构建宿主::新建();
+        宿主
+            .启动(目录.path(), &构建配置::default())
+            .expect("慢构建应当能启动");
+        assert!(宿主.在运行(), "刚启动的构建应当在运行中");
+
+        let mut 应用 = bevy::prelude::App::new();
+        应用.insert_resource(宿主);
+        应用.add_systems(bevy::prelude::Last, 退出时停止构建);
+
+        // 连跑多帧、全程不发 AppExit：构建必须仍在运行。
+        for _ in 0..5 {
+            应用.update();
+        }
+        let mut 宿主 = 应用.world_mut().resource_mut::<构建宿主>();
+        assert!(
+            宿主.在运行(),
+            "没有 AppExit 时构建不得被取消（状态：{:?}）",
+            宿主.报告().状态
+        );
+        assert!(
+            宿主.报告().状态 == 构建状态::运行中,
+            "构建应保持运行中，实际 {:?}",
+            宿主.报告().状态
+        );
+        宿主.停止();
+    }
+
+    /// 回归：**真的收到 `AppExit` 时**，构建必须被停止（不能在退出后留下 cargo）。
+    #[test]
+    fn 收到退出消息时构建会被停止() {
+        let 目录 = tempfile::tempdir().unwrap();
+        造慢构建工程(目录.path(), 8);
+
+        let mut 宿主 = 构建宿主::新建();
+        宿主
+            .启动(目录.path(), &构建配置::default())
+            .expect("慢构建应当能启动");
+        assert!(宿主.在运行());
+
+        let mut 应用 = bevy::prelude::App::new();
+        应用.insert_resource(宿主);
+        应用.add_systems(bevy::prelude::Last, 退出时停止构建);
+        应用
+            .world_mut()
+            .write_message(bevy::prelude::AppExit::Success);
+        应用.update();
+
+        let 宿主 = 应用.world_mut().resource_mut::<构建宿主>();
+        assert!(
+            !宿主.在运行(),
+            "收到 AppExit 后构建必须被停止，实际状态 {:?}",
+            宿主.报告().状态
+        );
+        assert_eq!(宿主.报告().状态, 构建状态::已取消);
+        assert_eq!(宿主.退出码(), None, "被停止的构建不得伪造退出码");
     }
 }

@@ -206,3 +206,24 @@
 | GUI 编辑器可用 | 同上截图 | 暂停/单步期间菜单、场景树、检查器、资源面板照常显示 |
 | 时间缩放 | — | **未实现**（明确不纳入本轮，理由见路线图 R13.2） |
 | 按钮点击注入 | — | **未执行**：PIE 面板控件矩形不进入区域证据；按钮可用性由截图目视确认 |
+
+## 15. R14 紧急修复：真实原生 Bevy 项目运行（构建退出清理误杀）
+
+真实用户项目：`C:\Spaces\Share\10_Code\10_Bevy\修仙冒险游戏`（单包、
+`src/main.rs` → bin `xiuxian_adventure`、Bevy 0.20、中文目录、项目本地 `target/`，
+**不是 workspace**）。
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 对照：直接 Cargo | 项目根 `cargo build` / 直接运行 `target\debug\xiuxian_adventure.exe` | 构建退出码 0（0.5s）；进程存活，stderr 出现 `[动画探针]` |
+| 对照：编辑器（修复前） | `BEVY_STUDIO_OPEN_PROJECT=… BEVY_STUDIO_BUILD_AND_RUN=1` | 只有「开始构建」；25 秒无产物、无成功/失败；系统里没有 `cargo.exe`；运行面板空闲 |
+| 根因定位 | 在 `Last` 调度打印停止来源 | `停止来源 = 退出时停止构建`；构建状态由「运行中」→「已取消」 |
+| 修复 | `退出时停止构建` 读取 `MessageReader<AppExit>` | 未收到退出消息时直接返回；与 `退出时停止项目运行` 语义一致 |
+| 单元回归（新增） | `cargo test -p editor_app --lib build::` | 8 通过；含「没有退出消息时构建不会被最后一帧取消」「收到退出消息时构建会被停止」 |
+| 集成回归 | `cargo test -p editor_app --test 原生工程构建与运行` 等 | 见 `.verify_r14/` 日志 |
+| 全量 | `cargo test --workspace` | 见 `.verify_r14/workspace_test3.log` |
+| 真实 GUI（第 1 次） | 打开项目 → 「构建并运行」 | `构建成功，用时 0.9 秒` → `产物：…\target\debug\xiuxian_adventure.exe` → `运行目标：Cargo 可执行目标 xiuxian_adventure::xiuxian_adventure` → 游戏 `[动画探针]` / `[心跳]` 进入运行面板；截图 `.verify_r14/` |
+| 真实 GUI（停止/退出） | 采集结束触发编辑器退出 | 退出后 `tasklist` 无 `xiuxian_adventure.exe` / `cargo.exe` 残留 |
+| 真实 GUI（第 2 次） | 再次「构建并运行」 | 新 PID（首次 12632 → 第二次 10056），未继承旧进程状态；退出后同样无残留 |
+| 目标项目未被修改 | 项目根 `git status --short` | 仍只有本轮之前就存在的 ` M Cargo.toml`（mtime 早于本轮） |
+| 环境限制（如实记录） | 本会话沙箱对部分可执行文件的写入范围有限制 | `cargo test` 的 `%TEMP%` 写入被拒（os error 5），因此回归时用仓库外 `CARGO_TARGET_DIR` 运行测试；**不影响产品代码与游戏本地 `target/`** |

@@ -1,0 +1,333 @@
+{
+  "schema": 1,
+  "round": "R15 资源浏览器与资产预览工作流",
+  "project": "C:/Spaces/Share/10_Code/10_Bevy/开发bevyIDE",
+  "verification_project": ".verify_r15/project",
+  "generated_at_utc": "2026-10-22T17:11:34Z",
+  "cases": [
+    {
+      "id": "image_click",
+      "title": "单击图片资源显示真实画面，再单击另一张时正确切换",
+      "steps": [
+        "启动真实程序并打开 .verify_r15/project（资源工作区）",
+        "真实鼠标单击资源行 floor.png",
+        "真实鼠标单击资源行 wall.png",
+        "读取应用自己写出的证据 JSON 与截图"
+      ],
+      "assertions": [
+        {
+          "name": "初始未选中时为空闲",
+          "pass": true,
+          "detail": "before.stage=idle"
+        },
+        {
+          "name": "最终选中 wall.png",
+          "pass": true,
+          "detail": "assets/wall.png"
+        },
+        {
+          "name": "预览阶段为 ready",
+          "pass": true,
+          "detail": "ready"
+        },
+        {
+          "name": "类别为 image",
+          "pass": true,
+          "detail": "image"
+        },
+        {
+          "name": "有真实画面纹理",
+          "pass": true,
+          "detail": "True"
+        },
+        {
+          "name": "尺寸与磁盘文件一致",
+          "pass": true,
+          "detail": "证据 [256, 256] vs 文件 [256, 256]"
+        },
+        {
+          "name": "预览代次与请求代次一致",
+          "pass": true,
+          "detail": "2/2"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/img/img_before.json",
+        ".verify_r15/img/img_after.json"
+      ],
+      "screenshot": ".verify_r15/img/img_after.png",
+      "passed": true
+    },
+    {
+      "id": "model_click",
+      "title": "单击 glTF 模型显示真实网格渲染结果",
+      "steps": [
+        "真实单击 Character_Soldier.gltf（2.2 MB，60 个网格）",
+        "等待 AssetServer 完成加载后采集证据"
+      ],
+      "assertions": [
+        {
+          "name": "选中模型文件",
+          "pass": true,
+          "detail": "assets/Character_Soldier.gltf"
+        },
+        {
+          "name": "阶段 ready",
+          "pass": true,
+          "detail": "ready"
+        },
+        {
+          "name": "类别 model",
+          "pass": true,
+          "detail": "model"
+        },
+        {
+          "name": "真实网格已实例化（>0）",
+          "pass": true,
+          "detail": "60"
+        },
+        {
+          "name": "有渲染画面",
+          "pass": true,
+          "detail": "True"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/model/model_after.json"
+      ],
+      "screenshot": ".verify_r15/model/model_after.png",
+      "passed": true
+    },
+    {
+      "id": "scene_click",
+      "title": "在真实示例项目里单击场景文件显示真实实体数与层级",
+      "steps": [
+        "打开 examples/3d_demo（真实示例项目）",
+        "单击 scenes/tps_arena.scene.ron"
+      ],
+      "assertions": [
+        {
+          "name": "选中场景文件",
+          "pass": true,
+          "detail": "scenes/tps_arena.scene.ron"
+        },
+        {
+          "name": "阶段 ready",
+          "pass": true,
+          "detail": "ready"
+        },
+        {
+          "name": "类别 scene",
+          "pass": true,
+          "detail": "scene"
+        },
+        {
+          "name": "实体数来自真实文档（36）",
+          "pass": true,
+          "detail": "36"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/real3d/real3d_after.json"
+      ],
+      "screenshot": ".verify_r15/real3d/real3d_after.png",
+      "passed": true
+    },
+    {
+      "id": "audio_click",
+      "title": "单击音频显示真实元数据，试听按钮真实生效",
+      "steps": [
+        "单击 beep.wav",
+        "真实鼠标单击预览里的「试听」按钮",
+        "采集点击后的证据"
+      ],
+      "assertions": [
+        {
+          "name": "选中音频",
+          "pass": true,
+          "detail": "assets/beep.wav"
+        },
+        {
+          "name": "类别 audio",
+          "pass": true,
+          "detail": "audio"
+        },
+        {
+          "name": "可试听",
+          "pass": true,
+          "detail": "True"
+        },
+        {
+          "name": "点击后进入试听状态",
+          "pass": true,
+          "detail": "assets/beep.wav"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/audio/audio_after.json",
+        ".verify_r15/audio/audio_final.json"
+      ],
+      "screenshot": ".verify_r15/audio/audio_final.png",
+      "passed": true
+    },
+    {
+      "id": "font_click",
+      "title": "单击字体文件用真实字体家族渲染样例",
+      "steps": [
+        "单击 NotoSansSC-Subset.ttf",
+        "读取证据里的家族名（来自 ttf 表，而不是文件名）"
+      ],
+      "assertions": [
+        {
+          "name": "选中字体",
+          "pass": true,
+          "detail": "assets/NotoSansSC-Subset.ttf"
+        },
+        {
+          "name": "类别 font",
+          "pass": true,
+          "detail": "font"
+        },
+        {
+          "name": "家族名来自真实字体表",
+          "pass": true,
+          "detail": "Noto Sans SC"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/font/font_after.json"
+      ],
+      "screenshot": ".verify_r15/font/font_after.png",
+      "passed": true
+    },
+    {
+      "id": "unsupported_click",
+      "title": "不支持的类型给出明确状态与原因（不是空白）",
+      "steps": [
+        "单击 unknown.bin（10 字节二进制）"
+      ],
+      "assertions": [
+        {
+          "name": "阶段为 unsupported",
+          "pass": true,
+          "detail": "unsupported"
+        },
+        {
+          "name": "有可读说明",
+          "pass": true,
+          "detail": "该资源类型暂无可视化预览（BIN）"
+        },
+        {
+          "name": "不伪造画面",
+          "pass": true,
+          "detail": "False"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/unsupported/unsupported_after.json"
+      ],
+      "screenshot": ".verify_r15/unsupported/unsupported_after.png",
+      "passed": true
+    },
+    {
+      "id": "rapid_switch",
+      "title": "快速连续切换三个资源后显示的是最后一个",
+      "steps": [
+        "依次真实单击 floor.png → Crate.gltf → wall.png",
+        "比较三次采集的证据"
+      ],
+      "assertions": [
+        {
+          "name": "第二次点击后显示模型",
+          "pass": true,
+          "detail": "assets/Crate.gltf/model"
+        },
+        {
+          "name": "最终显示 wall.png",
+          "pass": true,
+          "detail": "assets/wall.png"
+        },
+        {
+          "name": "最终是图片且尺寸正确",
+          "pass": true,
+          "detail": "[256, 256]"
+        },
+        {
+          "name": "代次随切换递增",
+          "pass": true,
+          "detail": "2 → 3"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/switch/switch_after.json",
+        ".verify_r15/switch/switch_final.json"
+      ],
+      "screenshot": ".verify_r15/switch/switch_final.png",
+      "passed": true
+    },
+    {
+      "id": "no_project",
+      "title": "未打开项目时预览为空闲状态，不显示上一次的旧内容",
+      "steps": [
+        "不传 BEVY_STUDIO_OPEN_PROJECT 启动真实程序",
+        "进入资源工作区"
+      ],
+      "assertions": [
+        {
+          "name": "阶段 idle",
+          "pass": true,
+          "detail": "idle"
+        },
+        {
+          "name": "没有选中资源",
+          "pass": true,
+          "detail": "None"
+        },
+        {
+          "name": "没有任何资源行",
+          "pass": true,
+          "detail": "0"
+        }
+      ],
+      "evidence": [
+        ".verify_r15/noproject/noproject_after.json"
+      ],
+      "screenshot": ".verify_r15/noproject/noproject_after.png",
+      "passed": true
+    },
+    {
+      "id": "read_only",
+      "title": "预览全程不写源文件（场景与资源哈希不变）",
+      "steps": [
+        "在一次验收项目上完成图片/模型/场景/字体/音频/不支持 六类预览",
+        "比对预览项目与真实示例项目的场景哈希"
+      ],
+      "assertions": [
+        {
+          "name": "场景文件与真实示例逐字节一致",
+          "pass": true,
+          "detail": "277bd69dfcf99555 vs 277bd69dfcf99555"
+        }
+      ],
+      "evidence": [],
+      "screenshot": null,
+      "passed": true
+    }
+  ],
+  "asset_hashes": {
+    "Character_Soldier.gltf": "d1395255f7cfa8f766369e37e724fa44e2895a46a719d17f720c9c78b014a901",
+    "Crate.gltf": "33c070385f5f722ad0213476a66ab999afd45e2507574258920abb86bb4aa99e",
+    "NOTES.md": "fda3a89e9e568b7c80c2488bdf67a1d6cccd18eaadc6f92eded3b42e6bd2921c",
+    "NotoSansSC-Subset.ttf": "e1f6139c480f1d9d328cc19c31ed6ebb9f5b74939a0c375e5c11f27145362371",
+    "beep.wav": "cd1f04ce654aa9f7e34941dfcc423717963b013fbae2cc6dc226e84b79c9acfa",
+    "floor.png": "e45fccda4de16c1c5cd92246e44ae4f32b82ced2a0436c2a8090b2a2c69a2dc5",
+    "unknown.bin": "11d9b15d8b9bcaf324abddb2274e9bccaeac3b064fb1f0cb72f2216b2610b106",
+    "wall.png": "d13171325d9a908a247bc7ec05e10b500505dcc29288ae2b38be8db6a7d4d6a6"
+  },
+  "passed": true,
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": []
+  }
+}

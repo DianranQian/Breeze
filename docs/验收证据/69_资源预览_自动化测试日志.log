@@ -1,0 +1,24 @@
+test workspaces::测试::存档为未知字段时仍可读取 ... ok
+test workspaces::测试::每个内置预设都包含全部面板且含视口 ... ok
+test workspaces::测试::浮动面板不影响其他工作区 ... ok
+test 测试::动作队列按顺序取出并清空 ... ok
+test workspaces::测试::新建工作区拒绝空名与重名 ... ok
+test workspaces::测试::重置当前只影响当前工作区 ... ok
+test workspaces::测试::旧版单布局迁移为迁移工作区 ... ok
+test workspaces::测试::用户工作区可新建复制重命名删除 ... ok
+test workspaces::测试::重置全部内置只恢复内置工作区 ... ok
+test 测试::恢复默认布局能修复被改乱的布局 ... ok
+test 测试::界面状态可构造且默认布局完整 ... ok
+test 测试::切到智能体模式会装上智能体布局 ... ok
+test 测试::聚焦未打开的面板会把它加进布局 ... ok
+test 测试::在普通模式恢复默认布局不会带入智能体面板 ... ok
+test workspaces::测试::面板可以浮动并停靠回来 ... ok
+test workspaces::测试::存档往返保留全部工作区与当前项 ... ok
+test workspaces::测试::标签可以合并进其他面板组并拆分到新节点 ... ok
+test agent_store::测试::原子保存不留下临时文件 ... ok
+test 测试::模式往返切换各自保留布局 ... ok
+test workspaces::测试::不同工作区拥有结构性不同的布局 ... ok
+test workspaces::测试::各内置工作区的真实布局矩形合理 ... ok
+test fonts::测试::内置字体覆盖界面源码里的全部汉字 ... ok
+
+test result: ok. 325 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s

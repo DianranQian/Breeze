@@ -1199,3 +1199,59 @@ runtime_debug_copy_mutations	复制修改记录	Copy mutation log
 runtime_debug_frame_time	游戏帧耗时	Game frame time
 runtime_debug_request_latency	调试请求往返	Debug request round-trip
 runtime_debug_connection_counts	断开/重连次数	Disconnects/reconnects
+asset_preview_title	资源预览	Asset Preview
+asset_preview_idle	未选中资源	No asset selected
+asset_preview_idle_hint	在左侧单击一个资源文件即可查看预览。	Click an asset file on the left to preview it.
+asset_preview_loading	正在加载…	Loading…
+asset_preview_ready	已加载	Loaded
+asset_preview_error	加载失败	Failed to load
+asset_preview_unsupported	不支持预览	Preview not supported
+asset_preview_path	路径	Path
+asset_preview_size	大小	Size
+asset_preview_modified	修改时间	Modified
+asset_preview_reload	重新加载	Reload
+asset_preview_reload_hint	重新读取文件（文件可能已在编辑器外被修改）	Re-read the file (it may have changed outside the editor)
+asset_preview_open_location	在文件管理器中显示	Show in File Manager
+asset_preview_missing	文件不存在或已被移走：{}	File is missing or was moved: {}
+asset_preview_stale	预览目标已失效，文件可能已被重命名或删除	The preview target is stale; the file may have been renamed or deleted
+asset_preview_image_size	{} × {} 像素	{} × {} px
+asset_preview_image_alpha	带透明通道	Has alpha
+asset_preview_image_no_alpha	无透明通道	No alpha
+asset_preview_audio_play	试听	Play
+asset_preview_audio_stop	停止	Stop
+asset_preview_audio_unsupported	当前编辑器未编译该音频格式的解码器，无法试听	This editor build has no decoder for this audio format, so it cannot be auditioned
+asset_preview_audio_duration	时长	Duration
+asset_preview_audio_rate	采样率	Sample rate
+asset_preview_audio_channels	声道	Channels
+asset_preview_audio_bits	位深	Bit depth
+asset_preview_audio_unknown	未知	unknown
+asset_preview_audio_hint	只有 WAV 能从文件头读取出时长与格式；OGG 只报告文件信息。	Only WAV exposes duration and format from its header; OGG reports file info only.
+asset_preview_font_sample	样例文字	Sample text
+asset_preview_font_sample_default	永远的微风 Breeze 0123	The quick brown fox 0123
+asset_preview_font_family	字体家族	Font family
+asset_preview_font_glyphs	字形数	Glyphs
+asset_preview_font_missing	以下字符在该字体里没有字形：{}	These characters have no glyph in this font: {}
+asset_preview_font_failed	字体文件无法解析，无法作为真实字体预览	The font file cannot be parsed, so it cannot be previewed as a real font
+asset_preview_model_hint	拖动旋转观察模型；滚轮缩放。	Drag to orbit the model; scroll to zoom.
+asset_preview_model_reset	重置视角	Reset view
+asset_preview_model_preparing	正在准备模型渲染…	Preparing model rendering…
+asset_preview_model_meshes	网格	Meshes
+asset_preview_model_materials	材质	Materials
+asset_preview_model_bounds	包围盒	Bounds
+asset_preview_model_failed	模型无法加载，可能是文件损坏或使用了不支持的 glTF 特性	The model could not be loaded; the file may be corrupt or use unsupported glTF features
+asset_preview_scene_hierarchy	场景层级	Scene hierarchy
+asset_preview_scene_entities	实体数	Entities
+asset_preview_scene_roots	根实体	Root entities
+asset_preview_scene_preview_only	这是预览，不是当前编辑的场景	This is a preview, not the scene being edited
+asset_preview_scene_failed	场景文档无法读取	The scene document could not be read
+asset_preview_scene_truncated	仅显示前 {} 个实体	Showing the first {} entities only
+asset_preview_text_lines	{} 行	{} lines
+asset_preview_text_truncated	文件较大，只显示前 {} 行	Large file: showing the first {} lines only
+asset_preview_text_too_large	文件超过 {}，不做内容预览	File exceeds {}; no content preview
+asset_preview_metadata_only	该类型暂无可视化预览，仅显示基本信息	No visual preview for this type; basic information only
+asset_preview_file_empty	文件为空	The file is empty
+asset_preview_read_failed	读取文件失败：{}	Failed to read the file: {}
+asset_preview_decode_failed	解码失败：{}	Decoding failed: {}
+asset_preview_unsupported_type	该资源类型暂无可视化预览（{}）	No visual preview for this asset type ({})
+asset_preview_bytes	{} 字节	{} bytes
+asset_preview_open	打开	Open

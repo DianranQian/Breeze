@@ -2943,6 +2943,37 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         return Some((点, 点));
     }
 
+    // ---- 资源浏览器：`asset:<名称或路径>` 点该行的名称标签 ----
+    //
+    // 坐标同样来自应用当帧记录的真实矩形。资源行会随目录展开、
+    // 图标宽度、缩进层级变化，猜坐标必然点偏；而"点偏"与
+    // "单击没有预览"在证据上无法区分。
+    if let Some(目标) = 名.strip_prefix("asset:") {
+        let ppp = 证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0);
+        let 行列表 = 证据.get("asset_rows")?.as_array()?;
+        let 行 = 行列表.iter().find(|行| {
+            行.get("name").and_then(|值| 值.as_str()) == Some(目标)
+                || 行.get("path").and_then(|值| 值.as_str()) == Some(目标)
+                || 行
+                    .get("path")
+                    .and_then(|值| 值.as_str())
+                    .is_some_and(|路径| 路径.ends_with(目标))
+        })?;
+        let 矩形 = 行
+            .get("label")
+            .filter(|值| !值.is_null())
+            .or_else(|| 行.get("row"))?;
+        let 取数 = |键: &str| 矩形.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) / ppp;
+        let 点 = (
+            (取数("x") + 取数("w") * 0.5) as f32,
+            (取数("y") + 取数("h") * 0.5) as f32,
+        );
+        return Some((点, 点));
+    }
+
     // 场景树某一行的**整行空白区**中心（右键用例的落点）。
     //
     // 与 `name:` 的区别正是这次要验的东西：

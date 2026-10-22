@@ -39,6 +39,8 @@ anyhow.workspace = true
 rfd.workspace = true
 notify.workspace = true
 image.workspace = true
+# 字体预览的家族名/字形数/缺字检查（见 `asset_preview`）。
+ttf-parser.workspace = true
 # 文件对话框必须放到后台线程，否则原生对话框会阻塞 Bevy 主循环。
 crossbeam-channel = "0.5"
 # 在系统文件管理器里定位资源用。

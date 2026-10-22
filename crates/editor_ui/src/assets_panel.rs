@@ -11,6 +11,7 @@ use egui::{Color32, RichText, Sense, Ui};
 use scene_doc::path::项目相对路径;
 use scene_doc::property::资源类别;
 
+use crate::asset_preview;
 use crate::state::{UiAction, 绘制上下文, 资源排序};
 
 /// 资源树节点。
@@ -271,7 +272,34 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     ui.separator();
 
-    let 全部条目 = 项目.资源列表();
+    // 资源列表 + **场景列表**。
+    //
+    // # 为什么要把场景并进来
+    //
+    // `项目描述::资源列表` 只扫描 `assets/`，而场景文档住在 `scenes/`。
+    // 用户对"资源浏览器"的期待显然是"项目里能用的东西都在这"，
+    // 场景文件当然算资源 —— 它也是本轮预览要覆盖的一类。
+    //
+    // 合并只发生在这里（界面层），不改 `资源列表` 的语义：
+    // 导入清单、依赖检查、使用报告都仍然只针对 `assets/`，
+    // 不会因为多显示了几行场景就误报"未导入/未使用"。
+    let mut 全部条目 = 项目.资源列表();
+    for 场景路径 in 项目.场景列表() {
+        if 全部条目.iter().any(|条目| 条目.路径 == 场景路径) {
+            continue;
+        }
+        let 大小 = std::fs::metadata(项目.绝对路径(&场景路径))
+            .map(|元数据| 元数据.len())
+            .unwrap_or(0);
+        全部条目.push(资源条目 {
+            路径: 场景路径,
+            类别: 资源类别::场景,
+            大小,
+            是目录: false,
+        });
+    }
+    全部条目.sort_by(|左, 右| 左.路径.cmp(&右.路径));
+
     let mut 树 = 构建资源树(&全部条目);
     排序资源树(&mut 树, 上下文.界面.资源排序);
     let 树 = 过滤资源树(&树, &上下文.界面.资源搜索);
@@ -321,6 +349,41 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         });
     }
 
+    // 预览区。
+    //
+    // # 为什么不再新建一个"资源预览"面板
+    //
+    // 预览与资源列表是同一件事的两半：用户选资源就是为了看它。
+    // 拆成两个可停靠面板后，用户完全可能把预览关掉/拖到别处，
+    // 于是"单击资源看不到东西"这个原始问题会以另一种形式回来。
+    // 这里做的是**资源浏览器内部的固定分区**：列表 + 预览，
+    // 任何工作区布局下都在一起。
+    //
+    // 排布方向按可用宽度决定：资源工作区里面板很宽 → 左右分栏；
+    // 通用工作区底部只有一条 → 上下分栏。写死一种必然有一边难用。
+    let 可用 = ui.available_size();
+    let 侧排 = 可用.x >= asset_preview::侧排最小宽度 && 可用.y >= 220.0;
+    let 选中 = 上下文.界面.资源选中.clone();
+    if 侧排 {
+        egui::Panel::right("asset_preview_side")
+            .resizable(true)
+            .default_size(asset_preview::默认预览宽度)
+            .min_size(asset_preview::最小预览宽度)
+            .max_size(可用.x * 0.45)
+            .show(ui, |ui| {
+                绘制预览区(ui, 上下文, 选中.as_ref());
+            });
+    } else {
+        egui::Panel::bottom("asset_preview_bottom")
+            .resizable(true)
+            .default_size(asset_preview::默认预览高度)
+            .min_size(140.0)
+            .max_size(可用.y * 0.75)
+            .show(ui, |ui| {
+                绘制预览区(ui, 上下文, 选中.as_ref());
+            });
+    }
+
     if 树.is_empty() {
         ui.add_space(8.0);
         ui.label(RichText::new(上下文.语言.取("assets_empty_hint")).color(上下文.配色.次要文字));
@@ -332,6 +395,38 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         .show(ui, |ui| {
             绘制节点列表(ui, 上下文, &树, 0);
         });
+}
+
+/// 绘制资源预览区；没有选中资源时显示可发现性的引导。
+fn 绘制预览区(
+    ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 选中: Option<&项目相对路径>
+) {
+    match 选中 {
+        Some(路径) => asset_preview::绘制(ui, 上下文, 路径),
+        None => {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(上下文.语言.取("asset_preview_title"))
+                        .strong()
+                        .color(上下文.配色.文字),
+                );
+            });
+            上下文.界面.布局快照.push(crate::state::区域快照 {
+                标识: "asset_preview",
+                矩形: ui.max_rect(),
+            });
+            ui.add_space(12.0);
+            ui.label(
+                RichText::new(上下文.语言.取("asset_preview_idle"))
+                    .strong()
+                    .color(上下文.配色.次要文字),
+            );
+            ui.label(
+                RichText::new(上下文.语言.取("asset_preview_idle_hint"))
+                    .color(上下文.配色.次要文字),
+            );
+        }
+    }
 }
 
 /// 递归绘制资源树。
@@ -346,17 +441,31 @@ fn 绘制节点列表(
             资源节点::目录 {
                 名称, 路径, 子项
             } => {
-                ui.horizontal(|ui| {
-                    ui.add_space(深度 as f32 * 12.0);
-                    egui::CollapsingHeader::new(
-                        RichText::new(format!("📁 {名称}")).color(上下文.配色.文字),
-                    )
-                    .default_open(深度 == 0)
-                    .id_salt(format!("资源目录-{路径}"))
-                    .show(ui, |ui| {
-                        绘制节点列表(ui, 上下文, 子项, 深度 + 1);
-                    });
+                let 行 = ui
+                    .horizontal(|ui| {
+                        ui.add_space(深度 as f32 * 12.0);
+                        egui::CollapsingHeader::new(
+                            RichText::new(format!("📁 {名称}")).color(上下文.配色.文字),
+                        )
+                        .default_open(深度 == 0)
+                        .id_salt(format!("资源目录-{路径}"))
+                        .show(ui, |ui| {
+                            绘制节点列表(ui, 上下文, 子项, 深度 + 1);
+                        })
+                    })
+                    .inner;
+                // 目录行也进证据：自动验收要先把它点开，才能点到里面的文件。
+                // 不记录的话，深目录里的资源在 GUI 上"无法到达"，而这与
+                // "预览没实现"在证据上无法区分。
+                上下文.界面.资源行几何.push(crate::state::资源行几何 {
+                    路径: 路径.clone(),
+                    名称: 名称.clone(),
+                    行矩形: 行.header_response.rect,
+                    名称矩形: Some(行.header_response.rect),
+                    选中: false,
+                    是目录: true,
                 });
+                // 目录的展开状态变化本身不需要额外动作（egui 自己保存）。
             }
             资源节点::文件 {
                 名称,
@@ -385,12 +494,53 @@ fn 绘制文件行(
         Err(_) => return,
     };
 
+    let 选中 = 上下文.界面.资源选中.as_ref() == Some(&路径);
+    let 底色 = if 选中 {
+        上下文.配色.选中背景
+    } else {
+        egui::Color32::TRANSPARENT
+    };
+
+    let 行 = egui::Frame::NONE
+        .fill(底色)
+        .inner_margin(egui::Margin::symmetric(2, 1))
+        .show(ui, |ui| {
+            绘制文件行内容(ui, 上下文, &路径, 路径文本, 名称, 类别, 大小, 深度, 选中)
+        });
+
+    // 记录真实行矩形与名称矩形：自动验收要按名称中心点单击，
+    // 猜坐标在缩进/图标尺寸变化时必然点偏。
+    上下文.界面.资源行几何.push(crate::state::资源行几何 {
+        路径: 路径文本.to_string(),
+        名称: 名称.to_string(),
+        行矩形: 行.response.rect,
+        名称矩形: 行.inner.名称矩形,
+        选中,
+        是目录: false,
+    });
+}
+
+/// 一行的实际内容。返回名称标签的矩形（供证据记录）。
+#[allow(clippy::too_many_arguments)]
+fn 绘制文件行内容(
+    ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    路径: &项目相对路径,
+    路径文本: &str,
+    名称: &str,
+    类别: 资源类别,
+    大小: u64,
+    深度: usize,
+    选中: bool,
+) -> 行内矩形 {
+    let mut 名称矩形 = None;
+
     ui.horizontal(|ui| {
         ui.add_space(深度 as f32 * 12.0 + 16.0);
 
         // 图片显示缩略图，其余显示类别角标。
         if 类别 == 资源类别::图片 {
-            if let Some(纹理) = 上下文.缩略图(&路径) {
+            if let Some(纹理) = 上下文.缩略图(路径) {
                 ui.add(egui::Image::new(纹理).fit_to_exact_size(egui::vec2(16.0, 16.0)));
             } else {
                 ui.label(RichText::new("🖼").small());
@@ -430,10 +580,13 @@ fn 绘制文件行(
             );
         }
 
-        let 响应 = ui.add(
-            egui::Label::new(RichText::new(名称).color(上下文.配色.文字))
-                .sense(Sense::click_and_drag()),
-        );
+        let 文字 = if 选中 {
+            RichText::new(名称).color(上下文.配色.文字).strong()
+        } else {
+            RichText::new(名称).color(上下文.配色.文字)
+        };
+        let 响应 = ui.add(egui::Label::new(文字).sense(Sense::click_and_drag()));
+        名称矩形 = Some(响应.rect);
 
         响应.clone().on_hover_text(上下文.语言.填充(
             "tooltip_asset_category_and_size",
@@ -444,7 +597,16 @@ fn 绘制文件行(
             ],
         ));
 
-        // 双击：脚本文件送到脚本编辑器；场景文件打开场景；图片资源创建精灵。
+        // 单击 = 选中 + 立刻预览。
+        //
+        // 这是本轮最核心的交互：用户点一个文件，右边/下面**马上**出现
+        // 它的真实内容，不需要先"打开"或记快捷键。选中同时记录在
+        // 界面状态里，因此右键菜单、拖放、切换面板都不会把它弄丢。
+        if 响应.clicked() {
+            上下文.界面.选中资源(路径.clone());
+        }
+
+        // 双击：脚本文件送到脚本编辑器；场景文件打开场景；其余资源创建实体。
         if 响应.double_clicked() {
             let 是脚本 = 路径
                 .扩展名()
@@ -521,6 +683,13 @@ fn 绘制文件行(
         // 本期先支持"双击创建"，完整跨面板拖放见路线图。
         let _ = 响应.drag_started();
     });
+
+    行内矩形 { 名称矩形 }
+}
+
+/// 行内需要回传的几何。
+struct 行内矩形 {
+    名称矩形: Option<egui::Rect>,
 }
 
 /// 把字节数变成人类可读文本。

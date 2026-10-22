@@ -316,6 +316,66 @@ struct 场景行记录 {
     blank: Option<矩形记录>,
 }
 
+/// 资源浏览器一行的证据。
+///
+/// 与场景树行几何同理：没有它，自动验收只能猜"第几个文件在第几行"。
+/// 行高、缩进、图标宽度任何一项变化都会让猜出来的坐标落到别的行上，
+/// 而"点偏了"与"预览坏了"在证据上完全一样。
+#[derive(Debug, Clone, Serialize)]
+struct 资源行记录 {
+    /// 项目相对路径（稳定标识）。
+    path: String,
+    /// 显示名。
+    name: String,
+    /// 整行矩形（物理像素）。
+    row: 矩形记录,
+    /// 名称标签矩形；自动化点它的中心 = 单击选中。
+    label: Option<矩形记录>,
+    /// 该行是否处于选中状态。
+    selected: bool,
+    /// 这一行是不是目录（目录只能点开，不能预览）。
+    is_dir: bool,
+}
+
+/// 资源预览证据。
+///
+/// 让"单击之后有没有真的显示这个资源"成为结构化断言，
+/// 而不是"截图里右边好像有块颜色"。
+#[derive(Debug, Clone, Serialize)]
+struct 资源预览记录 {
+    /// 当前选中资源的项目相对路径；未选中为 `null`。
+    selected: Option<String>,
+    /// 预览目标（来自快照）。
+    path: Option<String>,
+    /// 阶段代号：`idle` / `loading` / `ready` / `error` / `unsupported`。
+    stage: String,
+    /// 资源类别代号（`image` / `model` / `audio` …）。
+    category: String,
+    /// 失败或不支持的说明。
+    message: Option<String>,
+    /// 是否有可显示的预览画面（图片/模型渲染结果）。
+    has_surface: bool,
+    /// 图片原始尺寸（像素）。
+    image_size: Option<(u32, u32)>,
+    /// 场景实体数。
+    scene_entities: Option<usize>,
+    /// 音频是否可试听。
+    audio_playable: Option<bool>,
+    /// 字体家族名。
+    font_family: Option<String>,
+    /// 模型网格数。
+    model_meshes: Option<usize>,
+    /// 快照代次（与界面请求代次比对，可发现"旧结果覆盖新选择"）。
+    generation: u64,
+    /// 当前请求代次。
+    request_generation: u64,
+    /// 当前正在试听的音频路径（没有则为 `null`）。
+    ///
+    /// 试听是"点了按钮之后有没有真的响"的界面侧证据；它不能证明声音
+    /// 从扬声器出来，但能证明请求被接受、状态被正确维护与清理。
+    auditioning: Option<String>,
+}
+
 /// 物理运行时证据。
 ///
 /// 物理是"真在跑还是只有数据"最容易说不清的一块：控制台说"开始了"
@@ -532,6 +592,10 @@ struct 采集证据 {
     console_log_tail: Vec<String>,
     /// 控制台总行数（用于判断"点击后确实新增了输出"）。
     console_log_count: usize,
+    /// 资源浏览器的可见行（含名称标签矩形）。
+    asset_rows: Vec<资源行记录>,
+    /// 当前资源预览状态。
+    asset_preview: 资源预览记录,
 }
 
 /// 一次界面绘制结束后写证据并请求截图。
@@ -723,6 +787,42 @@ fn 发起一次采集(
         })
         .collect();
 
+    // ---- 资源浏览器几何与预览状态 ----
+    let 资源行: Vec<资源行记录> = 界面
+        .状态
+        .资源行几何
+        .iter()
+        .map(|行| 资源行记录 {
+            path: 行.路径.clone(),
+            name: 行.名称.clone(),
+            row: 转矩形(行.行矩形),
+            label: 行.名称矩形.map(转矩形),
+            selected: 行.选中,
+            is_dir: 行.是目录,
+        })
+        .collect();
+    let 预览 = &界面.状态.资源预览;
+    let 资源预览 = 资源预览记录 {
+        selected: 界面
+            .状态
+            .资源选中
+            .as_ref()
+            .map(|路径| 路径.文本().to_string()),
+        path: 预览.路径.clone(),
+        stage: 预览.阶段.代号().to_string(),
+        category: 类别代号(预览.类别),
+        message: 预览.说明.clone(),
+        has_surface: 预览.有画面(),
+        image_size: 预览.图片.as_ref().map(|图片| (图片.宽, 图片.高)),
+        scene_entities: 预览.场景.as_ref().map(|场景| 场景.实体总数),
+        audio_playable: 预览.音频.as_ref().map(|音频| 音频.可试听),
+        font_family: 预览.字体.as_ref().map(|字体| 字体.家族名.clone()),
+        model_meshes: 预览.模型.as_ref().map(|模型| 模型.网格数),
+        generation: 预览.代次,
+        request_generation: 界面.状态.预览请求.代次,
+        auditioning: 界面.状态.试听中.clone(),
+    };
+
     // ---- 项目运行状态 ----
     let 运行记录 = 运行记录 {
         status: 项目运行.状态.文案().to_string(),
@@ -850,6 +950,8 @@ fn 发起一次采集(
             .map(|条目| 条目.渲染(界面.状态.语言))
             .collect(),
         console_log_count: 编辑器.状态.日志列表().len(),
+        asset_rows: 资源行,
+        asset_preview: 资源预览,
     };
 
     if let Some(报告路径) = 报告.map(Path::to_path_buf) {
@@ -902,6 +1004,22 @@ fn 写报告(路径: &Path, 证据: &采集证据) -> Result<(), String> {
 /// `#RRGGBB` 形式的颜色文本。
 fn 十六进制(颜色: egui::Color32) -> String {
     format!("#{:02X}{:02X}{:02X}", 颜色.r(), 颜色.g(), 颜色.b())
+}
+
+/// 资源类别的稳定代号（与界面语言无关，便于跨语言断言）。
+fn 类别代号(类别: scene_doc::property::资源类别) -> String {
+    use scene_doc::property::资源类别;
+    match 类别 {
+        资源类别::图片 => "image",
+        资源类别::音频 => "audio",
+        资源类别::字体 => "font",
+        资源类别::模型 => "model",
+        资源类别::材质 => "material",
+        资源类别::场景 => "scene",
+        资源类别::着色器 => "shader",
+        资源类别::其他 => "other",
+    }
+    .to_string()
 }
 
 /// 采集完成后退出；超时未拿到 PNG 则**以失败码退出**。

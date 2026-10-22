@@ -396,6 +396,9 @@ impl Plugin for BevyStudio插件 {
             .add_plugins(crate::pie_proto::Pie原型插件)
             .init_resource::<EditorStateHolder>()
             .insert_resource(UiStateHolder::新建())
+            // 资源预览：单击资源后读盘/解码/解析，把结果写回界面状态。
+            // 它的系统放在 Update 里，与"改数据"的其它系统同一条时间线。
+            .add_plugins(crate::asset_preview::资源预览插件)
             .init_resource::<缩略图缓存>()
             .init_resource::<图标资源>()
             .init_resource::<诊断资源>()

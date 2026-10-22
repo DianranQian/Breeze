@@ -92,6 +92,12 @@ image = { version = "0.25.10", default-features = false, features = [
     "gif",
 ] }
 
+# 字体预览要读**真实字体文件**：家族名与字形数从字体表里取，
+# 缺字检查要能回答"这个字体有没有这个字"。ttf-parser 是纯解析库
+# （不渲染、不分配图集），版本已在 Bevy 的依赖图里（0.25.1），
+# 因此不会引入第二份字体解析栈。
+ttf-parser = "0.25.1"
+
 scene_doc = { path = "crates/scene_doc" }
 savegame = { path = "crates/savegame" }
 runtime_protocol = { path = "crates/runtime_protocol" }

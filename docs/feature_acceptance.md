@@ -227,3 +227,32 @@
 | 真实 GUI（第 2 次） | 再次「构建并运行」 | 新 PID（首次 12632 → 第二次 10056），未继承旧进程状态；退出后同样无残留 |
 | 目标项目未被修改 | 项目根 `git status --short` | 仍只有本轮之前就存在的 ` M Cargo.toml`（mtime 早于本轮） |
 | 环境限制（如实记录） | 本会话沙箱对部分可执行文件的写入范围有限制 | `cargo test` 的 `%TEMP%` 写入被拒（os error 5），因此回归时用仓库外 `CARGO_TARGET_DIR` 运行测试；**不影响产品代码与游戏本地 `target/`** |
+
+## 16. R15 资源浏览器与资产预览（单击即可看到真实内容）
+
+验收项目：`.verify_r15/project`（资源全部是真实项目文件的逐字节副本，
+来源与哈希见 `.verify_r15/SOURCES.md` 与报告里的 `asset_hashes`）；
+场景预览另在真实示例项目 `examples/3d_demo` 上直接验证。
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 自动化：状态机 | `cargo test -p editor_ui --lib`（资源预览 7 条） | 325 通过 / 0 失败（含既有用例） |
+| 自动化：预览计算 | `cargo test -p editor_app --test 资源预览` | 14 通过 / 0 失败 |
+| 自动化：WAV 头 | `cargo test -p editor_app --lib asset_preview` | 3 通过 / 0 失败 |
+| 真实 GUI（可重跑） | `bash tools/asset_preview_acceptance.sh` | **9/9 通过**；报告 `docs/验收证据/68_资源预览_验收报告.json` |
+| 图片 | 真实单击 `floor.png` → `wall.png` | `ready` / `image` / `has_surface=true` / `256×256` 与磁盘一致；截图 60 |
+| 模型 | 真实单击 `Character_Soldier.gltf`（2.2MB） | `ready` / `model` / 网格 60 / 有画面（独立层渲染）；截图 61 |
+| 场景 | 真实示例项目单击 `scenes/tps_arena.scene.ron` | `ready` / `scene` / 36 实体；截图 62 |
+| 音频 | 单击 `beep.wav` → 真实点击预览里的「试听」 | `audio_playable=true`；点击后 `auditioning=assets/beep.wav`；截图 63 |
+| 字体 | 单击 `NotoSansSC-Subset.ttf` | 家族名 `Noto Sans SC`（来自 ttf 表）/ 7866 字形 / 真实字体渲染样例；截图 64 |
+| 不支持 | 单击 `unknown.bin` | `unsupported` + 可读说明；截图 65 |
+| 快速切换 | 依次单击 `floor.png` → `Crate.gltf` → `wall.png` | 最终 `assets/wall.png`，代次 3，尺寸正确；截图 66 |
+| 未打开项目 | 不传项目启动 | `idle` / 无选中 / 0 资源行；截图 67 |
+| 只读性 | 预览六类资源后比对场景哈希 | 验收项目场景与真实示例项目**逐字节一致** |
+| 生命周期（集成） | `关闭项目清空资源预览与试听状态` 等 | 切换/关闭项目清空选中与预览、试听状态；删除/重命名跟随或失效 |
+
+**环境限制（如实记录，不属于产品缺陷）**：本机沙箱子进程只在工作区根与
+`target/` 下可写，`%TEMP%` 与工作区子目录写入被拒。依赖 `tempfile` 的既有测试
+需要 `TEMP=<workspace>/target/tmp TMP=<workspace>/target/tmp`；
+`cargo test --workspace` 仍有 3 条既有失败，原因全部是"临时目录落在仓库内被
+cargo 当成工作区成员"，与本轮改动无关（清单见 `docs/验收证据/69_资源预览_自动化测试日志.log`）。

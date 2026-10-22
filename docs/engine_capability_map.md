@@ -227,5 +227,20 @@
 | 版本过新 | M4 | `解码` / `迁移` | 明确报错，不删未来版本文件 |
 | 玩法扩展 | M4 | `payload: serde_json::Value` | 背包/等级/任务由游戏定义，不进编辑器核心 |
 | 编辑器浏览 | M4 | `editor_ui::savegame_panel` | **只读**：不删、不改、不覆盖 |
+
+## Play-in-Editor（R13 原型）
+
+| 项 | 状态 | 位置 | 说明 |
+| --- | --- | --- | --- |
+| 编辑器内实时游戏画面 | **M3（原型验证通过）** | `editor_app::pie_proto` | 主 World 内独立 `RenderLayers` 层 + `RenderTarget::Image` + egui 显示 |
+| 画面持续更新 | M3 | 同上 | 方块自动来回走，日志每 30 帧记录位置 |
+| 输入驱动 | M3（鼠标） | 同上 | 点击画面按住时朝指针位置移动；键盘（A/D）已接但需要窗口焦点 |
+| 启停与重启 | M3 | 同上 | 启动/停止/重启；`BEVY_STUDIO_PIE_SCENARIO=restart` 覆盖停止→重启 |
+| 编辑态隔离 | M4 | `tests/pie原型.rs` | 原型实体只在 ECS；场景文档零改动 |
+| 暂停/步进 | M0 | — | 未实现 |
+| 输入捕获与焦点管理 | M0 | — | 未实现 |
+| PIE 接运行时调试协议 | M0 | — | 未实现，仍走外部进程 |
+| PIE 资产加载 | M0 | — | 原型只用纯色 Sprite |
+
 | 示例游戏 | M4 | `examples/savegame_demo` | `init/play/load/verify/corrupt/future` 六个真跑场景 |
 | 云同步/加密 | M0 | — | 未实现，也不打算在编辑器内做 |

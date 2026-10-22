@@ -392,6 +392,8 @@ impl Plugin for BevyStudio插件 {
         // 因为本编辑器有两台相机（预览 + 界面），必须明确指定哪一台
         // 承载界面。默认行为是"挂到第一台相机上"，那会挂错。
         app.add_plugins(EguiPlugin::default())
+            // R13 原型：Play-in-Editor 最小实时渲染实验（见 pie_proto 模块头）。
+            .add_plugins(crate::pie_proto::Pie原型插件)
             .init_resource::<EditorStateHolder>()
             .insert_resource(UiStateHolder::新建())
             .init_resource::<缩略图缓存>()

@@ -163,3 +163,16 @@
 | 端到端（真实进程） | `savegame_demo` 六个场景 | 全部 exit 0（`.verify/savegame/demo_run.log`）：init / play / load（读回初始态）/ verify（两槽互不覆盖）/ corrupt（备份恢复）/ future（拒绝新版本且不删文件） |
 | 静态检查 | `cargo clippy -p savegame -p editor_ui -p editor_app --all-targets` | 无新增告警 |
 | GUI | `gui_probe run` + `BEVY_STUDIO_OPEN_SAVES=1` | 存档浏览器显示 slot_2/slot_1 的预览、格式/数据版本、保存时间、游玩时长，并把 `slot_broken.sav` 列为无法读取（`.verify/savegame/gui2/`） |
+
+## 12. R13 Play-in-Editor 最小实时渲染实验
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 单元 | `cargo test -p editor_app --lib pie_proto` | 5 通过（撞墙掉头、指针优先、键盘覆盖、dt 夹取、加速） |
+| 集成 | `cargo test -p editor_app --test pie原型` | 3 通过（生成相机/地面/方块且相机渲染到 Image、停止清空、三次启停计数递增、文档零污染） |
+| 全量 | `cargo test --workspace` | **1152 通过 / 0 失败**（`.verify/pie/all_tests.log`） |
+| 实时（连续帧） | `gui_probe run --frame 90/240/300` 同会话日志 | 方块 x 逐 30 帧变化：0.05 → 4.55 → 3.00 → … |
+| 画面变化（像素） | `.verify/pie/frame_diff.txt` | 帧 90 vs 帧 300，PIE 区域 **1.570%** 像素不同 |
+| 输入（真实鼠标） | `gui_probe drag --from 886,467 --to 1140,467` | 日志 `指针 Some(0.5097)`、`输入驱动 48 帧`，方块 x −1.499 → 3.000 |
+| 启停/重启 | `BEVY_STUDIO_PIE_SCENARIO=restart` | `已停止（120 帧）` → `已启动（第 2 次）` → 继续推进到 240 帧 |
+| 编辑态隔离 | 三次 GUI 证据 json | `document_dirty=false`、`实体 0`、场景文件路径不变 |

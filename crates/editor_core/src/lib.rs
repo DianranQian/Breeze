@@ -41,6 +41,7 @@ pub mod i18n;
 pub mod instance;
 pub mod log_source;
 pub mod package;
+pub mod prefab_catalog;
 pub mod project;
 pub mod recovery;
 pub mod run_entry;
@@ -82,6 +83,9 @@ pub use instance::{实例化为, 实例化结果, 实例来源, 实例标记组�
 pub use package::{
     人类可读字节, 打包报告, 打包条目, 打包计划, 打包配置, 执行打包, 生成打包计划, 默认输出目录,
 };
+pub use prefab_catalog::{
+    模板目录问题, 预制件告警, 预制件实例状态, 预制件目录
+};
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
     项目类型, 项目结果, 项目设置, 项目错误,
@@ -99,10 +103,10 @@ pub use runtime_debug::{
 };
 pub use selection::选择集;
 pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};
-pub use undo::{
-    合并键, 撤销条目, 撤销栈, 默认内存预算字节, 默认合并窗口, 默认最大步数
-};
 pub use template::{
     从根集合发现, 从环境值发现, 发现模板, 复制模板到, 复制结果, 复制选项, 打开已有项目目录,
     模板来源, 模板目录环境变量, 模板错误, 解析资源路径, 项目摘要,
+};
+pub use undo::{
+    合并键, 撤销条目, 撤销栈, 默认内存预算字节, 默认合并窗口, 默认最大步数
 };

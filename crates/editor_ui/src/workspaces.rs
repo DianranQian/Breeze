@@ -39,6 +39,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::docks::Tab;
+use crate::docks::补全标签组;
 use crate::i18n::语言;
 
 /// 工作区集存档的格式版本。
@@ -139,8 +140,12 @@ impl 内置工作区 {
 // 预设布局
 // ---------------------------------------------------------------------------
 //
-// 所有预设都必须包含视口（编辑器主体），并让全部 8 个面板出现在某个标签组里
+// 所有预设都必须包含视口（编辑器主体），并让全部通用面板出现在某个标签组里
 // —— 这样每个工作区都是一份"完整的工作环境"，而不是要靠用户先打开面板。
+//
+// 这份"完整"现在由注册表保证，不再靠人工维护四份清单：每份预设只声明
+// 设计师显式安排过位置的标签组，其余通用面板由 `crate::docks::补全标签组`
+// 追加到该预设的兜底栏（智能体面板按 `面板分组` 被排除在通用工作区之外）。
 //
 // `fraction` 的语义见 `crate::docks::默认布局`：它是**第一个子节点**的比例。
 // `split_right` / `split_below` 的第一个子节点是**旧**节点（左/上），
@@ -158,23 +163,25 @@ impl 内置工作区 {
 /// 左侧标签组 —— 场景编辑时资源面板是"偶尔要拖一个贴图进来"，
 /// 不应该长期占掉视口下方的高度。
 fn 场景预设() -> egui_dock::DockState<Tab> {
+    let 右列: &[Tab] = &[Tab::检查器, Tab::历史, Tab::时间轴];
+    let 左列: &[Tab] = &[Tab::场景树, Tab::资源浏览器, Tab::运行时ecs];
+    // 底部是场景预设的兜底栏（见 `docks::补全标签组`）。
+    let 底部 = 补全标签组(
+        &[
+            Tab::控制台,
+            Tab::构建,
+            Tab::运行,
+            Tab::性能,
+            Tab::脚本,
+            Tab::瓦片地图,
+        ],
+        &[&[Tab::视口], 右列, 左列],
+    );
     let mut 布局 = egui_dock::DockState::new(vec![Tab::视口]);
     let 主 = 布局.main_surface_mut();
-    let [主区, _右列] = 主.split_right(
-        egui_dock::NodeIndex::root(),
-        0.76,
-        vec![Tab::检查器, Tab::历史, Tab::时间轴],
-    );
-    let [上方, _底部] = 主.split_below(
-        主区,
-        0.82,
-        vec![Tab::控制台, Tab::构建, Tab::运行, Tab::性能, Tab::脚本, Tab::瓦片地图],
-    );
-    let [_视口, _左列] = 主.split_left(
-        上方,
-        0.20,
-        vec![Tab::场景树, Tab::资源浏览器, Tab::运行时ecs],
-    );
+    let [主区, _右列] = 主.split_right(egui_dock::NodeIndex::root(), 0.76, 右列.to_vec());
+    let [上方, _底部] = 主.split_below(主区, 0.82, 底部);
+    let [_视口, _左列] = 主.split_left(上方, 0.20, 左列.to_vec());
     布局
 }
 
@@ -189,19 +196,25 @@ fn 场景预设() -> egui_dock::DockState<Tab> {
 /// 资源浏览器占到中央整列（宽度约 46%、高度 100%），适合逐个浏览资源；
 /// 视口缩小但仍在右上保持完整比例，拖动资源到视口的行为照常可用。
 fn 资源预设() -> egui_dock::DockState<Tab> {
-    let mut 布局 = egui_dock::DockState::new(vec![Tab::资源浏览器, Tab::控制台]);
+    let 中区成员: &[Tab] = &[Tab::资源浏览器, Tab::控制台];
+    let 右下成员: &[Tab] = &[Tab::检查器, Tab::历史, Tab::时间轴, Tab::性能];
+    // 左列是资源预设的兜底栏：资源工作区里它本来就装着"次要"面板。
+    let 左列成员 = 补全标签组(
+        &[
+            Tab::场景树,
+            Tab::构建,
+            Tab::运行,
+            Tab::运行时ecs,
+            Tab::脚本,
+            Tab::瓦片地图,
+        ],
+        &[中区成员, 右下成员, &[Tab::视口]],
+    );
+    let mut 布局 = egui_dock::DockState::new(中区成员.to_vec());
     let 主 = 布局.main_surface_mut();
     let [中区, 右列] = 主.split_right(egui_dock::NodeIndex::root(), 0.70, vec![Tab::视口]);
-    let [_右上半, _右下半] = 主.split_below(
-        右列,
-        0.60,
-        vec![Tab::检查器, Tab::历史, Tab::时间轴, Tab::性能],
-    );
-    let [_资源, _左列] = 主.split_left(
-        中区,
-        0.34,
-        vec![Tab::场景树, Tab::构建, Tab::运行, Tab::运行时ecs, Tab::脚本, Tab::瓦片地图],
-    );
+    let [_右上半, _右下半] = 主.split_below(右列, 0.60, 右下成员.to_vec());
+    let [_资源, _左列] = 主.split_left(中区, 0.34, 左列成员);
     布局
 }
 
@@ -216,17 +229,11 @@ fn 资源预设() -> egui_dock::DockState<Tab> {
 /// 底部占 45%：调试时控制台与运行时 ECS 需要能看到多行输出，
 /// 而不是像默认布局那样被压成两三行。
 fn 调试预设() -> egui_dock::DockState<Tab> {
-    let mut 布局 = egui_dock::DockState::new(vec![Tab::视口]);
-    let 主 = 布局.main_surface_mut();
-    let [主区, _右列] = 主.split_right(
-        egui_dock::NodeIndex::root(),
-        0.74,
-        vec![Tab::性能, Tab::历史, Tab::检查器, Tab::时间轴],
-    );
-    let [上方, _底部] = 主.split_below(
-        主区,
-        0.55,
-        vec![
+    let 右列成员: &[Tab] = &[Tab::性能, Tab::历史, Tab::检查器, Tab::时间轴];
+    let 左列成员: &[Tab] = &[Tab::场景树];
+    // 底部是调试预设的兜底栏：它占 45% 高度，多几个标签也还看得见。
+    let 底部成员 = 补全标签组(
+        &[
             Tab::控制台,
             Tab::构建,
             Tab::运行,
@@ -235,8 +242,13 @@ fn 调试预设() -> egui_dock::DockState<Tab> {
             Tab::脚本,
             Tab::瓦片地图,
         ],
+        &[&[Tab::视口], 右列成员, 左列成员],
     );
-    let [_视口, _左列] = 主.split_left(上方, 0.20, vec![Tab::场景树]);
+    let mut 布局 = egui_dock::DockState::new(vec![Tab::视口]);
+    let 主 = 布局.main_surface_mut();
+    let [主区, _右列] = 主.split_right(egui_dock::NodeIndex::root(), 0.74, 右列成员.to_vec());
+    let [上方, _底部] = 主.split_below(主区, 0.55, 底部成员);
+    let [_视口, _左列] = 主.split_left(上方, 0.20, 左列成员.to_vec());
     布局
 }
 
@@ -820,8 +832,7 @@ impl 工作区集 {
                 // 名字是实现术语，布局又与「通用」重复，留着只会让人
                 // 在工作区栏里对着一个不知道干什么的标签发愣。
                 备注.push(
-                    "已移除早期版本遗留的「迁移的布局」工作区（旧配置迁移的痕迹）"
-                        .to_string(),
+                    "已移除早期版本遗留的「迁移的布局」工作区（旧配置迁移的痕迹）".to_string(),
                 );
                 continue;
             }
@@ -1125,6 +1136,141 @@ mod 测试 {
                     "工作区 {} 缺少面板 `{}`：工作区应是一份完整工作环境",
                     内置.id(),
                     面板.标题(语言::中文)
+                );
+            }
+        }
+    }
+
+    /// 布局里每个叶子（= 一个标签组）的成员：组内顺序保留，组间顺序无关。
+    ///
+    /// 用菜单键而不是 `Tab` 本身做比较值 —— `Tab` 没有 `Ord`，而"叶子遍历顺序"
+    /// 是 egui_dock 的实现细节，不是布局设计意图的一部分。
+    fn 叶子标签组(布局: &egui_dock::DockState<Tab>) -> Vec<Vec<&'static str>> {
+        let mut 组: Vec<Vec<&'static str>> = 布局
+            .iter_leaves()
+            .map(|(_, 叶)| 叶.tabs().iter().map(|面板| 面板.菜单键()).collect())
+            .collect();
+        组.sort();
+        组
+    }
+
+    /// 派生之后的四份出厂布局，标签组成员必须与建立注册表之前手写的清单**逐字一致**。
+    ///
+    /// 期望值是从拆分前那四处 `vec![...]` 里手工抄进来的，不是从代码生成的。
+    /// 这条是「只加不改」的验收线：兜底派生今天必须是空集合，任何预设少一个面板、
+    /// 多一个面板、或组内顺序变了，都会在这里失败，而不是表现成"某工作区打开后怪怪的"。
+    #[test]
+    fn 每个内置预设的标签组成员与派生前逐字一致() {
+        let 期望: &[(&str, &[&[Tab]])] = &[
+            (
+                内置工作区::通用.id(),
+                &[
+                    &[Tab::视口],
+                    &[
+                        Tab::检查器,
+                        Tab::历史,
+                        Tab::时间轴,
+                        Tab::运行时ecs,
+                        Tab::性能,
+                    ],
+                    &[
+                        Tab::资源浏览器,
+                        Tab::控制台,
+                        Tab::构建,
+                        Tab::运行,
+                        Tab::脚本,
+                        Tab::瓦片地图,
+                    ],
+                    &[Tab::场景树],
+                ],
+            ),
+            (
+                内置工作区::场景.id(),
+                &[
+                    &[Tab::视口],
+                    &[Tab::检查器, Tab::历史, Tab::时间轴],
+                    &[
+                        Tab::控制台,
+                        Tab::构建,
+                        Tab::运行,
+                        Tab::性能,
+                        Tab::脚本,
+                        Tab::瓦片地图,
+                    ],
+                    &[Tab::场景树, Tab::资源浏览器, Tab::运行时ecs],
+                ],
+            ),
+            (
+                内置工作区::资源.id(),
+                &[
+                    &[Tab::资源浏览器, Tab::控制台],
+                    &[Tab::视口],
+                    &[Tab::检查器, Tab::历史, Tab::时间轴, Tab::性能],
+                    &[
+                        Tab::场景树,
+                        Tab::构建,
+                        Tab::运行,
+                        Tab::运行时ecs,
+                        Tab::脚本,
+                        Tab::瓦片地图,
+                    ],
+                ],
+            ),
+            (
+                内置工作区::调试.id(),
+                &[
+                    &[Tab::视口],
+                    &[Tab::性能, Tab::历史, Tab::检查器, Tab::时间轴],
+                    &[
+                        Tab::控制台,
+                        Tab::构建,
+                        Tab::运行,
+                        Tab::运行时ecs,
+                        Tab::资源浏览器,
+                        Tab::脚本,
+                        Tab::瓦片地图,
+                    ],
+                    &[Tab::场景树],
+                ],
+            ),
+        ];
+        let 排序 = |组: &[&[Tab]]| -> Vec<Vec<&'static str>> {
+            let mut 键: Vec<Vec<&'static str>> = 组
+                .iter()
+                .map(|成员| 成员.iter().map(|面板| 面板.菜单键()).collect())
+                .collect();
+            键.sort();
+            键
+        };
+        assert_eq!(
+            期望.len(),
+            内置工作区::全部().len(),
+            "四份内置预设都要被这条断言覆盖"
+        );
+        for (id, 期望组) in 期望 {
+            let 内置 = 内置工作区::从id(id).expect("内置 id 应当能反查");
+            assert_eq!(
+                叶子标签组(&内置.预设()),
+                排序(期望组),
+                "工作区 {id} 的标签组成员与派生前不一致"
+            );
+        }
+    }
+
+    /// 兜底派生只补**通用**面板：AI Agent 的三个面板属于它自己的一级模式，
+    /// 出厂布局里凭空多出三个对话面板是需求明确禁止的。
+    #[test]
+    fn 兜底派生不会把智能体面板塞进内置预设() {
+        for 内置 in 内置工作区::全部() {
+            let 布局 = 内置.预设();
+            for 面板 in Tab::全部含智能体() {
+                if Tab::全部().contains(面板) {
+                    continue;
+                }
+                assert!(
+                    布局.find_tab(面板).is_none(),
+                    "工作区 {} 不应包含智能体面板 {面板:?}",
+                    内置.id()
                 );
             }
         }

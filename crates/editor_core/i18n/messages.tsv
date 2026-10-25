@@ -117,12 +117,14 @@ command_apply_snapshot	应用快照	Apply Snapshot
 command_asset_path	更改资源路径	Change Asset Path
 command_batch_set_property	批量修改属性	Batch Set Property
 command_batch_set_transform	批量修改变换	Batch Set Transform
+command_create_prefab_instance	创建预制件实例	Create Prefab Instance
 command_move_entity_down	下移实体	Move Entity Down
 command_move_entity_up	上移实体	Move Entity Up
 command_reparent	调整层级	Reparent
 command_replace_entity	替换实体	Replace Entity
 command_set_property	修改属性	Set Property
 command_set_transform	修改变换	Set Transform
+command_sync_prefab_instances	同步预制件实例	Sync Prefab Instances
 component	组件-{}	Component-{}
 component_types	组件类型数	Component Types
 console	控制台	Console
@@ -223,6 +225,11 @@ paused	⏸ 已暂停	⏸ Paused
 paused_2	已暂停	Paused
 performance	性能	Performance
 position	位置	Position
+prefab_fingerprint_mismatch	模板文件已被外部修改，可能需要手动同步	The template file was modified externally; a manual sync may be needed
+prefab_has_overrides	实例有本地修改	Instance has local overrides
+prefab_instance	预制件实例	Prefab instance
+prefab_pending_sync	模板有更新，待同步	Template updated; sync pending
+prefab_template_missing	模板文件缺失	Template file is missing
 preview	● 预览 {}×{}	● Preview {}×{}
 preview_not_ready	○ 预览未就绪	○ Preview not ready
 preview_render_is_not_ready_yet	预览渲染尚未就绪	Preview render is not ready yet

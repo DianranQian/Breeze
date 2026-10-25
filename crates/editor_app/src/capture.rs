@@ -264,7 +264,8 @@ struct 工作区记录 {
 /// 主题摘要：让验收工具能断言"这次截的确实是深色主题"。
 #[derive(Debug, Clone, Serialize)]
 struct 主题记录 {
-    /// 主题标识（`dark` / `light` / `high_contrast` / 用户自定义 id）。
+    /// 主题标识（`dark` / `light` / `high_contrast` / `pro_dark` /
+    /// `studio_paper` / `immersion` / 用户自定义 id）。
     id: String,
     /// 当前语言下的主题名。
     name: String,

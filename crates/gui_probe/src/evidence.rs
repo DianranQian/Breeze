@@ -42,7 +42,8 @@ pub struct 工作区证据 {
 /// 证据里的主题摘要。
 #[derive(Debug, Clone, Deserialize)]
 pub struct 主题证据 {
-    /// 主题标识（`dark` / `light` / `high_contrast` / 自定义名）。
+    /// 主题标识（`dark` / `light` / `high_contrast` / `pro_dark` /
+    /// `studio_paper` / `immersion` / 自定义名）。
     #[serde(default)]
     pub id: String,
     /// 面板背景色 `#RRGGBB`。

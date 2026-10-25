@@ -425,6 +425,9 @@ theme	主题	Theme
 theme_dark	深色	Dark
 theme_light	浅色	Light
 theme_high_contrast	高对比度	High Contrast
+theme_pro_dark	专业深色	Pro Dark
+theme_studio_paper	雾白工作室	Studio Paper
+theme_immersion	沉浸式创作	Immersion
 theme_not_found	找不到主题「{}」	Theme "{}" not found
 theme_builtin_protected	内置主题「{}」不能删除	Built-in theme "{}" cannot be deleted
 theme_name_empty	主题名称不能为空	Theme name cannot be empty

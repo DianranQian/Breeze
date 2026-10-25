@@ -292,6 +292,9 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                         菜单项::常可用("theme_dark", None),
                         菜单项::常可用("theme_light", None),
                         菜单项::常可用("theme_high_contrast", None),
+                        菜单项::常可用("theme_pro_dark", None),
+                        菜单项::常可用("theme_studio_paper", None),
+                        菜单项::常可用("theme_immersion", None),
                     ],
                 },
                 菜单分组 {

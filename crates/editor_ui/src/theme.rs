@@ -10,13 +10,19 @@
 //! `面板背景`、`文字`、`强调`、`警告`…… 主题切换只换这一整组值，
 //! 不存在"某个面板忘了换色"的中间状态。
 //!
-//! # 三个内置主题
+//! # 六个内置主题
 //!
 //! | 主题 | 用途 | 特征 |
 //! | --- | --- | --- |
-//! | 深色 | 默认 | 中性灰 + 蓝强调，长时间盯屏不刺眼 |
+//! | 深色 | 默认 | 中性灰 + 青强调，长时间盯屏不刺眼 |
 //! | 浅色 | 明亮环境 | 白底深字，适合投影/白天 |
 //! | 高对比度 | 可访问性 | 纯黑底 + 纯白字 + 黄强调，对比度 ≥ 7:1 |
+//! | 专业深色 | 精密工作台 | 石墨黑三档层级 + 薄荷青强调，压掉装饰、突出内容 |
+//! | 雾白 | 纸面工作室 | 暖白纸面 + 靛蓝强调 + 细线分隔，适合精细排版与截图 |
+//! | 沉浸式 | 创作模式 | 暖黑底 + 琥珀强调 + 大圆角，长时间写作/画关卡 |
+//!
+//! 后三套来自设计探索稿 A/B/C（`explore/a|b|c.html`），色值逐项取自
+//! 稿件里的 CSS 变量，而不是凭观感调出来的。
 //!
 //! # 与工作区的边界
 //!
@@ -504,12 +510,25 @@ pub enum 内置主题 {
     浅色,
     /// 高对比度。
     高对比度,
+    /// 专业深色工作台（设计稿 A）。
+    专业深色,
+    /// 雾白精密工作室（设计稿 B）。
+    雾白,
+    /// 沉浸式创作工作台（设计稿 C）。
+    沉浸式,
 }
 
 impl 内置主题 {
     /// 全部内置主题（顺序即列表显示顺序）。
     pub fn 全部() -> &'static [内置主题] {
-        &[内置主题::深色, 内置主题::浅色, 内置主题::高对比度]
+        &[
+            内置主题::深色,
+            内置主题::浅色,
+            内置主题::高对比度,
+            内置主题::专业深色,
+            内置主题::雾白,
+            内置主题::沉浸式,
+        ]
     }
 
     /// 稳定 id。
@@ -518,6 +537,9 @@ impl 内置主题 {
             Self::深色 => "dark",
             Self::浅色 => "light",
             Self::高对比度 => "high_contrast",
+            Self::专业深色 => "pro_dark",
+            Self::雾白 => "studio_paper",
+            Self::沉浸式 => "immersion",
         }
     }
 
@@ -527,6 +549,9 @@ impl 内置主题 {
             Self::深色 => "theme_dark",
             Self::浅色 => "theme_light",
             Self::高对比度 => "theme_high_contrast",
+            Self::专业深色 => "theme_pro_dark",
+            Self::雾白 => "theme_studio_paper",
+            Self::沉浸式 => "theme_immersion",
         }
     }
 
@@ -571,6 +596,41 @@ impl 内置主题 {
                 外观: 外观 {
                     基础字号: 14.0,
                     圆角: 2.0,
+                    ..外观::default()
+                },
+            },
+            Self::专业深色 => 主题 {
+                id: "pro_dark".to_string(),
+                名称: None,
+                内置: true,
+                明暗: 明暗::深色,
+                配色: 专业深色配色(),
+                外观: 外观 {
+                    基础字号: 13.0,
+                    圆角: 4.0,
+                    ..外观::default()
+                },
+            },
+            Self::雾白 => 主题 {
+                id: "studio_paper".to_string(),
+                名称: None,
+                内置: true,
+                明暗: 明暗::浅色,
+                配色: 雾白配色(),
+                外观: 外观 {
+                    圆角: 3.0,
+                    ..外观::default()
+                },
+            },
+            Self::沉浸式 => 主题 {
+                id: "immersion".to_string(),
+                名称: None,
+                内置: true,
+                明暗: 明暗::深色,
+                配色: 沉浸式配色(),
+                外观: 外观 {
+                    圆角: 8.0,
+                    间距: 7.0,
                     ..外观::default()
                 },
             },
@@ -720,6 +780,162 @@ fn 高对比度配色() -> 编辑器配色 {
         提示背景: Color32::from_rgb(16, 16, 16),
         叠加背景: Color32::from_rgba_unmultiplied(0, 0, 0, 240),
         叠加边框: Color32::from_rgba_unmultiplied(255, 255, 255, 255),
+    }
+}
+
+/// 专业深色工作台配色（设计稿 A）。
+///
+/// 设计意图：**压掉装饰、突出内容**。背景只有三档（窗口 / 面板 / 下沉区），
+/// 层级靠 1px 分隔线而不是卡片和阴影；强调色是低饱和的薄荷青，
+/// 只出现在选中、焦点和运行态。与默认深色相比更冷、更黑、更"仪器"。
+///
+/// 色值来源：`explore/a.html` 的 CSS 变量
+/// `--bg/--panel/--panel-2/--field/--line/--line-strong/--text*/--accent*/--sel/--warn/--err/--ok`。
+fn 专业深色配色() -> 编辑器配色 {
+    编辑器配色 {
+        窗口背景: Color32::from_rgb(13, 15, 17),
+        面板背景: Color32::from_rgb(22, 25, 28),
+        面板次背景: Color32::from_rgb(16, 19, 21),
+        输入框背景: Color32::from_rgb(16, 19, 21),
+        悬停背景: Color32::from_rgb(27, 31, 35),
+        激活背景: Color32::from_rgb(39, 44, 49),
+        文字: Color32::from_rgb(227, 232, 236),
+        次要文字: Color32::from_rgb(154, 165, 174),
+        禁用文字: Color32::from_rgb(97, 108, 118),
+        链接: Color32::from_rgb(111, 211, 199),
+        强调: Color32::from_rgb(111, 211, 199),
+        强调亮: Color32::from_rgb(142, 224, 214),
+        强调淡: Color32::from_rgba_unmultiplied(111, 211, 199, 38),
+        选中背景: Color32::from_rgba_unmultiplied(111, 211, 199, 62),
+        边框: Color32::from_rgb(39, 44, 49),
+        边框强: Color32::from_rgb(52, 59, 66),
+        视口背景: Color32::from_rgb(13, 15, 17),
+        网格主: Color32::from_rgb(39, 44, 49),
+        网格次: Color32::from_rgb(27, 31, 35),
+        轴_x: Color32::from_rgb(224, 108, 117),
+        轴_y: Color32::from_rgb(120, 196, 139),
+        实体框: Color32::from_rgb(154, 165, 174),
+        选择框: Color32::from_rgb(224, 178, 92),
+        信息: Color32::from_rgb(111, 211, 199),
+        成功: Color32::from_rgb(120, 196, 139),
+        警告: Color32::from_rgb(224, 178, 92),
+        错误: Color32::from_rgb(224, 108, 117),
+        按钮背景: Color32::from_rgb(27, 31, 35),
+        按钮悬停: Color32::from_rgb(39, 44, 49),
+        按钮按下: Color32::from_rgb(52, 59, 66),
+        标签栏背景: Color32::from_rgb(16, 19, 21),
+        标签激活背景: Color32::from_rgb(27, 31, 35),
+        标签文字: Color32::from_rgb(154, 165, 174),
+        分割线: Color32::from_rgb(39, 44, 49),
+        浮窗标题背景: Color32::from_rgb(27, 31, 35),
+        提示背景: Color32::from_rgb(27, 31, 35),
+        叠加背景: Color32::from_rgba_unmultiplied(13, 15, 17, 220),
+        叠加边框: Color32::from_rgba_unmultiplied(52, 59, 66, 200),
+    }
+}
+
+/// 雾白精密工作室配色（设计稿 B）。
+///
+/// 设计意图：**纸面 + 细线**。暖白纸底（不是纯白）配纯白输入区，
+/// 所有分隔都是一档 1px 暖灰线，没有边框盒子；强调色是克制的靛蓝，
+/// 状态色偏暗，保证在白纸上也能读清。适合白天、投影与截图归档。
+///
+/// 色值来源：`explore/b.html` 的 CSS 变量
+/// `--paper/--surface/--sunken/--field/--ink*/--rule*/--accent*/--ok/--warn/--err`。
+fn 雾白配色() -> 编辑器配色 {
+    编辑器配色 {
+        窗口背景: Color32::from_rgb(244, 242, 238),
+        面板背景: Color32::from_rgb(251, 250, 248),
+        面板次背景: Color32::from_rgb(238, 236, 231),
+        输入框背景: Color32::from_rgb(255, 255, 255),
+        悬停背景: Color32::from_rgb(238, 236, 231),
+        激活背景: Color32::from_rgb(226, 222, 214),
+        文字: Color32::from_rgb(29, 32, 36),
+        次要文字: Color32::from_rgb(92, 98, 106),
+        禁用文字: Color32::from_rgb(139, 144, 153),
+        链接: Color32::from_rgb(47, 77, 143),
+        强调: Color32::from_rgb(47, 77, 143),
+        强调亮: Color32::from_rgb(70, 104, 176),
+        强调淡: Color32::from_rgba_unmultiplied(47, 77, 143, 30),
+        选中背景: Color32::from_rgba_unmultiplied(47, 77, 143, 46),
+        边框: Color32::from_rgb(226, 222, 214),
+        边框强: Color32::from_rgb(211, 206, 196),
+        视口背景: Color32::from_rgb(251, 250, 248),
+        网格主: Color32::from_rgb(226, 222, 214),
+        网格次: Color32::from_rgb(238, 236, 231),
+        轴_x: Color32::from_rgb(165, 58, 52),
+        轴_y: Color32::from_rgb(47, 122, 82),
+        实体框: Color32::from_rgb(139, 144, 153),
+        选择框: Color32::from_rgb(154, 107, 18),
+        信息: Color32::from_rgb(47, 77, 143),
+        成功: Color32::from_rgb(47, 122, 82),
+        警告: Color32::from_rgb(154, 107, 18),
+        错误: Color32::from_rgb(165, 58, 52),
+        按钮背景: Color32::from_rgb(238, 236, 231),
+        按钮悬停: Color32::from_rgb(226, 222, 214),
+        按钮按下: Color32::from_rgb(211, 206, 196),
+        标签栏背景: Color32::from_rgb(238, 236, 231),
+        标签激活背景: Color32::from_rgb(251, 250, 248),
+        标签文字: Color32::from_rgb(92, 98, 106),
+        分割线: Color32::from_rgb(226, 222, 214),
+        浮窗标题背景: Color32::from_rgb(238, 236, 231),
+        提示背景: Color32::from_rgb(255, 255, 255),
+        叠加背景: Color32::from_rgba_unmultiplied(251, 250, 248, 236),
+        叠加边框: Color32::from_rgba_unmultiplied(211, 206, 196, 240),
+    }
+}
+
+/// 沉浸式创作工作台配色（设计稿 C）。
+///
+/// 设计意图：**把编辑器收进暗处，让内容发光**。暖黑底（带一点红黄倾向，
+/// 不是中性黑）配暖白文字，强调色是琥珀；圆角放大到 8px、间距略宽，
+/// 让界面在长时间写作/画关卡时不那么"工具感"。
+///
+/// 稿件里面板用的是 `rgba()` 玻璃层；这里按面板实际叠放顺序合成成不透明色，
+/// 因为主题槽位要求背景不透明（见 `内置主题背景必须不透明` 测试）。
+///
+/// 色值来源：`explore/c.html` 的 CSS 变量
+/// `--void/--glass/--glass-2/--line*/--text*/--ember*/--ok/--warn/--err`。
+fn 沉浸式配色() -> 编辑器配色 {
+    编辑器配色 {
+        窗口背景: Color32::from_rgb(20, 18, 16),
+        面板背景: Color32::from_rgb(29, 26, 23),
+        面板次背景: Color32::from_rgb(38, 34, 30),
+        输入框背景: Color32::from_rgb(16, 14, 12),
+        悬停背景: Color32::from_rgb(38, 34, 30),
+        激活背景: Color32::from_rgb(51, 46, 40),
+        文字: Color32::from_rgb(242, 235, 225),
+        次要文字: Color32::from_rgb(179, 168, 151),
+        禁用文字: Color32::from_rgb(120, 110, 97),
+        链接: Color32::from_rgb(233, 163, 92),
+        强调: Color32::from_rgb(233, 163, 92),
+        强调亮: Color32::from_rgb(240, 187, 133),
+        强调淡: Color32::from_rgba_unmultiplied(233, 163, 92, 36),
+        选中背景: Color32::from_rgba_unmultiplied(233, 163, 92, 56),
+        边框: Color32::from_rgb(50, 46, 41),
+        边框强: Color32::from_rgb(64, 59, 52),
+        视口背景: Color32::from_rgb(20, 18, 16),
+        网格主: Color32::from_rgb(50, 46, 41),
+        网格次: Color32::from_rgb(38, 34, 30),
+        轴_x: Color32::from_rgb(229, 130, 121),
+        轴_y: Color32::from_rgb(143, 201, 138),
+        实体框: Color32::from_rgb(179, 168, 151),
+        选择框: Color32::from_rgb(230, 183, 104),
+        信息: Color32::from_rgb(233, 163, 92),
+        成功: Color32::from_rgb(143, 201, 138),
+        警告: Color32::from_rgb(230, 183, 104),
+        错误: Color32::from_rgb(229, 130, 121),
+        按钮背景: Color32::from_rgb(38, 34, 30),
+        按钮悬停: Color32::from_rgb(51, 46, 40),
+        按钮按下: Color32::from_rgb(64, 59, 52),
+        标签栏背景: Color32::from_rgb(29, 26, 23),
+        标签激活背景: Color32::from_rgb(38, 34, 30),
+        标签文字: Color32::from_rgb(179, 168, 151),
+        分割线: Color32::from_rgb(50, 46, 41),
+        浮窗标题背景: Color32::from_rgb(38, 34, 30),
+        提示背景: Color32::from_rgb(38, 34, 30),
+        叠加背景: Color32::from_rgba_unmultiplied(20, 18, 16, 220),
+        叠加边框: Color32::from_rgba_unmultiplied(64, 59, 52, 200),
     }
 }
 
@@ -1058,15 +1274,31 @@ mod 测试 {
     #[test]
     fn 内置主题齐全且id唯一() {
         let 库 = 主题库::新建();
-        assert_eq!(库.全部().len(), 3);
+        assert_eq!(库.全部().len(), 6, "出厂应当是 6 个内置主题");
         let mut ids: Vec<&str> = 库.全部().iter().map(|主题| 主题.id.as_str()).collect();
         ids.sort_unstable();
         ids.dedup();
-        assert_eq!(ids.len(), 3);
+        assert_eq!(ids.len(), 6);
         for 内置 in 内置主题::全部() {
             assert!(库.按id(内置.id()).is_some());
         }
         assert_eq!(库.当前id(), 内置主题::深色.id());
+    }
+
+    #[test]
+    fn 设计稿主题的明暗与对比度正确() {
+        let 专业 = 内置主题::专业深色.预设();
+        let 雾 = 内置主题::雾白.预设();
+        let 沉浸 = 内置主题::沉浸式.预设();
+        assert_eq!(专业.明暗, 明暗::深色);
+        assert_eq!(雾.明暗, 明暗::浅色);
+        assert_eq!(沉浸.明暗, 明暗::深色);
+        // 色值取自设计稿，但"能读"优先于"像稿子"：文字与面板背景的
+        // 感知亮度差必须足够大，否则再还原的配色也不可用。
+        for (名称, 主题) in [("专业深色", 专业), ("雾白", 雾), ("沉浸式", 沉浸)] {
+            let 差 = (平均亮度(主题.配色.文字) - 平均亮度(主题.配色.面板背景)).abs();
+            assert!(差 > 100.0, "{名称} 的文字/面板亮度差只有 {差:.1}");
+        }
     }
 
     #[test]
@@ -1257,12 +1489,25 @@ mod 测试 {
     }
 
     #[test]
-    fn 三个内置主题彼此不同() {
-        let 深 = 内置主题::深色.预设();
-        let 浅 = 内置主题::浅色.预设();
-        let 高 = 内置主题::高对比度.预设();
-        assert_ne!(深.配色, 浅.配色);
-        assert_ne!(浅.配色, 高.配色);
-        assert_ne!(深.配色.强调, 高.配色.强调, "高对比度应当有独特的强调色");
+    fn 内置主题彼此不同() {
+        let 全部 = 内置主题::全部();
+        let 预设: Vec<主题> = 全部.iter().map(|内置| 内置.预设()).collect();
+        for 左 in 0..预设.len() {
+            for 右 in (左 + 1)..预设.len() {
+                assert_ne!(
+                    预设[左].配色,
+                    预设[右].配色,
+                    "{} 与 {} 的配色完全相同",
+                    全部[左].id(),
+                    全部[右].id()
+                );
+                assert_ne!(
+                    预设[左].配色.强调, 预设[右].配色.强调,
+                    "{} 与 {} 的强调色相同，主题会失去辨识度",
+                    全部[左].id(),
+                    全部[右].id()
+                );
+            }
+        }
     }
 }

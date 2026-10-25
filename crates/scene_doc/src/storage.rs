@@ -33,6 +33,7 @@ use std::path::{Path, PathBuf};
 
 use crate::document::{场景文档, 当前格式版本};
 use crate::error::{场景结果, 场景错误};
+use crate::prefab::预制件文档;
 
 /// 场景文件的默认扩展名。
 pub const 默认场景扩展名: &str = "scene.ron";
@@ -108,6 +109,36 @@ pub fn 解码场景(文本: &str, 路径: &Path) -> 场景结果<场景文档> {
     }
 
     Ok(文档)
+}
+
+/**
+ * 把预制件模板编码为 RON 文本。
+ *
+ * 与 [`编码场景`] 使用同一套美化配置：模板文件同样要进版本控制，
+ * 一行一个字段才能让差异可读。模板头与场景一起编码，不拆成两个文件，
+ * 因为二者必须同版本；拆开保存会留下"头已更新、场景还是旧的"中间态。
+ */
+pub fn 编码预制件(文档: &预制件文档) -> 场景结果<String> {
+    let 配置 = ron::ser::PrettyConfig::default()
+        .struct_names(false)
+        .depth_limit(32)
+        .new_line("\n".to_string());
+    ron::ser::to_string_pretty(文档, 配置)
+        .map_err(|错误| 场景错误::编码失败(错误.to_string()))
+}
+
+/**
+ * 从 RON 文本解码预制件模板。
+ *
+ * 模板头没有独立的格式版本字段，内部场景的 `格式版本` 由
+ * [`解码场景`] 的同一套检查负责；这里先把整份结构读出来，再交给
+ * [`预制件文档`] 的所有者校验身份与根节点。
+ */
+pub fn 解码预制件(文本: &str, 路径: &Path) -> 场景结果<预制件文档> {
+    ron::from_str(文本).map_err(|来源| 场景错误::格式解析 {
+        路径: 路径.to_path_buf(),
+        来源: Box::new(来源),
+    })
 }
 
 /// 在不完整解析的前提下探测 `格式版本` 字段。

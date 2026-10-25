@@ -246,21 +246,12 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
             vec![
                 菜单分组 {
                     标题: "",
-                    项: vec![
-                        菜单项::常可用("scene_tree", None),
-                        菜单项::常可用("inspector", None),
-                        菜单项::常可用("viewport", None),
-                        菜单项::常可用("asset_browser", None),
-                        菜单项::常可用("console", None),
-                        菜单项::常可用("history", None),
-                        菜单项::常可用("runtime_ecs", None),
-                        菜单项::常可用("performance", None),
-                        菜单项::常可用("script", None),
-                        菜单项::常可用("build", None),
-                        菜单项::常可用("run", None),
-                        菜单项::常可用("timeline", None),
-                        菜单项::常可用("tilemap", None),
-                    ],
+                    // 由面板注册表派生：`Tab::全部()` 就是「窗口」菜单里那一列面板，
+                    // 顺序即注册表的行序。新增面板不需要再改这里。
+                    项: Tab::全部()
+                        .iter()
+                        .map(|面板| 菜单项::常可用(面板.菜单键(), None))
+                        .collect(),
                 },
                 菜单分组 {
                     标题: "",
@@ -337,23 +328,15 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
 }
 
 /// 把"window"菜单里的显示名映射到面板。
+///
+/// 由 [`Tab::全部`] 反查：只有 `通用` 分组的面板进窗口菜单，因此反射也只认领它们
+/// （AI 面板由模式布局负责，菜单里点不到）。注册表改动后这里自动跟上，
+/// 不再需要与菜单定义各维护一份。
 pub fn 窗口菜单对应面板(文本: &str) -> Option<Tab> {
-    match 文本 {
-        "scene_tree" => Some(Tab::场景树),
-        "inspector" => Some(Tab::检查器),
-        "viewport" => Some(Tab::视口),
-        "asset_browser" => Some(Tab::资源浏览器),
-        "console" => Some(Tab::控制台),
-        "history" => Some(Tab::历史),
-        "runtime_ecs" => Some(Tab::运行时ecs),
-        "performance" => Some(Tab::性能),
-        "script" => Some(Tab::脚本),
-        "build" => Some(Tab::构建),
-        "run" => Some(Tab::运行),
-        "timeline" => Some(Tab::时间轴),
-        "tilemap" => Some(Tab::瓦片地图),
-        _ => None,
-    }
+    Tab::全部()
+        .iter()
+        .find(|面板| 面板.菜单键() == 文本)
+        .copied()
 }
 
 /// 把菜单项的文本映射到动作。

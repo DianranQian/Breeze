@@ -171,9 +171,9 @@ fn 绘制头部(
                 .monospace()
                 .color(配色.禁用文字),
         )
-        .on_hover_text(format!(
-            "{}：{完整id}",
-            上下文.语言.取("entity_id_stable_tooltip")
+        .on_hover_text(上下文.语言.填充(
+            "entity_id_full_tooltip",
+            &[&上下文.语言.取("entity_id_stable_tooltip"), &完整id],
         ));
         if 选择数量 > 1 {
             ui.label(

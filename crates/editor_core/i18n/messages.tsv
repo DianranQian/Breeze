@@ -145,6 +145,7 @@ empty_2	（空）	(empty)
 entities	实体 {}	Entities {}
 entities_2	实体总数	Entities
 entity	实体	Entity
+entity_id_full_tooltip	{}：{}	{}: {}
 entity_id_stable_tooltip	实体标识是稳定不变的，重命名或移动层级都不会改变它	An entity's identifier is stable; renaming it or moving it in the hierarchy will not change it
 entity_name	实体名称	Entity Name
 enum	枚举-{}	Enum-{}
@@ -446,6 +447,7 @@ theme_group_status	状态提示	Status
 theme_group_controls	控件	Controls
 theme_group_dock	停靠与标签	Dock & Tabs
 theme_group_appearance	外观	Appearance
+theme_group_custom	自定义主题	Custom themes
 theme_ui_scale	UI 缩放	UI scale
 theme_font_size	基础字号	Base font size
 theme_corner_radius	控件圆角	Corner radius

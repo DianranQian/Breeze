@@ -841,10 +841,12 @@ pub fn 绘制工具组(
             continue;
         };
         let 纹理 = egui::load::SizedTexture::new(纹理.id(), egui::vec2(图标尺寸, 图标尺寸));
-        let 响应 =
-            crate::visual_spec::图标分段按钮(ui, 上下文.配色, 边长, &纹理, 激活, true).on_hover_text(
-                format!("{}（{}）", 语言.取(工具.名称键()), 快捷键名(工具.快捷键())),
-            );
+        let 响应 = crate::visual_spec::图标分段按钮(ui, 上下文.配色, 边长, &纹理, 激活, true)
+            .on_hover_text(format!(
+                "{}（{}）",
+                语言.取(工具.名称键()),
+                快捷键名(工具.快捷键())
+            ));
         // 记录工具按钮的真实矩形：自动验收按矩形中心点击来切换工具，
         // 而不是靠"猜工具栏第几个按钮"。
         上下文.界面.布局快照.push(crate::state::区域快照 {

@@ -184,13 +184,9 @@ pub fn 绘制帮助窗口(
             });
             ui.add_space(2.0);
             ui.label(
-                egui::RichText::new(format!(
-                    "{} · {}",
-                    env!("CARGO_PKG_VERSION"),
-                    技术栈说明()
-                ))
-                .small()
-                .color(配色.次要文字),
+                egui::RichText::new(format!("{} · {}", env!("CARGO_PKG_VERSION"), 技术栈说明()))
+                    .small()
+                    .color(配色.次要文字),
             );
         });
 

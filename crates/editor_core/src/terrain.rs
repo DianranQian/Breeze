@@ -235,7 +235,13 @@ impl 地形网格 {
         for 行 in &self.覆盖 {
             let 规范化: String = 行
                 .iter()
-                .map(|字| if *字 == '·' { 默认覆盖字符 } else { *字 })
+                .map(|字| {
+                    if *字 == '·' {
+                        默认覆盖字符
+                    } else {
+                        *字
+                    }
+                })
                 .collect();
             let _ = writeln!(文本, "        \"{规范化}\",");
         }
@@ -279,7 +285,9 @@ impl 地形网格 {
     }
 
     /// 调整尺寸：保留左上角内容，新增格子填 `地表填充` / 无覆盖。
-    pub fn 调整尺寸(&mut self, 宽: usize, 高: usize, 地表填充: char) -> Result<(), String> {
+    pub fn 调整尺寸(
+        &mut self, 宽: usize, 高: usize, 地表填充: char
+    ) -> Result<(), String> {
         if 宽 == 0 || 高 == 0 {
             return Err("地形宽高不能为 0".to_string());
         }

@@ -11,9 +11,12 @@
 //! * `移除最近项目`（round 2 实现，round 15 才有入口）
 //! * `删除动画轨道`（round 5 实现，round 24 才有入口）
 //!
-//! 这条测试把"每个变体至少有一个 `UiAction::变体` 出现点"变成硬约束：
-//! 处理分支本身也算一次出现，因此阈值是 **> 1**（定义 + 处理 + 至少一个构造）。
-//! 只有处理分支而没有构造点的变体，计数恰好是 1，会被判为不可达。
+//! 这条测试把"每个变体至少有一个**构造点**"变成硬约束。注意不能用
+//! "出现次数 > 1" 来判断：动作域拆分后，一个被拆走的变体同时出现在
+//! 处理函数和分组哨兵里，即使界面上没有任何入口，计数也会大于 1。
+//! 因此这里按函数边界剔除分派函数（`执行单个动作`、`处理*动作`）与
+//! `动作摘要`，并跳过注释和 `matches!` 模式，只统计真正的构造点；
+//! 计数为 0 即判为不可达。
 //!
 //! # 为什么用源码扫描而不是反射
 //!
@@ -81,6 +84,68 @@ fn 解析动作变体(源码: &str) -> Vec<String> {
     变体
 }
 
+/// 分派函数把 `UiAction::变体` 写在**匹配模式**里，不是构造点。
+///
+/// 按名字识别而不是按文件：动作域拆分后处理函数会搬进独立文件，
+/// 但"这些函数是分派器"这一事实不变。
+fn 是分派函数(名字: &str) -> bool {
+    名字 == "执行单个动作"
+        || 名字 == "动作摘要"
+        || (名字.starts_with("处理") && 名字.ends_with("动作"))
+}
+
+/// 解析行首定义的函数名（支持 `fn` / `pub fn` / `pub(crate) fn` / `pub(super) fn`）。
+fn 顶层函数名(行: &str) -> Option<String> {
+    if 行.starts_with(' ') || 行.starts_with('\t') {
+        return None;
+    }
+    let 余下 = 行
+        .strip_prefix("pub(crate) fn ")
+        .or_else(|| 行.strip_prefix("pub(super) fn "))
+        .or_else(|| 行.strip_prefix("pub fn "))
+        .or_else(|| 行.strip_prefix("fn "))?;
+    let 名字: String = 余下
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    (!名字.is_empty()).then_some(名字)
+}
+
+/// 整段剔除顶层的分派函数；顶层函数的收尾大括号在行首。
+fn 剔除分派函数(源码: &str) -> String {
+    let mut 结果 = String::new();
+    let mut 在分派函数内 = false;
+    for 行 in 源码.lines() {
+        if 在分派函数内 {
+            if 行 == "}" {
+                在分派函数内 = false;
+            }
+            continue;
+        }
+        if let Some(名字) = 顶层函数名(行)
+            && 是分派函数(&名字)
+        {
+            在分派函数内 = true;
+            continue;
+        }
+        结果.push_str(行);
+        结果.push('\n');
+    }
+    结果
+}
+
+/// 只保留可能包含**构造点**的源码行。
+fn 可用于计数的源码(源码: &str) -> String {
+    剔除分派函数(源码)
+        .lines()
+        .filter(|行| {
+            // 注释里的示例与 `matches!` 里的模式都不算用户入口。
+            !行.trim_start().starts_with("//") && !行.contains("matches!(")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// 递归收集目录下的 `.rs` 文件内容。
 fn 收集源码(目录: &Path, 结果: &mut Vec<String>) {
     let Ok(条目) = std::fs::read_dir(目录) else {
@@ -93,7 +158,7 @@ fn 收集源码(目录: &Path, 结果: &mut Vec<String>) {
         } else if 路径.extension().is_some_and(|扩展| 扩展 == "rs")
             && let Ok(文本) = std::fs::read_to_string(&路径)
         {
-            结果.push(文本);
+            结果.push(可用于计数的源码(&文本));
         }
     }
 }
@@ -134,15 +199,15 @@ fn 每个动作变体都有构造点() {
         计数.insert(名字.as_str(), 次数);
     }
 
-    // 只有"处理分支"一个出现点 = 没有构造点 = 用户无法触发。
+    // 0 次 = 分派与摘要之外没有任何构造点 = 用户无法触发。
     let 不可达: Vec<&str> = 计数
         .iter()
-        .filter(|(_, 次数)| **次数 <= 1)
+        .filter(|(_, 次数)| **次数 == 0)
         .map(|(名字, _)| *名字)
         .collect();
     assert!(
         不可达.is_empty(),
-        "以下 UiAction 变体只有处理分支、没有任何界面构造点（用户无法触发）：\n{不可达:#?}\n\
+        "以下 UiAction 变体没有任何界面构造点（用户无法触发）：\n{不可达:#?}\n\
          修法：在界面里接上入口，或删掉这个变体。历史上这三种都犯过：\
          试听实体音频 / 移除最近项目 / 删除动画轨道。"
     );

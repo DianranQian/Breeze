@@ -187,7 +187,7 @@ pub fn 绘制帮助窗口(
                 egui::RichText::new(format!(
                     "{} · {}",
                     env!("CARGO_PKG_VERSION"),
-                    language_neutral_stack()
+                    技术栈说明()
                 ))
                 .small()
                 .color(配色.次要文字),
@@ -207,8 +207,12 @@ pub fn 绘制帮助窗口(
 }
 
 /// 技术栈说明与语言无关，单独提供以免在词表里重复。
-fn language_neutral_stack() -> &'static str {
-    "Bevy 0.20 / egui 0.36"
+///
+/// 「帮助」与「关于」两个窗口都显示它。两处各写一遍版本号时，
+/// 升级依赖后必然有一处被忘掉 —— 界面上于是同时存在两个"当前版本"。
+/// 统一到这一个函数，版本号只有一个来源。
+pub(crate) fn 技术栈说明() -> &'static str {
+    "Bevy 0.20 · bevy_egui 0.43 · egui 0.36 · egui_dock 0.21"
 }
 
 /// 在帮助窗口里显示一条快捷键（供测试断言表格结构）。

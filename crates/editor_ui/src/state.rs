@@ -961,6 +961,236 @@ impl 工作区对话框 {
     }
 }
 
+/// 瓦片地图编辑器的待确认操作。
+///
+/// 用户在有未保存修改时切换地图/重新载入，先把目标记下来，
+/// 等他确认"放弃修改"再真正执行 —— 直接丢弃是最容易让人骂人的交互。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum 瓦片地图待确认 {
+    /// 放弃当前修改，载入指定地图。
+    载入 {
+        /// 目标实体。
+        实体: 实体标识,
+        /// 目标地图文件（项目相对路径）。
+        地图文件: String,
+    },
+}
+
+/// 瓦片地图编辑会话。
+///
+/// 与场景文档分开：地图与瓦片集是**另外的文件**，它们的修改不进场景
+/// 撤销栈，也不该让场景变成"未保存"。面板自己的撤销/重做栈只服务地图。
+#[derive(Debug, Clone)]
+pub struct 瓦片地图编辑 {
+    /// 当前编辑的 TileTerrain 实体。
+    pub 实体: Option<实体标识>,
+    /// 当前地图文件（项目相对路径）。
+    pub 地图文件: String,
+    /// 当前瓦片集文件（项目相对路径）。
+    pub 瓦片集文件: String,
+    /// 已载入的地图。`None` 表示还没有成功载入任何地图。
+    pub 地图: Option<editor_core::tilemap::瓦片地图>,
+    /// 已载入的瓦片集。地图引用它，调色板与双网格规则也来自它。
+    pub 瓦片集: Option<editor_core::tileset::瓦片集>,
+    /// 地图是否有未写回磁盘的修改。
+    pub 脏: bool,
+    /// 瓦片集是否有未写回磁盘的修改。
+    pub 瓦片集脏: bool,
+    /// 载入/保存失败的原因（成功时清空）。
+    pub 错误: Option<String>,
+    /// 已发出载入请求、正在等动作层读盘。
+    ///
+    /// 记录具体请求而不是布尔值：这样面板既不会每帧重复发同一个请求，
+    /// 也能在用户改选另一个地图时立刻发新请求。
+    pub 请求中: Option<(实体标识, String)>,
+    /// 有未保存修改时等待用户确认的载入目标。
+    pub 待确认: Option<瓦片地图待确认>,
+    /// 当前图层序号。
+    pub 图层: usize,
+    /// 调色板选中的瓦片；`None` 表示橡皮。
+    pub 笔刷: Option<editor_core::tilemap::瓦片格>,
+    /// 笔刷半径（格）。0 表示单格，1 表示 3×3。
+    pub 笔刷半径: i32,
+    /// 每格显示像素（缩放）。
+    pub 缩放: f32,
+    /// 是否画网格线。
+    pub 显示网格: bool,
+    /// 本面板的撤销栈（整张地图快照）。
+    pub 撤销栈: Vec<editor_core::tilemap::瓦片地图>,
+    /// 本面板的重做栈。
+    pub 重做栈: Vec<editor_core::tilemap::瓦片地图>,
+    /// 一次拖拽绘制是否已经开始（用于"整段拖拽只记一步撤销"）。
+    pub 绘制中: bool,
+    /// 尺寸输入框的草稿值。
+    pub 待应用尺寸: (usize, usize),
+    /// 新图层名草稿。
+    pub 新图层名: String,
+    /// 新图层是否双网格。
+    pub 新图层双网格: bool,
+    /// 从资源导入图集源时的名称草稿。
+    pub 导入源名称: String,
+    /// 是否正在编辑掩码表。
+    pub 掩码编辑中: bool,
+    /// 正在编辑哪个源的掩码表；`None` 表示全局掩码表。
+    pub 掩码草稿源: Option<usize>,
+    /// 掩码表的文本草稿。
+    pub 掩码草稿: String,
+}
+
+/// 面板撤销栈的上限。
+///
+/// 一张 1024×1024 的地图约 4MB（u32 单元格），64 步就是 256MB。
+/// 实际项目通常在 48×32 量级（约 6KB/步），但上限必须按最坏情况定。
+pub const 瓦片地图撤销上限: usize = 64;
+
+impl Default for 瓦片地图编辑 {
+    fn default() -> Self {
+        Self {
+            实体: None,
+            地图文件: String::new(),
+            瓦片集文件: String::new(),
+            地图: None,
+            瓦片集: None,
+            脏: false,
+            瓦片集脏: false,
+            错误: None,
+            请求中: None,
+            待确认: None,
+            图层: 0,
+            笔刷: None,
+            笔刷半径: 0,
+            缩放: 16.0,
+            显示网格: true,
+            撤销栈: Vec::new(),
+            重做栈: Vec::new(),
+            绘制中: false,
+            待应用尺寸: (48, 32),
+            新图层名: String::new(),
+            新图层双网格: false,
+            导入源名称: String::new(),
+            掩码编辑中: false,
+            掩码草稿源: None,
+            掩码草稿: String::new(),
+        }
+    }
+}
+
+impl 瓦片地图编辑 {
+    /// 当前图层。
+    pub fn 当前图层(&self) -> Option<&editor_core::tilemap::地图图层> {
+        self.地图.as_ref()?.图层.get(self.图层)
+    }
+
+    /// 当前图层（可变）。
+    pub fn 当前图层_mut(&mut self) -> Option<&mut editor_core::tilemap::地图图层> {
+        self.地图.as_mut()?.图层.get_mut(self.图层)
+    }
+
+    /// 一次拖拽绘制开始：压入撤销快照并清空重做栈。
+    ///
+    /// 只在**按下那一帧**调用，因此整段拖拽只占一步撤销。
+    pub fn 开始绘制(&mut self) {
+        if self.绘制中 {
+            return;
+        }
+        if let Some(地图) = &self.地图 {
+            self.撤销栈.push(地图.clone());
+            if self.撤销栈.len() > 瓦片地图撤销上限 {
+                self.撤销栈.remove(0);
+            }
+            self.重做栈.clear();
+        }
+        self.绘制中 = true;
+    }
+
+    /// 一次拖拽绘制结束。
+    pub fn 结束绘制(&mut self) {
+        self.绘制中 = false;
+    }
+
+    /// 在 `(中心x, 中心y)` 周围按笔刷半径落笔。
+    ///
+    /// 双网格图层只记录图集源（瓦片序号由渲染器按四角计算）；
+    /// 普通图层记录完整的 `(源, 瓦片)`。返回是否真的改变了内容。
+    pub fn 应用笔刷(&mut self, 中心x: i32, 中心y: i32) -> bool {
+        self.应用笔刷值(中心x, 中心y, self.笔刷)
+    }
+
+    /// 用指定值落笔（`None` = 橡皮）。右键手势走这里，不动调色板选择。
+    pub fn 应用笔刷值(
+        &mut self,
+        中心x: i32,
+        中心y: i32,
+        笔刷: Option<editor_core::tilemap::瓦片格>,
+    ) -> bool {
+        let 半径 = self.笔刷半径.clamp(0, 16);
+        let 图层序号 = self.图层;
+        let Some(地图) = self.地图.as_mut() else {
+            return false;
+        };
+        let 双网格 = 地图.图层.get(图层序号).map(|层| 层.双网格).unwrap_or(false);
+        let 落笔 = match (笔刷, 双网格) {
+            (Some(格), true) => Some(editor_core::tilemap::瓦片格::新建(格.源, 0)),
+            (其它, _) => 其它,
+        };
+
+        let mut 改变 = false;
+        for dy in -半径..=半径 {
+            for dx in -半径..=半径 {
+                let x = 中心x + dx;
+                let y = 中心y + dy;
+                if x < 0 || y < 0 {
+                    continue;
+                }
+                let (x, y) = (x as usize, y as usize);
+                if x >= 地图.宽 || y >= 地图.高 {
+                    continue;
+                }
+                if 地图.取格(图层序号, x, y) != 落笔 {
+                    地图.设置格(图层序号, x, y, 落笔);
+                    改变 = true;
+                }
+            }
+        }
+        if 改变 {
+            self.脏 = true;
+        }
+        改变
+    }
+
+    /// 撤销一步。
+    pub fn 撤销(&mut self) {
+        let Some(上一步) = self.撤销栈.pop() else {
+            return;
+        };
+        if let Some(当前) = self.地图.replace(上一步) {
+            self.重做栈.push(当前);
+        }
+        self.脏 = true;
+    }
+
+    /// 重做一步。
+    pub fn 重做(&mut self) {
+        let Some(下一步) = self.重做栈.pop() else {
+            return;
+        };
+        if let Some(当前) = self.地图.replace(下一步) {
+            self.撤销栈.push(当前);
+        }
+        self.脏 = true;
+    }
+
+    /// 地图是否有可保存的内容。
+    pub fn 可保存(&self) -> bool {
+        self.地图.is_some() && self.脏 && !self.地图文件.is_empty()
+    }
+
+    /// 瓦片集是否有可保存的内容。
+    pub fn 可保存瓦片集(&self) -> bool {
+        self.瓦片集.is_some() && self.瓦片集脏 && !self.瓦片集文件.is_empty()
+    }
+}
+
 /// 界面自有的状态。
 ///
 /// 与 [`编辑器状态`] 严格分开：这里的东西**都进不了场景文件**。
@@ -1158,6 +1388,8 @@ pub struct 界面状态 {
     /// 代价是增删事件后下标会漂移，因此每次绘制都会校验它是否仍在范围内；
     /// 同一时刻有多个同名事件时，选中的是列表顺序里的那一个。
     pub 时间轴选中事件: Option<usize>,
+    /// 瓦片地图编辑会话（地形文件是场景之外的另一份数据）。
+    pub 瓦片地图: 瓦片地图编辑,
     /// 最近打开过的项目目录（从编辑器配置镜像过来，供菜单显示）。
     ///
     /// 配置属于这台机器，菜单属于界面；这里保存的是**本帧要显示的那份**。
@@ -1540,6 +1772,7 @@ impl 界面状态 {
             待确认动作: None,
             时间轴选中关键帧: None,
             时间轴选中事件: None,
+            瓦片地图: 瓦片地图编辑::default(),
             最近项目: Vec::new(),
             显示项目设置: false,
             显示帮助: false,
@@ -2044,6 +2277,35 @@ pub enum UiAction {
     /// 把全部浮动面板停靠回主表面。
     停靠全部浮动面板,
 
+    // ---------------- 瓦片地图 ----------------
+    //
+    // 地形是场景之外的另一份文件（`.terrain.ron`）。面板只负责编辑内存里的
+    // 网格，读盘/写盘一律交给动作层：这样"原子写入""路径越界检查"这类
+    // 规则只需要在一个地方实现。
+    /// 读取瓦片地图与它引用的瓦片集，填入瓦片地图面板。
+    载入瓦片地图 {
+        /// 目标 TileTerrain 实体。
+        实体: 实体标识,
+        /// 地图文件（项目相对路径）。
+        地图文件: String,
+    },
+    /// 把瓦片地图面板里的地图写回文件。
+    保存瓦片地图 {
+        /// 目标 TileTerrain 实体。
+        实体: 实体标识,
+        /// 地图文件（项目相对路径）。
+        地图文件: String,
+        /// 已经序列化好的 `.tilemap.ron` 文本。
+        文本: String,
+    },
+    /// 把瓦片集写回文件。
+    保存瓦片集 {
+        /// 瓦片集文件（项目相对路径）。
+        瓦片集文件: String,
+        /// 已经序列化好的 `.tileset.ron` 文本。
+        文本: String,
+    },
+
     // ---------------- 主题 ----------------
     /// 切换到指定主题。
     设置主题(String),
@@ -2492,6 +2754,11 @@ pub struct 绘制上下文<'平台> {
     /// 由 `editor_app` 负责按需加载并塞进来。纹理只属于界面，
     /// 不能进场景文档，因此单独放在这里而不是编辑器状态里。
     pub 缩略图: &'平台 BTreeMap<String, egui::TextureHandle>,
+    /// 瓦片集图集纹理：图片路径文本 → egui 纹理。
+    ///
+    /// 瓦片地图面板用 UV 从整张图集里取瓦片，因此这里只按图片缓存，
+    /// 不为每张瓦片单独建纹理。
+    pub 瓦片图集: &'平台 BTreeMap<String, egui::TextureHandle>,
     /// 视口的 Bevy 渲染结果。`None` 表示预览尚未就绪（例如首帧），
     /// 此时视口退化为只画叠加层。
     pub 视口纹理: Option<视口渲染结果>,
@@ -2530,6 +2797,11 @@ impl 绘制上下文<'_> {
     /// 查询某实体的缩略图。
     pub fn 缩略图(&self, 路径: &项目相对路径) -> Option<&egui::TextureHandle> {
         self.缩略图.get(路径.文本())
+    }
+
+    /// 查询一张图集图片的 egui 纹理。
+    pub fn 图集纹理(&self, 图片: &str) -> Option<&egui::TextureHandle> {
+        self.瓦片图集.get(图片)
     }
 
     /// 视口纹理是否可用。

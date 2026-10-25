@@ -75,18 +75,19 @@ pub fn 计算实体框(文档: &场景文档, 标识: 实体标识) -> Option<�
     let 实体 = 文档.取(标识)?;
     let 变换 = 实体.变换?;
 
-    let 半尺寸 = 实体
+    let 半尺寸 = if let Some((宽, 高)) = 实体
         .取组件("Sprite")
         .and_then(|组件| 组件.属性.get("自定义尺寸"))
         .and_then(属性取二维)
-        .map(|(宽, 高)| (宽.abs() * 0.5, 高.abs() * 0.5))
-        .unwrap_or_else(|| {
-            if 实体.有组件("Sprite") {
-                (默认精灵半尺寸, 默认精灵半尺寸)
-            } else {
-                (默认节点半尺寸, 默认节点半尺寸)
-            }
-        });
+    {
+        (宽.abs() * 0.5, 高.abs() * 0.5)
+    } else if let Some((宽, 高)) = 组件声明尺寸(实体) {
+        (宽 * 0.5, 高 * 0.5)
+    } else if 实体.有组件("Sprite") {
+        (默认精灵半尺寸, 默认精灵半尺寸)
+    } else {
+        (默认节点半尺寸, 默认节点半尺寸)
+    };
 
     Some(视口实体框 {
         标识,
@@ -94,6 +95,45 @@ pub fn 计算实体框(文档: &场景文档, 标识: 实体标识) -> Option<�
         半高: 半尺寸.1 * 变换.缩放.1.abs(),
         中心: (变换.平移.0, 变换.平移.1),
     })
+}
+
+/// 组件自己声明的二维占用尺寸。
+///
+/// 程序化地形与三维几何体没有 `Sprite`，但它们在视口里占的面积是明确的：
+/// * `TileTerrain` 的 `显示尺寸` 就是整张地形；
+/// * `Primitive3d` 是长方体/平面，二维视口按"地面取 xz、墙取 xy"的
+///   同一套规则落到一个矩形上（与预览的二维代替表示一致）。
+///
+/// 没有这两个组件时返回 `None`，让调用方走原来的默认尺寸。
+fn 组件声明尺寸(实体: &scene_doc::document::场景实体) -> Option<(f32, f32)> {
+    use scene_doc::property::属性值;
+
+    if let Some(组件) = 实体.取组件("TileTerrain")
+        && let Some((宽, 高)) = 组件.属性.get("显示尺寸").and_then(属性取二维)
+        && 宽.abs() > f32::EPSILON
+        && 高.abs() > f32::EPSILON
+    {
+        return Some((宽.abs(), 高.abs()));
+    }
+
+    if let Some(组件) = 实体.取组件("Primitive3d") {
+        let (x, y, z) = 组件
+            .属性
+            .get("尺寸")
+            .and_then(属性值::取三维)
+            .map(|(x, y, z)| (x.abs(), y.abs(), z.abs()))
+            .unwrap_or((1.0, 1.0, 1.0));
+        let 是平面 = matches!(
+            组件.属性.get("形状"),
+            Some(属性值::枚举(枚举)) if 枚举.变体名 == "Plane" || 枚举.序号 == 1
+        );
+        if x > f32::EPSILON && (y > f32::EPSILON || z > f32::EPSILON) {
+            let 二维 = if 是平面 || z > y { (x, z) } else { (x, y) };
+            return Some(二维);
+        }
+    }
+
+    None
 }
 
 /// 从属性值里取二维尺寸。
@@ -365,7 +405,13 @@ pub fn 绘制内容(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩�
     画布.rect_filled(内容矩形, 0.0, 上下文.配色.视口背景);
 
     if 上下文.界面.相机.显示网格 {
-        绘制网格(&画布, 内容矩形, &上下文.界面.相机, 上下文.配色);
+        绘制网格(
+            &画布,
+            内容矩形,
+            &上下文.界面.相机,
+            上下文.配色,
+            上下文.主题.明暗,
+        );
     }
     if 上下文.界面.相机.显示坐标轴 {
         绘制坐标轴(&画布, 内容矩形, &上下文.界面.相机, 上下文.配色);
@@ -417,6 +463,7 @@ pub fn 绘制内容(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩�
             &上下文.配色,
         );
     }
+
     // 选中标记：中心锚点 + 标识首段，便于在重叠对象中确认选的是谁。
     if let Some(标识) = 主选中
         && let Some(框) = 计算实体框(文档, 标识)
@@ -448,7 +495,7 @@ pub fn 绘制内容(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩�
     处理快捷键(ui, 上下文, 尺寸);
 
     // ---------- 4. 状态栏 ----------
-    绘制状态栏(ui, 上下文, 内容矩形, &所有框);
+    绘制叠加层(ui, 上下文, 内容矩形, &所有框);
 }
 
 /// 绘制 Bevy 预览渲染的纹理。
@@ -498,6 +545,7 @@ fn 绘制网格(
     内容矩形: Rect,
     相机: &crate::state::视口相机,
     配色: crate::theme::编辑器配色,
+    明暗: crate::theme::明暗,
 ) {
     let 尺寸 = 内容矩形.size();
 
@@ -530,29 +578,67 @@ fn 绘制网格(
         Pos2::new(内容矩形.min.x + 局部.x, 内容矩形.min.y + 局部.y)
     };
 
+    // 密度控制：屏幕上两条主网格线的距离小于 32px 时**不画次线**。
+    //
+    // 浅色纸面上密网格会把画布变成方格纸（实测 45% 缩放时次线间距只有 18px）。
+    // 网格的职责是"对齐参考"，不是"铺满纹理"：主网格保留，次网格只在大间距下出现。
+    // 次线在屏幕上的间距（像素）。密到一定程度就已经是"纹理"而不是"参考线"。
+    //
+    // 深浅两套主题的阈值不同：深色底上细网格读起来是"空间感"，
+    // 浅色纸面上同样的线却会变成方格纸。因此浅色更早放弃次线。
+    let 次线屏幕间距 = 间距 * 相机.缩放;
+    let 阈值 = match 明暗 {
+        crate::theme::明暗::深色 => 12.0,
+        crate::theme::明暗::浅色 => 24.0,
+    };
+    let 画次线 = 次线屏幕间距 >= 阈值;
+
+    // 网格"中心清楚、边缘退后"：
+    //
+    // 硬边网格会让视口读起来像一个带格子的输入框。按到视口中心的距离
+    // 给每条线降透明度（中心 1.0 → 边缘 0.25），网格仍然可用，
+    // 但视线会被自然收拢到画面中间的工作区。
+    let 中心 = 内容矩形.center();
+    let 半对角 = (内容矩形.width().hypot(内容矩形.height()) * 0.5).max(1.0);
+    let 衰减 = |屏幕点: Pos2| -> f32 {
+        let 距 = 屏幕点.distance(中心) / 半对角;
+        (1.0 - 距 * 0.5).clamp(0.45, 1.0)
+    };
+    let 带透明度 = |色: egui::Color32, 系数: f32| -> egui::Color32 {
+        egui::Color32::from_rgba_unmultiplied(色.r(), 色.g(), 色.b(), (色.a() as f32 * 系数) as u8)
+    };
+
     for 序号 in 起_x..=止_x {
         let 世界_x = 序号 as f32 * 间距;
-        let 颜色 = if 序号 % 10 == 0 {
+        let 是主线 = 序号 % 10 == 0;
+        if !是主线 && !画次线 {
+            continue;
+        }
+        let 基色 = if 是主线 {
             配色.网格主
         } else {
             配色.网格次
         };
-        画布.line_segment(
-            [到屏幕((世界_x, 左上世界.1)), 到屏幕((世界_x, 右下世界.1))],
-            Stroke::new(1.0, 颜色),
-        );
+        let 起点 = 到屏幕((世界_x, 左上世界.1));
+        let 终点 = 到屏幕((世界_x, 右下世界.1));
+        let 中点 = Pos2::new(起点.x, 内容矩形.center().y);
+        画布.line_segment([起点, 终点], Stroke::new(1.0, 带透明度(基色, 衰减(中点))));
     }
     for 序号 in 起_y..=止_y {
         let 世界_y = 序号 as f32 * 间距;
-        let 颜色 = if 序号 % 10 == 0 {
+        let 是主线 = 序号 % 10 == 0;
+        if !是主线 && !画次线 {
+            continue;
+        }
+        let 基色 = if 是主线 {
             配色.网格主
         } else {
             配色.网格次
         };
-        画布.line_segment(
-            [到屏幕((左上世界.0, 世界_y)), 到屏幕((右下世界.0, 世界_y))],
-            Stroke::new(1.0, 颜色),
-        );
+        let 起点 = 到屏幕((左上世界.0, 世界_y));
+        let 终点 = 到屏幕((右下世界.0, 世界_y));
+        let 中点 = Pos2::new(内容矩形.center().x, 起点.y);
+        画布.line_segment([起点, 终点], Stroke::new(1.0, 带透明度(基色, 衰减(中点))));
     }
 }
 
@@ -840,13 +926,134 @@ fn 绘制操纵器(画布: &egui::Painter, 上下文: &绘制上下文<'_>) {
     }
 }
 
-/// 绘制视口底部状态栏与工具栏。
-fn 绘制状态栏(
+/// 绘制视口叠加层：顶部工具条 + 底部读数。
+///
+/// # 为什么工具条放在视口顶部
+///
+/// 选择 / 移动 / 旋转 / 缩放是**对视口内容**的操作，它们必须贴着视口。
+/// 改造前它们在全局工具栏最左边，和"文件、编辑、运行"排在同一行 ——
+/// 用户要在两处之间来回找，而且换模式时那一行还会变。
+///
+/// Godot 的视口工具条在视口正上方，Blender 的变换工具在视口左缘；
+/// 两者共同点是"工具跟着视口走"。这里取 Godot 的做法：一条贴着视口
+/// 顶边的半透明工具条，左侧是变换工具，右侧是显示开关。
+fn 绘制叠加层(
     ui: &mut Ui,
     上下文: &mut 绘制上下文<'_>,
     内容矩形: Rect,
     所有框: &[视口实体框],
 ) {
+    // ---- 顶部工具条 ----
+    let 工具条位置 = Pos2::new(内容矩形.min.x + 8.0, 内容矩形.min.y + 8.0);
+    let mut 工具条 = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(Rect::from_min_size(
+                工具条位置,
+                egui::vec2(内容矩形.width() - 16.0, 30.0),
+            ))
+            .layout(egui::Layout::left_to_right(egui::Align::Center)),
+    );
+    egui::Frame::NONE
+        .fill(egui::Color32::TRANSPARENT)
+        .inner_margin(egui::Margin::symmetric(0, 0))
+        .show(&mut 工具条, |ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+
+            // 一条工具条上是**三组东西**，用同一种容器语法表达：
+            //   ① 变换工具（四选一）② 视口动作（适应窗口/重置视图）③ 显示开关
+            //
+            // 第一版只给工具组套了胶囊，中间两个裸图标看起来像"没归属"，
+            // 右侧开关又长成一排文字；三组各自成胶囊之后，节奏是一致的。
+            let 切换 = crate::visual_spec::分段容器(ui, 上下文.配色, |ui| {
+                crate::gizmo::绘制工具组(ui, 上下文)
+            });
+            if let Some(工具) = 切换 {
+                crate::gizmo::切换工具(上下文, 工具);
+            }
+
+            ui.add_space(6.0);
+
+            let (适配, 重置) = crate::visual_spec::分段容器(ui, 上下文.配色, |ui| {
+                let 适配 = 图标动作按钮(ui, 上下文, crate::icons::图标::最大化);
+                let 重置 = 图标动作按钮(ui, 上下文, crate::icons::图标::刷新);
+                (适配, 重置)
+            });
+            let 适配 = 适配.on_hover_text(上下文.语言.取("fit_window_hint"));
+            let 重置 = 重置.on_hover_text(上下文.语言.取("reset_view_hint"));
+            // 区域标识保持不变：自动验收按它点击"适应窗口 / 重置视图"。
+            上下文.界面.布局快照.push(crate::state::区域快照 {
+                标识: "btn_fit_2d",
+                矩形: 适配.rect,
+            });
+            上下文.界面.布局快照.push(crate::state::区域快照 {
+                标识: "btn_reset_view_2d",
+                矩形: 重置.rect,
+            });
+            if 适配.clicked() {
+                上下文.动作.推(UiAction::视口适应窗口);
+            }
+            if 重置.clicked() {
+                上下文.动作.推(UiAction::视口重置视图);
+            }
+
+            ui.add_space(6.0);
+
+            let 字号 = 11.0;
+            crate::visual_spec::分段容器(ui, 上下文.配色, |ui| {
+                let 网格开 = 上下文.界面.相机.显示网格;
+                if crate::visual_spec::开关标签(
+                    ui,
+                    上下文.配色,
+                    字号,
+                    上下文.语言.取("grid"),
+                    网格开,
+                )
+                .on_hover_text(上下文.语言.取("tooltip_toggle_grid"))
+                .clicked()
+                {
+                    上下文.界面.相机.显示网格 = !网格开;
+                }
+                let 轴开 = 上下文.界面.相机.显示坐标轴;
+                if crate::visual_spec::开关标签(
+                    ui,
+                    上下文.配色,
+                    字号,
+                    上下文.语言.取("axes"),
+                    轴开,
+                )
+                .clicked()
+                {
+                    上下文.界面.相机.显示坐标轴 = !轴开;
+                }
+                let 包围框开 = 上下文.界面.相机.显示包围框;
+                if crate::visual_spec::开关标签(
+                    ui,
+                    上下文.配色,
+                    字号,
+                    上下文.语言.取("bounds"),
+                    包围框开,
+                )
+                .clicked()
+                {
+                    上下文.界面.相机.显示包围框 = !包围框开;
+                }
+                let 碰撞开 = 上下文.界面.相机.显示碰撞;
+                if crate::visual_spec::开关标签(
+                    ui,
+                    上下文.配色,
+                    字号,
+                    上下文.语言.取("collision_shapes"),
+                    碰撞开,
+                )
+                .on_hover_text(上下文.语言.取("collision_shapes_hint"))
+                .clicked()
+                {
+                    上下文.界面.相机.显示碰撞 = !碰撞开;
+                }
+            });
+        });
+
+    // ---- 底部读数 ----
     let 相机 = 上下文.界面.相机;
     let 指针世界 = ui.input(|输入| 输入.pointer.hover_pos()).map(|位置| {
         相机.屏幕转世界(
@@ -854,28 +1061,31 @@ fn 绘制状态栏(
             内容矩形.size(),
         )
     });
-
-    // 把工具栏放在视口左下角内部。
-    let 工具栏位置 = Pos2::new(内容矩形.min.x + 8.0, 内容矩形.min.y + 8.0);
+    let 读数位置 = Pos2::new(内容矩形.min.x + 8.0, 内容矩形.max.y - 24.0);
     let mut 子界面 = ui.new_child(
         egui::UiBuilder::new()
             .max_rect(Rect::from_min_size(
-                工具栏位置,
-                egui::vec2(内容矩形.width() - 16.0, 22.0),
+                读数位置,
+                egui::vec2(内容矩形.width() - 16.0, 18.0),
             ))
             .layout(egui::Layout::left_to_right(egui::Align::Center)),
     );
-
+    // 读数条与上方工具条同一套容器语法：细胶囊底、无描边。
+    // 底色取面板色（不是叠加色）—— 叠加色在深色下与视口几乎同值、
+    // 在浅色下又接近纸白，都会让"这里有一块容器"消失。
+    // 半透明是为了让它仍然像"浮在画面上的一行字"，而不是一条新工具栏。
+    let 读数底色 = 上下文.配色.面板背景;
     egui::Frame::NONE
-        // 叠加条的颜色来自主题：浅色主题下必须换成浅底深字，
-        // 否则深色半透明底 + 深色次要文字几乎看不清（上一轮遗留缺陷）。
-        .fill(上下文.配色.叠加背景)
-        .stroke(egui::Stroke::new(1.0, 上下文.配色.叠加边框))
-        .inner_margin(egui::Margin::symmetric(6, 2))
-        .corner_radius(3)
+        .fill(egui::Color32::from_rgba_unmultiplied(
+            读数底色.r(),
+            读数底色.g(),
+            读数底色.b(),
+            190,
+        ))
+        .corner_radius(egui::CornerRadius::same(6))
+        .inner_margin(egui::Margin::symmetric(8, 3))
         .show(&mut 子界面, |ui| {
-            // 预览渲染状态。必须让用户能分辨"场景是空的"与"预览没起来"，
-            // 否则会以为自己的场景丢了。
+            ui.spacing_mut().item_spacing.x = 10.0;
             let (预览文本, 预览色) = match &上下文.视口纹理 {
                 Some(结果) => (
                     上下文
@@ -888,80 +1098,95 @@ fn 绘制状态栏(
                     上下文.配色.警告,
                 ),
             };
-            ui.label(RichText::new(预览文本).small().color(预览色))
+            // 状态点不再手绘：词条文案本身以「●」开头，再画一个圆点会变成两个。
+            // 文案里的点跟随文字色（= 预览状态色），语义与颜色仍然一致。
+            ui.label(RichText::new(预览文本).size(11.0).color(预览色))
                 .on_hover_text(if 上下文.视口纹理.is_some() {
                     上下文.语言.取("viewport_render_pipeline_hint")
                 } else {
                     上下文.语言.取("viewport_preview_not_ready_hint")
                 });
-
-            ui.separator();
             ui.label(
                 RichText::new(
                     上下文
                         .语言
                         .填充("viewport_2d_entity_count", &[&所有框.len()]),
                 )
-                .small()
+                .size(11.0)
                 .color(上下文.配色.次要文字),
             );
-            ui.separator();
             ui.label(
                 RichText::new(上下文.语言.填充(
                     "viewport_zoom",
                     &[&format!("{:.0}", 上下文.界面.相机.缩放 * 100.0)],
                 ))
-                .small()
+                .size(11.0)
                 .color(上下文.配色.次要文字),
             );
             if let Some(世界) = 指针世界 {
-                ui.separator();
                 ui.label(
-                    RichText::new(format!("{:.2}, {:.2}", 世界.0, 世界.1))
-                        .small()
+                    RichText::new(format!("{:.1}, {:.1}", 世界.0, 世界.1))
+                        .size(11.0)
                         .monospace()
-                        .color(上下文.配色.次要文字),
+                        .color(上下文.配色.禁用文字),
                 );
-            }
-            ui.separator();
-            if ui.small_button(上下文.语言.取("fit_to_window_f")).clicked()
-                && let Some((最小, 最大)) = 世界包围盒(&上下文.编辑器.会话.文档)
-            {
-                上下文.界面.相机.适应包围盒(最小, 最大, 内容矩形.size());
-            }
-            if ui.small_button(上下文.语言.取("reset_view")).clicked() {
-                // 复用一个来源：默认值只写在 `视口相机::default()` 里，
-                // 避免"默认缩放"在两处各写一个数字、改一处漏一处。
-                上下文.界面.相机 = crate::state::视口相机::default();
-            }
-            let mut 网格 = 上下文.界面.相机.显示网格;
-            if ui.checkbox(&mut 网格, 上下文.语言.取("grid")).changed() {
-                上下文.界面.相机.显示网格 = 网格;
-            }
-            let mut 包围框 = 上下文.界面.相机.显示包围框;
-            if ui.checkbox(&mut 包围框, 上下文.语言.取("bounds")).changed() {
-                上下文.界面.相机.显示包围框 = 包围框;
-            }
-            let mut 碰撞 = 上下文.界面.相机.显示碰撞;
-            if ui
-                .checkbox(&mut 碰撞, 上下文.语言.取("collision_shapes"))
-                .on_hover_text(上下文.语言.取("collision_shapes_hint"))
-                .changed()
-            {
-                上下文.界面.相机.显示碰撞 = 碰撞;
             }
         });
 }
 
 /// 视口的操作提示（作为面板顶部的一行说明）。
 pub fn 绘制提示(ui: &mut Ui, 上下文: &绘制上下文<'_>) {
-    ui.horizontal(|ui| {
-        ui.label(
-            RichText::new(上下文.语言.取("viewport_input_hint"))
-                .small()
-                .color(上下文.配色.次要文字),
-        );
-    });
+    // 提示画成浮层，而不是占一行的横条：
+    //
+    // * 占一行会让视口高度少一行 —— 在 1080p 上是 20+ 像素的纯浪费；
+    // * 提示是操作说明，用户看几次就记住了，它不该和视口抢空间。
+    //
+    // 位置固定在左下角，半透明底、小字号：既不挡场景主体，
+    // 也不会因为视角移动而"飘"到实体上。
+    let 文字 = 上下文.语言.取("viewport_input_hint");
+    let 字号 = (上下文.外观.基础字号 - 2.5).max(9.0);
+    let 字体 = egui::FontId::proportional(字号);
+    // 窄窗口下提示会超出面板右边缘（实测 1024 宽的英文界面），
+    // 所以先按可用宽度试排，放不下就按字符逐步截断并补省略号。
+    // 提示是辅助信息，截断不会损失关键操作；溢出到拉框外面才是真缺陷。
+    let 最大宽 = (ui.max_rect().width() - 32.0).max(80.0);
+    let mut 显示 = 文字.to_string();
+    let mut 排版 = ui
+        .painter()
+        .layout_no_wrap(显示.clone(), 字体.clone(), 上下文.配色.次要文字);
+    while 排版.size().x > 最大宽 && 显示.chars().count() > 4 {
+        let 保留: String = 显示.chars().take(显示.chars().count() - 2).collect();
+        显示 = format!("{保留}…");
+        排版 = ui
+            .painter()
+            .layout_no_wrap(显示.clone(), 字体.clone(), 上下文.配色.次要文字);
+    }
+    let 内边距 = egui::vec2(8.0, 4.0);
+    // 右下角：左下角留给"读数"（预览状态、实体数、缩放、坐标），
+    // 两者都在底部左侧会叠在一起。
+    let 底 = egui::Rect::from_min_size(
+        egui::pos2(
+            ui.max_rect().max.x - 排版.size().x - 内边距.x * 2.0 - 10.0,
+            ui.max_rect().max.y - 排版.size().y - 内边距.y * 2.0 - 10.0,
+        ),
+        egui::vec2(
+            排版.size().x + 内边距.x * 2.0,
+            排版.size().y + 内边距.y * 2.0,
+        ),
+    );
+    // 提示是"看一眼就够"的辅助信息：底色再淡一档，避免它变成画面里
+    // 一块抢眼的浮岛（评审提到"键盘说明书写在画布上"）。
+    let 底色调 = 上下文.配色.叠加背景;
+    ui.painter().rect_filled(
+        底,
+        egui::CornerRadius::same(6),
+        egui::Color32::from_rgba_unmultiplied(底色调.r(), 底色调.g(), 底色调.b(), 200),
+    );
+    ui.painter().galley(
+        egui::pos2(底.min.x + 内边距.x, 底.min.y + 内边距.y),
+        排版,
+        上下文.配色.次要文字,
+    );
 }
 
 /// 供外部（测试）查询当前是否处于拖动状态。
@@ -1120,6 +1345,55 @@ mod 测试 {
     }
 
     #[test]
+    fn 瓦片地形按显示尺寸计算包围框() {
+        use scene_doc::document::组件数据;
+        let (mut 文档, 甲, _) = 造带精灵的场景();
+        let mut 属性 = std::collections::BTreeMap::new();
+        属性.insert(
+            "显示尺寸".to_string(),
+            scene_doc::property::属性值::二维(3072.0, 2048.0),
+        );
+        属性.insert(
+            "地形文件".to_string(),
+            scene_doc::property::属性值::文本(String::new()),
+        );
+        if let Some(实体) = 文档.取可变(甲) {
+            实体.组件.retain(|组件| 组件.类型名 != "Sprite");
+            实体.加组件(组件数据::新建("TileTerrain", 属性));
+        }
+        let 框 = 计算实体框(&文档, 甲).unwrap();
+        assert_eq!((框.半宽, 框.半高), (1536.0, 1024.0));
+    }
+
+    #[test]
+    fn 三维几何体按地面或墙面取二维尺寸() {
+        use scene_doc::document::组件数据;
+        let (mut 文档, 甲, _) = 造带精灵的场景();
+        let mut 属性 = std::collections::BTreeMap::new();
+        属性.insert(
+            "尺寸".to_string(),
+            scene_doc::property::属性值::三维(48.0, 0.6, 48.0),
+        );
+        if let Some(实体) = 文档.取可变(甲) {
+            实体.组件.retain(|组件| 组件.类型名 != "Sprite");
+            实体.加组件(组件数据::新建("Primitive3d", 属性.clone()));
+        }
+        let 框 = 计算实体框(&文档, 甲).unwrap();
+        assert_eq!((框.半宽, 框.半高), (24.0, 24.0), "地面应取 xz 顶视图");
+
+        属性.insert(
+            "尺寸".to_string(),
+            scene_doc::property::属性值::三维(48.0, 8.0, 0.6),
+        );
+        if let Some(实体) = 文档.取可变(甲) {
+            实体.组件.retain(|组件| 组件.类型名 != "Primitive3d");
+            实体.加组件(组件数据::新建("Primitive3d", 属性));
+        }
+        let 框 = 计算实体框(&文档, 甲).unwrap();
+        assert_eq!((框.半宽, 框.半高), (24.0, 4.0), "墙应取 xy 正视图");
+    }
+
+    #[test]
     fn 空场景没有世界包围盒() {
         let 文档 = 场景文档::新建("空");
         assert!(世界包围盒(&文档).is_none());
@@ -1138,4 +1412,26 @@ mod 测试 {
         assert!(!框.包含((110.1, 50.0)), "右外侧不应被包含");
         assert!(!框.包含((100.0, 44.9)), "下外侧不应被包含");
     }
+}
+
+/// 视口工具条里的一个纯图标动作按钮。
+///
+/// 与变换工具共用 `visual_spec::图标分段按钮` 的尺寸与底色规则（未选中态），
+/// 这样"适应窗口 / 重置视图"和四个变换工具在一条工具条里有相同的视觉重量，
+/// 不会出现"工具是块、动作是字"的割裂感。
+pub(crate) fn 图标动作按钮(
+    ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    图标项: crate::icons::图标,
+) -> egui::Response {
+    // 次要动作用**更小的图标 + 更小的底色块**：视口工具条上只能有一个
+    // 视觉主角（那四个变换工具），适应窗口/重置视图排在它后面，重量必须降一档。
+    // 边长取 24、图标 14，与主工具的 30/16 形成清晰的主次关系。
+    let 边长 = (上下文.外观.基础字号 + 10.0).max(24.0);
+    let 图标尺寸 = 上下文.外观.图标尺寸 * 0.85;
+    let Some(纹理) = 上下文.图标.纹理(ui.ctx(), 图标项) else {
+        return ui.button(图标项.名称());
+    };
+    let 纹理 = egui::load::SizedTexture::new(纹理.id(), egui::vec2(图标尺寸, 图标尺寸));
+    crate::visual_spec::图标分段按钮(ui, 上下文.配色, 边长, &纹理, false, true)
 }

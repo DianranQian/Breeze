@@ -52,6 +52,7 @@ pub mod run;
 pub mod runtime_acceptance;
 pub mod scene_bridge;
 pub mod tile_terrain;
+pub mod tilemap_textures;
 pub mod ui_components;
 pub mod ui_preview;
 

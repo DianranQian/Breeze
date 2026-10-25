@@ -75,11 +75,14 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 编辑器 = 上下文.编辑器;
 
     let Some(标识) = 编辑器.选择.主选中() else {
-        ui.add_space(12.0);
-        ui.label(
-            RichText::new(上下文.语言.取("inspector_no_entity_selected_hint"))
-                .color(上下文.配色.次要文字),
-        );
+        // 空状态只给两行文字：标题说"现在没有内容"，说明说"下一步做什么"。
+        // 不画图标卡片、不加边框 —— 空面板本身已经很安静，再加装饰只会更空。
+        let 提示 = 上下文.语言.取("inspector_no_entity_selected_hint");
+        let (标题, 说明) = match 提示.split_once('\n') {
+            Some((标题, 说明)) => (标题, 说明),
+            None => (提示, ""),
+        };
+        crate::visual_spec::空状态(ui, 上下文, 标题, 说明);
         return;
     };
 
@@ -99,12 +102,16 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         .auto_shrink([false, false])
         .show(ui, |ui| {
             绘制头部(ui, 上下文, &实体快照, 选择数量);
-            ui.separator();
+            ui.add_space(crate::visual_spec::留白::分组);
+            crate::visual_spec::细线(ui, 上下文.配色);
+            ui.add_space(crate::visual_spec::留白::分组 * 0.5);
 
             // ---- 变换 ----
             if let Some(变换) = 实体快照.变换 {
                 绘制变换区(ui, 上下文, 标识, 变换);
-                ui.separator();
+                ui.add_space(crate::visual_spec::留白::分组 * 0.5);
+                crate::visual_spec::细线(ui, 上下文.配色);
+                ui.add_space(crate::visual_spec::留白::分组 * 0.5);
             }
 
             // ---- 组件 ----
@@ -112,64 +119,127 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         });
 }
 
-/// 绘制头部：实体名、标识、组件添加按钮。
+/// 绘制头部：实体名、标识、组件与实体动作。
+///
+/// # 层级
+///
+/// 1. 实体名是这一屏的主标题（Heading 档），可以直接编辑；
+/// 2. 类型与 id 退成辅助信息（等宽小字），它们用来核对，不用来阅读；
+/// 3. 动作放在最后一行，`添加组件` 是主操作（唯一带强调色的按钮），
+///    复制/删除是次要操作。
+///
+/// 改造前这里是一排"名称: [输入框]"加三个等权按钮，实体名和"添加组件"
+/// 看起来一样重要，用户扫一眼不知道自己在编辑谁。
 fn 绘制头部(
     ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 实体: &场景实体, 选择数量: usize
 ) {
-    ui.horizontal(|ui| {
-        ui.label(RichText::new(上下文.语言.取("name")).color(上下文.配色.次要文字));
-        let mut 名称 = 实体.名称.clone();
-        let 响应 = ui.add(egui::TextEdit::singleline(&mut 名称).desired_width(160.0));
-        if 响应.lost_focus() && ui.input(|输入| 输入.key_pressed(egui::Key::Enter)) {
-            let 新名称 = 名称.trim().to_string();
-            if !新名称.is_empty() && 新名称 != 实体.名称 {
-                上下文.动作.推(UiAction::重命名实体 {
-                    标识: 实体.标识,
-                    新名称,
-                });
-            }
+    let 配色 = 上下文.配色;
+    let mut 名称 = 实体.名称.clone();
+    let 响应 = ui.add(
+        egui::TextEdit::singleline(&mut 名称)
+            .font(egui::TextStyle::Heading)
+            .desired_width(f32::INFINITY)
+            // 实体名是这一屏的**标题**，不是表单字段。
+            // 给它加输入框底色会让最高层级看起来像一块输入控件，
+            // 反而把标题压成了"表单第一行"。保持无框，靠光标表达可编辑。
+            .frame(egui::Frame::NONE)
+            .hint_text(上下文.语言.取("name")),
+    );
+    if 响应.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
+    }
+    if 响应.lost_focus() && ui.input(|输入| 输入.key_pressed(egui::Key::Enter)) {
+        let 新名称 = 名称.trim().to_string();
+        if !新名称.is_empty() && 新名称 != 实体.名称 {
+            上下文.动作.推(UiAction::重命名实体 {
+                标识: 实体.标识,
+                新名称,
+            });
         }
-    });
-
-    if 选择数量 > 1 {
-        ui.label(
-            RichText::new(
-                上下文
-                    .语言
-                    .填充("inspector_multi_selection_hint", &[&选择数量]),
-            )
-            .small()
-            .color(上下文.配色.警告),
-        );
     }
 
     ui.horizontal(|ui| {
-        ui.label(RichText::new(上下文.语言.取("id")).color(上下文.配色.次要文字));
+        ui.spacing_mut().item_spacing.x = 6.0;
+        // 只显示 id 的前 8 个字符：完整 uuid 有 36 个字符，会把这一行
+        // 撑成一条"看起来像哈希的墙"，而实际需要的是"能区分两个实体"。
+        // 完整值放在悬停提示里，复制需求由提示承担。
+        let 完整id = 实体.标识.to_string();
+        let 短id: String = 完整id.chars().take(8).collect();
         ui.label(
-            RichText::new(实体.标识.to_string())
-                .small()
+            RichText::new(format!("{}  ·  {}", 上下文.语言.取("id"), 短id))
+                .size((上下文.外观.基础字号 - 2.0).max(9.0))
                 .monospace()
-                .color(上下文.配色.次要文字),
+                .color(配色.禁用文字),
         )
-        .on_hover_text(上下文.语言.取("entity_id_stable_tooltip"));
+        .on_hover_text(format!(
+            "{}：{完整id}",
+            上下文.语言.取("entity_id_stable_tooltip")
+        ));
+        if 选择数量 > 1 {
+            ui.label(
+                RichText::new(
+                    上下文
+                        .语言
+                        .填充("inspector_multi_selection_hint", &[&选择数量]),
+                )
+                .size((上下文.外观.基础字号 - 2.0).max(9.0))
+                .color(配色.警告),
+            );
+        }
     });
 
+    ui.add_space(crate::visual_spec::留白::控件水平);
+
     ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
         let 可添加组件 = 上下文.编辑器.注册表.数量() > 0;
         if ui
             .add_enabled(
                 可添加组件,
-                egui::Button::new(上下文.语言.取("add_component")),
+                egui::Button::new(RichText::new(上下文.语言.取("add_component")).color(
+                    if 可添加组件 {
+                        配色.强调亮
+                    } else {
+                        配色.禁用文字
+                    },
+                ))
+                .fill(配色.强调淡)
+                .stroke(egui::Stroke::new(1.0, 配色.强调)),
             )
             .clicked()
         {
             上下文.界面.打开组件选择器 = !上下文.界面.打开组件选择器;
             上下文.界面.组件目标 = Some(实体.标识);
         }
-        if ui.button(上下文.语言.取("duplicate_entity")).clicked() {
+        let 尺寸 = 上下文.外观.图标尺寸 * 0.9;
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                crate::icons::图标::复制,
+                None,
+                尺寸,
+                配色.次要文字,
+                true,
+            )
+            .on_hover_text(上下文.语言.取("duplicate_entity"))
+            .clicked()
+        {
             上下文.动作.推(UiAction::复制实体(实体.标识));
         }
-        if ui.button(上下文.语言.取("delete_entity")).clicked() {
+        if 上下文
+            .图标
+            .图标按钮(
+                ui,
+                crate::icons::图标::删除,
+                None,
+                尺寸,
+                配色.次要文字,
+                true,
+            )
+            .on_hover_text(上下文.语言.取("delete_entity"))
+            .clicked()
+        {
             上下文.动作.推(UiAction::删除实体(实体.标识));
         }
     });
@@ -186,35 +256,42 @@ fn 绘制头部(
             .filter(|名字| !已用.contains(名字))
             .collect();
 
-        egui::Frame::popup(ui.style()).show(ui, |ui| {
-            if 候选.is_empty() {
-                ui.label(
-                    RichText::new(上下文.语言.取("inspector_all_components_added"))
-                        .color(上下文.配色.次要文字),
-                );
-            }
-            for 类型名 in 候选 {
-                if ui.button(&类型名).clicked() {
-                    上下文.动作.推(UiAction::添加组件 {
-                        实体: 实体.标识,
-                        类型名: 类型名.clone(),
-                    });
+        egui::Frame::popup(ui.style())
+            .inner_margin(crate::visual_spec::面板内边距())
+            .show(ui, |ui| {
+                if 候选.is_empty() {
+                    ui.label(
+                        RichText::new(上下文.语言.取("inspector_all_components_added"))
+                            .color(配色.次要文字),
+                    );
+                }
+                for 类型名 in 候选 {
+                    if ui.button(&类型名).clicked() {
+                        上下文.动作.推(UiAction::添加组件 {
+                            实体: 实体.标识,
+                            类型名: 类型名.clone(),
+                        });
+                        上下文.界面.打开组件选择器 = false;
+                    }
+                }
+                if ui.button(上下文.语言.取("close")).clicked() {
                     上下文.界面.打开组件选择器 = false;
                 }
-            }
-            if ui.button(上下文.语言.取("close")).clicked() {
-                上下文.界面.打开组件选择器 = false;
-            }
-        });
+            });
     }
 }
 
 /// 绘制变换区。
+///
+/// 三个分量用 `Grid` 排版：属性名列宽固定，数值控件从同一条竖线开始。
+/// 改造前每个属性行各自 `horizontal`，标签不等宽，数值框起点参差，
+/// 一屏下来像手写的表格。
 fn 绘制变换区(
     ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 标识: 实体标识, 变换: 变换数据
 ) {
     let 可折叠 = egui::CollapsingHeader::new(
         RichText::new(上下文.语言.取("transform"))
+            .size(上下文.外观.基础字号 - 0.5)
             .strong()
             .color(上下文.配色.文字),
     )
@@ -223,43 +300,61 @@ fn 绘制变换区(
 
     可折叠.show(ui, |ui| {
         let mut 新变换 = 变换;
+        egui::Grid::new("变换网格")
+            .num_columns(2)
+            .spacing([crate::visual_spec::留白::标签, 4.0])
+            .min_col_width(crate::visual_spec::留白::标签列宽)
+            .show(ui, |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new(上下文.语言.取("position")).color(上下文.配色.次要文字));
+                });
+                let 改变 = 三元拖动(ui, 上下文, "位置", &mut 新变换.平移, 0.05);
+                ui.end_row();
+                if 改变 {
+                    提交变换(上下文, 标识, 新变换, true);
+                }
 
-        ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("position"));
-            let 改变 = 三元拖动(ui, 上下文, "位置", &mut 新变换.平移, 0.05);
-            if 改变 {
-                提交变换(上下文, 标识, 新变换, true);
-            }
-        });
+                // 旋转以角度编辑，内部仍存四元数。
+                let 欧拉 = 四元数转欧拉角(变换.旋转);
+                let mut 新欧拉 = 欧拉;
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new(上下文.语言.取("rotate")).color(上下文.配色.次要文字));
+                });
+                ui.vertical(|ui| {
+                    if 三元拖动(ui, 上下文, "旋转", &mut 新欧拉, 0.5) {
+                        新变换.旋转 = 欧拉角转四元数(新欧拉);
+                        提交变换(上下文, 标识, 新变换, true);
+                    }
+                    // 单位紧贴它解释的那一行，而不是排在缩放行之后 ——
+                    // 排在下面时，用户读到它已经离开了旋转字段。
+                    //
+                    // 放在数值框**下方**而不是同一行：检查器最窄只有约 300px，
+                    // 三个数值框加单位提示放在一行会把提示挤出面板。
+                    ui.label(
+                        RichText::new(上下文.语言.取("transform_rotation_units_hint"))
+                            .size((上下文.外观.基础字号 - 3.5).max(8.0))
+                            .color(上下文.配色.禁用文字),
+                    );
+                });
+                ui.end_row();
 
-        // 旋转以角度编辑，内部仍存四元数。
-        let 欧拉 = 四元数转欧拉角(变换.旋转);
-        let mut 新欧拉 = 欧拉;
-        ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("rotate"));
-            if 三元拖动(ui, 上下文, "旋转", &mut 新欧拉, 0.5) {
-                新变换.旋转 = 欧拉角转四元数(新欧拉);
-                提交变换(上下文, 标识, 新变换, true);
-            }
-        });
-        ui.label(
-            RichText::new(上下文.语言.取("transform_rotation_units_hint"))
-                .small()
-                .color(上下文.配色.次要文字),
-        );
-
-        ui.horizontal(|ui| {
-            ui.label(上下文.语言.取("transform_field_scale"));
-            if 三元拖动(ui, 上下文, "缩放", &mut 新变换.缩放, 0.01) {
-                提交变换(上下文, 标识, 新变换, true);
-            }
-        });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(上下文.语言.取("transform_field_scale"))
+                            .color(上下文.配色.次要文字),
+                    );
+                });
+                if 三元拖动(ui, 上下文, "缩放", &mut 新变换.缩放, 0.01) {
+                    提交变换(上下文, 标识, 新变换, true);
+                }
+                ui.end_row();
+            });
 
         // 缩放归零会让网格完全退化，给一个快捷修复。
         if 新变换.缩放.0 == 0.0 || 新变换.缩放.1 == 0.0 || 新变换.缩放.2 == 0.0 {
             ui.label(
                 RichText::new(上下文.语言.取("inspector_scale_zero_warning"))
-                    .small()
+                    .size((上下文.外观.基础字号 - 2.0).max(9.0))
                     .color(上下文.配色.警告),
             );
         }
@@ -296,26 +391,48 @@ fn 三元拖动(
         _ => None,
     };
     ui.push_id(标识前缀, |ui| {
-        for (下标, 标签) in ["x", "y", "z"].iter().enumerate() {
-            let 分量 = match 下标 {
-                0 => &mut 值.0,
-                1 => &mut 值.1,
-                _ => &mut 值.2,
-            };
-            let 响应 = ui.add(
-                egui::DragValue::new(分量)
-                    .speed(步进)
-                    .prefix(*标签)
-                    .max_decimals(3),
-            );
-            if let Some(表) = 区域表 {
-                上下文.界面.布局快照.push(crate::state::区域快照 {
-                    标识: 表[下标],
-                    矩形: 响应.rect,
-                });
-            }
-            改变 |= 响应.changed();
-        }
+        // 一组数值 = 一个"输入组"：三个分量共用一层浅底、圆角 4，
+        // 组内用 1px 缝分开。这样一行的读数一眼能看出"这是位置/旋转/缩放"，
+        // 又不会像三个独立方块那样把面板切碎。
+        crate::visual_spec::输入框外框(ui, 上下文.配色, 上下文.主题.明暗, |ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            ui.horizontal(|ui| {
+                for (下标, 标签) in ["x", "y", "z"].iter().enumerate() {
+                    let 分量 = match 下标 {
+                        0 => &mut 值.0,
+                        1 => &mut 值.1,
+                        _ => &mut 值.2,
+                    };
+                    // 轴字母用轴色、字号小一档；数值等宽、固定两位。
+                    // 拖动时数字不跳宽度，一眼能看出是哪个轴在变。
+                    let 轴色 = match 下标 {
+                        0 => 上下文.配色.轴_x,
+                        1 => 上下文.配色.轴_y,
+                        _ => 上下文.配色.信息,
+                    };
+                    ui.label(
+                        RichText::new(*标签)
+                            .size((上下文.外观.基础字号 - 3.5).max(8.0))
+                            .monospace()
+                            .color(轴色),
+                    );
+                    let 响应 = ui.add_sized(
+                        [58.0, (上下文.外观.基础字号 + 8.0).max(22.0)],
+                        egui::DragValue::new(分量)
+                            .speed(步进)
+                            .fixed_decimals(2)
+                            .update_while_editing(true),
+                    );
+                    if let Some(表) = 区域表 {
+                        上下文.界面.布局快照.push(crate::state::区域快照 {
+                            标识: 表[下标],
+                            矩形: 响应.rect,
+                        });
+                    }
+                    改变 |= 响应.changed();
+                }
+            });
+        });
     });
     改变
 }
@@ -409,70 +526,94 @@ fn 绘制单个组件(
     属性: &[(String, 属性值)],
     已注册: bool,
 ) {
-    egui::CollapsingHeader::new(RichText::new(类型名).strong().color(上下文.配色.强调))
-        .default_open(true)
-        .id_salt(format!("组件-{类型名}"))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                if ui
-                    .small_button(上下文.语言.取("remove_component_2"))
-                    .clicked()
-                {
-                    上下文.动作.推(UiAction::删除组件 {
-                        实体: 标识,
-                        类型名: 类型名.to_string(),
-                    });
-                }
-                if !已注册 {
-                    ui.label(
-                        RichText::new(上下文.语言.取("inspector_component_unregistered_hint"))
-                            .small()
-                            .color(上下文.配色.警告),
-                    );
-                }
-            });
-
-            if 字段描述.is_empty() {
-                // 未注册组件：退化成"按值的种类推断控件"的通用编辑。
-                // 这样即使用户用新版编辑器打开了含新组件的场景，
-                // 也仍能改动它的值，而不是只能干看着。
-                for (名字, 值) in 属性 {
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new(名字).color(上下文.配色.次要文字));
-                        let mut 新值 = 值.clone();
-                        if 通用值编辑(ui, 名字, &mut 新值, 上下文.语言) {
-                            提交属性(上下文, 标识, 类型名, 名字, 新值);
-                        }
-                    });
-                }
-                if 属性.is_empty() {
-                    ui.label(
-                        RichText::new(上下文.语言.取("no_properties")).color(上下文.配色.次要文字),
-                    );
-                }
-                return;
+    egui::CollapsingHeader::new(
+        RichText::new(类型名)
+            .size(上下文.外观.基础字号 - 0.5)
+            .strong()
+            .color(上下文.配色.文字),
+    )
+    .default_open(true)
+    .id_salt(format!("组件-{类型名}"))
+    .show(ui, |ui| {
+        ui.horizontal(|ui| {
+            if ui
+                .add(
+                    egui::Button::new(
+                        RichText::new(上下文.语言.取("remove_component_2"))
+                            .size((上下文.外观.基础字号 - 2.5).max(9.0))
+                            .color(上下文.配色.错误),
+                    )
+                    .fill(egui::Color32::TRANSPARENT)
+                    .frame(false),
+                )
+                .clicked()
+            {
+                上下文.动作.推(UiAction::删除组件 {
+                    实体: 标识,
+                    类型名: 类型名.to_string(),
+                });
             }
+            if !已注册 {
+                ui.label(
+                    RichText::new(上下文.语言.取("inspector_component_unregistered_hint"))
+                        .small()
+                        .color(上下文.配色.警告),
+                );
+            }
+        });
 
-            for 描述 in 字段描述 {
-                let 当前 = 属性
-                    .iter()
-                    .find(|(名字, _)| 名字 == &描述.字段名)
-                    .map(|(_, 值)| 值.clone())
-                    .unwrap_or_else(|| 描述.默认值.clone());
-
+        if 字段描述.is_empty() {
+            // 未注册组件：退化成"按值的种类推断控件"的通用编辑。
+            // 这样即使用户用新版编辑器打开了含新组件的场景，
+            // 也仍能改动它的值，而不是只能干看着。
+            for (名字, 值) in 属性 {
                 ui.horizontal(|ui| {
+                    ui.label(RichText::new(名字).color(上下文.配色.次要文字));
+                    let mut 新值 = 值.clone();
+                    if 通用值编辑(ui, 名字, &mut 新值, 上下文.语言) {
+                        提交属性(上下文, 标识, 类型名, 名字, 新值);
+                    }
+                });
+            }
+            if 属性.is_empty() {
+                ui.label(
+                    RichText::new(上下文.语言.取("no_properties")).color(上下文.配色.次要文字),
+                );
+            }
+            return;
+        }
+
+        // 网格排版：字段名列宽固定，所有控件从同一条竖线开始。
+        // `min_col_width` 用视觉规范里的标签列宽，与变换区共用同一档，
+        // 因此同一个面板里不会出现两种标签宽度。
+        egui::Grid::new(("组件属性", 类型名))
+            .num_columns(2)
+            .spacing([crate::visual_spec::留白::标签, 4.0])
+            .min_col_width(crate::visual_spec::留白::标签列宽)
+            .show(ui, |ui| {
+                for 描述 in 字段描述 {
+                    let 当前 = 属性
+                        .iter()
+                        .find(|(名字, _)| 名字 == &描述.字段名)
+                        .map(|(_, 值)| 值.clone())
+                        .unwrap_or_else(|| 描述.默认值.clone());
+
                     // 字段名与悬停提示。提示内容由 `格式提示` 统一组装，
                     // 因此这里不需要按"提示是否为空"分叉 —— 之前那样写
                     // 会出现两个完全相同的分支。
-                    ui.label(RichText::new(上下文.语言.取(描述.显示名)).color(上下文.配色.文字))
-                        .on_hover_text(格式提示(描述, 上下文.语言));
-
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(上下文.语言.取(描述.显示名)).color(上下文.配色.次要文字),
+                        )
+                        .on_hover_text(格式提示(描述, 上下文.语言));
+                    });
+
+                    ui.horizontal(|ui| {
                         if 描述.只读 {
                             ui.label(
                                 RichText::new(值摘要(&当前, 上下文.语言))
                                     .monospace()
-                                    .color(上下文.配色.次要文字),
+                                    .color(上下文.配色.禁用文字),
                             );
                             return;
                         }
@@ -484,9 +625,10 @@ fn 绘制单个组件(
                             提交属性(上下文, 标识, 类型名, &描述.字段名, 新值);
                         }
                     });
-                });
-            }
-        });
+                    ui.end_row();
+                }
+            });
+    });
 }
 
 /// 组合悬停提示。

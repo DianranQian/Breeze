@@ -48,6 +48,7 @@ $scenarios = @(
     @{ Name = "assets_zh_dark";     Ws = "assets";  Theme = "dark";          Lang = "zh"; Luma = "dark";  Panels = "asset_browser,viewport,inspector" },
     @{ Name = "debug_zh_dark";      Ws = "debug";   Theme = "dark";          Lang = "zh"; Luma = "dark";  Panels = "console,viewport,performance" },
     @{ Name = "theme_editor_zh";    Ws = "general"; Theme = "dark";          Lang = "zh"; Luma = "dark";  Panels = "scene_tree,viewport"; Extra = @{ "BEVY_STUDIO_OPEN_THEME_EDITOR" = "1" } },
+    @{ Name = "about_zh_dark";      Ws = "general"; Theme = "dark";          Lang = "zh"; Luma = "dark";  Panels = "scene_tree,viewport"; Extra = @{ "BEVY_STUDIO_OPEN_ABOUT" = "1" } },
     @{ Name = "narrow_en_light";    Ws = "general"; Theme = "light";         Lang = "en"; Luma = "light"; Panels = "scene_tree,viewport,inspector"; Size = "1024x700" }
 )
 

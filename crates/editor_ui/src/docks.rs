@@ -37,6 +37,8 @@ pub enum Tab {
     运行,
     /// 动画时间轴。
     时间轴,
+    /// 瓦片地图（`.terrain.ron` 的地表/覆盖编辑）。
+    瓦片地图,
     /// AI Agent 对话与任务执行（一级模式的主工作区）。
     智能体对话,
     /// AI Agent 会话列表与 DSH 连接状态。
@@ -72,6 +74,7 @@ impl Tab {
             Tab::构建 => "build",
             Tab::运行 => "run",
             Tab::时间轴 => "timeline",
+            Tab::瓦片地图 => "tilemap",
             Tab::智能体对话 => "agent_chat",
             Tab::智能体会话 => "agent_sessions",
             Tab::智能体审查 => "agent_review",
@@ -97,6 +100,7 @@ impl Tab {
             Tab::构建 => "构建",
             Tab::运行 => "▶ 运行",
             Tab::时间轴 => "时间轴",
+            Tab::瓦片地图 => "瓦片地图",
             Tab::智能体对话 => "AI 对话",
             Tab::智能体会话 => "AI 会话",
             Tab::智能体审查 => "AI 审查",
@@ -121,6 +125,7 @@ impl Tab {
             Tab::构建 => "build",
             Tab::运行 => "run",
             Tab::时间轴 => "timeline",
+            Tab::瓦片地图 => "tilemap",
             Tab::智能体对话 => "agent_chat",
             Tab::智能体会话 => "agent_sessions",
             Tab::智能体审查 => "agent_review",
@@ -158,6 +163,7 @@ impl Tab {
             Tab::构建,
             Tab::运行,
             Tab::时间轴,
+            Tab::瓦片地图,
         ]
     }
 
@@ -176,6 +182,7 @@ impl Tab {
             Tab::构建,
             Tab::运行,
             Tab::时间轴,
+            Tab::瓦片地图,
             Tab::智能体对话,
             Tab::智能体会话,
             Tab::智能体审查,
@@ -254,6 +261,8 @@ pub fn 默认布局() -> DockState<Tab> {
             // 运行与诊断同一个区域：看完构建错误接着就要跑一次。
             Tab::运行,
             Tab::脚本,
+            // 瓦片地图是"边画边看视口"的工作，放在底部标签组里。
+            Tab::瓦片地图,
         ],
     );
     // 0.22 = 左侧（新节点）占 22%。

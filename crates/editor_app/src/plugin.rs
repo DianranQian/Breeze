@@ -400,6 +400,7 @@ impl Plugin for BevyStudio插件 {
             // 它的系统放在 Update 里，与"改数据"的其它系统同一条时间线。
             .add_plugins(crate::asset_preview::资源预览插件)
             .init_resource::<缩略图缓存>()
+            .init_resource::<crate::tilemap_textures::瓦片图集纹理>()
             .init_resource::<图标资源>()
             .init_resource::<诊断资源>()
             .init_resource::<运行时宿主>()
@@ -608,6 +609,8 @@ impl Plugin for BevyStudio插件 {
                 (
                     // 字体必须先于任何文字绘制装好，否则首帧的中文是方框。
                     确保中文字体已安装,
+                    // 瓦片图集纹理要先于面板绘制：面板本帧就要用 UV 取瓦片。
+                    crate::tilemap_textures::同步瓦片图集纹理,
                     actions::绘制编辑器界面,
                     // 采集必须紧跟界面绘制：它读的是本帧刚测出的布局矩形，
                     // 并在 `ExtractSchedule` 之前请求截图，从而与画面同帧。
@@ -679,6 +682,8 @@ pub fn 确保中文字体已安装(mut 上下文: EguiContexts, mut 已安装: L
 ///
 /// 它同时也是 CI 截图、以及用户报 bug 时"打开这个项目就能复现"的入口。
 pub const 打开项目环境变量: &str = "BEVY_STUDIO_OPEN_PROJECT";
+/// 启动时按名称前缀选中一个实体（截图与自动验收用，只改选择集）。
+pub const 选中实体环境变量: &str = "BEVY_STUDIO_SELECT";
 /// 指定要打开的场景（项目相对路径）。留空则用启动场景或第一个场景。
 pub const 打开场景环境变量: &str = "BEVY_STUDIO_OPEN_SCENE";
 /// 指定要打开的动画（项目相对路径，如 `animations/关卡.anim.ron`）。
@@ -715,6 +720,34 @@ fn 按环境变量打开项目(mut 编辑器: ResMut<EditorStateHolder>) {
                 Err(错误) => warn!("按环境变量打开场景失败：{错误}"),
             },
             Err(错误) => warn!("环境变量里的场景路径非法：{错误}"),
+        }
+    }
+
+    // 截图/验收用：按名称前缀选中一个实体，让检查器有内容可看。
+    //
+    // 为什么要这个入口：场景树/检查器的"选中态"是这批界面最重要的状态之一，
+    // 而在无人值守的截图环境里，注入鼠标点击依赖窗口真的拿到前台焦点
+    // （实测会被 Windows 的前台锁拒掉，表现为 pointer 事件根本没到达应用）。
+    // 有了它，就能在**不点鼠标**的情况下把界面摆到"选中一个房屋"的状态，
+    // 再交给 `gui_probe` 从渲染目标回读。
+    //
+    // 它只改选择集（视图状态），不动文档、不进撤销栈。
+    if let Ok(目标) = std::env::var(选中实体环境变量)
+        && !目标.trim().is_empty()
+    {
+        let 目标 = 目标.trim();
+        let 文档 = &编辑器.状态.会话.文档;
+        let 候选 = 文档
+            .深度优先遍历()
+            .into_iter()
+            .map(|(标识, _)| 标识)
+            .find(|标识| 文档.取(*标识).is_some_and(|实体| 实体.名称.contains(目标)));
+        match 候选 {
+            Some(标识) => {
+                编辑器.状态.选择.单选(标识);
+                info!("已按环境变量选中实体：{目标}");
+            }
+            None => warn!("环境变量 {选中实体环境变量} 没有匹配到任何实体：{目标}"),
         }
     }
 
@@ -861,15 +894,27 @@ pub const 恢复对话框环境变量: &str = "BEVY_STUDIO_OPEN_RECOVERY";
 /// 启动时直接打开帮助窗口（自动验收用）。
 pub const 打开帮助环境变量: &str = "BEVY_STUDIO_OPEN_SHORTCUTS";
 
-/// 启动时按环境变量打开帮助窗口。
+/// 启动时直接打开「关于」窗口（自动验收用）。
 ///
-/// 与项目设置同理：帮助窗口只能从菜单/F1 打开，截图脚本按不了键。
+/// 与帮助窗口同理：它只能从菜单打开，而截图脚本点不到菜单。
+/// 没有这个入口，关于窗口的排版改动就只能靠人眼确认。
+pub const 打开关于环境变量: &str = "BEVY_STUDIO_OPEN_ABOUT";
+
+/// 启动时按环境变量打开帮助窗口，以及「关于」窗口。
+///
+/// 与项目设置同理：这两个窗口只能从菜单/F1 打开，截图脚本按不了键。
+/// 两者共用同一个系统，而不是各占一个：Bevy 的系统元组有元数上限，
+/// 这里再多挂一个就会编译失败（报的是"trait bounds were not satisfied"，
+/// 与真正的原因相距很远）。一个系统看两个环境变量，代价只是多一次 `var`。
 fn 按环境变量打开帮助(mut 界面: ResMut<UiStateHolder>) {
-    if std::env::var(打开帮助环境变量).is_err() {
-        return;
+    if std::env::var(打开帮助环境变量).is_ok() {
+        界面.状态.显示帮助 = true;
+        info!("已按环境变量打开帮助窗口");
     }
-    界面.状态.显示帮助 = true;
-    info!("已按环境变量打开帮助窗口");
+    if std::env::var(打开关于环境变量).is_ok() {
+        界面.状态.显示关于 = true;
+        info!("已按环境变量打开关于窗口");
+    }
 }
 
 /// 启动时显示碰撞体轮廓（自动验收用).
@@ -1143,11 +1188,8 @@ fn 按环境变量打开恢复对话框(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|时长| 时长.as_secs())
         .unwrap_or(0);
-    match 存储.写入(
-        编辑器.状态.会话.路径.as_ref(),
-        &编辑器.状态.会话.文档,
-        时间,
-    ) {
+    match 存储.写入(编辑器.状态.会话.路径.as_ref(), &编辑器.状态.会话.文档, 时间)
+    {
         Ok(_) => {
             crate::recovery_autosave::扫描项目恢复点(&mut 界面.状态, 项目);
             info!("已按环境变量生成恢复点并打开恢复对话框");
@@ -1579,6 +1621,8 @@ pub struct 绘制环境<'平台> {
 
     /// 资源缩略图纹理表。
     pub 缩略图: &'平台 BTreeMap<String, egui::TextureHandle>,
+    /// 瓦片集图集纹理表。
+    pub 瓦片图集: &'平台 BTreeMap<String, egui::TextureHandle>,
     /// 视口的 Bevy 渲染结果。`None` 表示预览尚未就绪。
     pub 视口纹理: Option<视口渲染结果>,
     /// 运行时宿主。
@@ -1631,6 +1675,7 @@ pub fn 绘制一帧(
         外观,
         图标: 环境.图标,
         缩略图: 环境.缩略图,
+        瓦片图集: 环境.瓦片图集,
         视口纹理: 环境.视口纹理,
         正在运行: 环境.运行时.状态.在运行(),
         已暂停: 环境.运行时.状态 == 运行状态::已暂停,
@@ -1782,6 +1827,17 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::聚焦选中实体 => "聚焦选中实体".to_string(),
         UiAction::浮动面板(面板) => format!("浮动面板({})", 面板.中文标题()),
         UiAction::停靠全部浮动面板 => "停靠全部浮动面板".to_string(),
+        UiAction::载入瓦片地图 { 地图文件, .. } => {
+            format!("载入瓦片地图({地图文件})")
+        }
+        UiAction::保存瓦片地图 { 地图文件, .. } => {
+            format!("保存瓦片地图({地图文件})")
+        }
+        UiAction::保存瓦片集 {
+            瓦片集文件, ..
+        } => {
+            format!("保存瓦片集({瓦片集文件})")
+        }
         UiAction::设置主题(id) => format!("设置主题({id})"),
         UiAction::显示主题编辑器(显示) => format!("显示主题编辑器({显示})"),
         UiAction::关闭主题编辑器 => "关闭主题编辑器".to_string(),

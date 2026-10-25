@@ -48,7 +48,7 @@
 //!
 //! 文档、选择、撤销栈、主题、语言在模式之间**共享**，切模式不会丢任何数据。
 
-use egui::{Color32, CornerRadius, RichText, Ui};
+use egui::{RichText, Ui};
 
 use crate::dev_modes::开发模式;
 use crate::icons::图标;
@@ -61,102 +61,72 @@ pub const 模式栏高度: f32 = 30.0;
 ///
 /// 左半是模式标签，右半是当前模式的说明。**不含**任何运行控制：
 /// 运行是"操作"，属于工具栏；把它放进模式栏正是整改前的重复来源之一。
-pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+pub fn 绘制(
+    ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    右侧: impl FnOnce(&mut Ui, &mut 绘制上下文<'_>),
+) {
     let 语言 = 上下文.语言;
     let 配色 = 上下文.配色;
     let 当前 = 上下文.界面.模式;
-    let 图标尺寸 = (上下文.外观.图标尺寸 * 1.05).max(14.0);
+    let 图标尺寸 = (上下文.外观.图标尺寸 * 0.95).max(14.0);
 
     ui.horizontal_centered(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-        ui.add_space(6.0);
+        ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+        ui.add_space(10.0);
 
-        // 行首的身份标识：让用户一眼知道这一行是在切换"编辑模式"，
-        // 与下一行的工作区切换区分开。整改前两行都没有身份标识，
-        // 视觉上就是两排长得一样的文字按钮 —— 这正是"看起来重复"的成因。
-        ui.label(
-            RichText::new(语言.取("mode_label"))
-                .small()
-                .color(配色.次要文字),
-        );
-        ui.add_space(4.0);
-
-        for 模式 in 开发模式::全部() {
-            let 激活 = *模式 == 当前;
-            let 名称 = 语言.取(模式.名称键());
-            let 色 = if 激活 {
-                配色.文字
-            } else {
-                配色.次要文字
-            };
-            let 文字 = RichText::new(名称)
-                .size((上下文.外观.基础字号 + 1.0).max(12.0))
-                .color(色);
-            let 文字 = if 激活 { 文字.strong() } else { 文字 };
-
-            // 先画图标再画文字：`Button::image_and_text` 会接管悬停/按下状态。
-            let 图标项 = 模式.图标();
-            let 有纹理 = 上下文.图标.纹理(ui.ctx(), 图标项).is_some();
-            let mut 响应 = if 有纹理 {
-                let 纹理 = 上下文
-                    .图标
-                    .纹理(ui.ctx(), 图标项)
-                    .expect("上一行已确认纹理存在")
-                    .id();
-                let 图片 = egui::Image::new(egui::load::SizedTexture::new(
-                    纹理,
-                    egui::vec2(图标尺寸, 图标尺寸),
-                ))
-                .tint(if 激活 { 配色.强调 } else { 色 });
-                ui.add(
-                    egui::Button::image_and_text(图片, 文字)
-                        .frame(false)
-                        .fill(if 激活 {
-                            配色.强调淡
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .stroke(if 激活 {
-                            egui::Stroke::new(1.0, 配色.强调)
-                        } else {
-                            egui::Stroke::NONE
-                        })
-                        .corner_radius(CornerRadius::same(4))
-                        .min_size(egui::vec2(0.0, 22.0)),
+        // ---- 分段控件 ----
+        //
+        // 四个模式是**同一维度上的互斥选择**，因此画成一个分段控件，
+        // 而不是四个各自带边框的按钮：分段控件一眼就能看出"只能选一个"，
+        // 按钮列表则永远像四个各管各的命令。
+        //
+        // 选中态由 `visual_spec::分段标签` 统一给出（强调色淡底 + 强调描边 +
+        // 强调色图标），这样它和视图开关、工作区标签的选中态是同一套语法。
+        // 分段控件：不加外框，只让"选中项"自己有强调底色。
+        //
+        // 试过给四个模式套一个圆角容器（像网页原型那样），但 `egui::Frame`
+        // 在横向布局里会按可用宽度撑开，整条模式栏被一个空框包住。
+        // 去掉容器之后，四个标签靠"选中项有底色、未选中项透明"就能读出
+        // 互斥关系，而且和下面工作区标签的语法完全一致。
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+            for 模式 in 开发模式::全部() {
+                let 激活 = *模式 == 当前;
+                let 名称 = 语言.取(模式.名称键());
+                let 图标项 = 模式.图标();
+                let 纹理 = 上下文.图标.纹理(ui.ctx(), 图标项).map(|纹理| {
+                    egui::load::SizedTexture::new(纹理.id(), egui::vec2(图标尺寸, 图标尺寸))
+                });
+                let 响应 = crate::visual_spec::分段标签(
+                    ui,
+                    配色,
+                    上下文.外观.基础字号,
+                    名称,
+                    纹理.as_ref(),
+                    激活,
+                    true,
                 )
-            } else {
-                ui.add(
-                    egui::Button::new(文字)
-                        .frame(false)
-                        .fill(if 激活 {
-                            配色.强调淡
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .corner_radius(CornerRadius::same(4)),
-                )
-            };
-            响应 = 响应.on_hover_text(语言.取(模式.说明键()));
-            // 记录模式按钮的真实矩形：自动验收要按矩形中心点击，
-            // 而不是靠"大概在这个位置"。标识用稳定 id（`mode_2d` 等），
-            // 与界面语言无关。
-            上下文.界面.布局快照.push(crate::state::区域快照 {
-                标识: 模式快照标识(*模式),
-                矩形: 响应.rect,
-            });
-            if 响应.clicked() && !激活 {
-                上下文.动作.推(UiAction::切换模式(*模式));
+                .on_hover_text(语言.取(模式.说明键()));
+                // 记录模式按钮的真实矩形：自动验收要按矩形中心点击，
+                // 而不是靠"大概在这个位置"。标识用稳定 id（`mode_2d` 等），
+                // 与界面语言无关。
+                上下文.界面.布局快照.push(crate::state::区域快照 {
+                    标识: 模式快照标识(*模式),
+                    矩形: 响应.rect,
+                });
+                if 响应.clicked() && !激活 {
+                    上下文.动作.推(UiAction::切换模式(*模式));
+                }
             }
-        }
+        });
 
-        // 右侧：当前模式的身份提示（小字，不抢视觉重心）。
+        // 右半行：由调用方决定画什么（当前是工作区切换）。
+        //
+        // 必须在**同一行**的布局里继续画：先关闭这一行再新开一行，
+        // 得到的矩形会落到下面一条工具栏上（实测工作区标签被工具栏盖住）。
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.add_space(8.0);
-            ui.label(
-                RichText::new(语言.取(当前.说明键()))
-                    .small()
-                    .color(配色.次要文字),
-            );
+            右侧(ui, 上下文);
         });
     });
 }
@@ -200,132 +170,13 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
             // AI Agent 的按钮都在工具区里，不消费全局输入。
             false
         }
-        开发模式::二维 => {
-            // 变换工具组：选择 / 移动 / 旋转 / 缩放。
+        开发模式::二维 | 开发模式::三维 => {
+            // 视口专用的工具（选择/移动/旋转/缩放、适应窗口、显示开关）
+            // 已经搬到**视口自己的顶部工具条**里（见 `viewport_panel::绘制叠加层`），
+            // 那里才是它们的语义位置：这些操作作用于画面，不作用于整个编辑器。
             //
-            // 只有 2D/3D 模式才画它 —— 代码/运行/资源模式没有可变换的视口，
-            // 把工具放在那里只会让用户点了没反应。
-            if let Some(工具) = crate::gizmo::绘制工具组(ui, 上下文) {
-                // 切工具会顺手取消正在进行的拖拽（见 `gizmo::切换工具`）。
-                crate::gizmo::切换工具(上下文, 工具);
-            }
-            ui.separator();
-            let 适配响应 = 上下文
-                .图标
-                .图标按钮(
-                    ui,
-                    图标::最大化,
-                    Some(语言.取("fit_window")),
-                    图标尺寸,
-                    配色.文字,
-                    true,
-                )
-                .on_hover_text(语言.取("fit_window_hint"));
-            // 记录按钮矩形：验收要靠"点真实按钮"来把视角变成确定状态，
-            // 而不是假设启动时的相机已经稳定。
-            上下文.界面.布局快照.push(crate::state::区域快照 {
-                标识: "btn_fit_2d",
-                矩形: 适配响应.rect,
-            });
-            if 适配响应.clicked() {
-                上下文.动作.推(UiAction::视口适应窗口);
-            }
-            let 重置响应 = 上下文
-                .图标
-                .图标按钮(ui, 图标::刷新, None, 图标尺寸, 配色.文字, true)
-                .on_hover_text(语言.取("reset_view_hint"));
-            上下文.界面.布局快照.push(crate::state::区域快照 {
-                标识: "btn_reset_view_2d",
-                矩形: 重置响应.rect,
-            });
-            if 重置响应.clicked() {
-                上下文.动作.推(UiAction::视口重置视图);
-            }
-            // 显示开关是**界面状态**，直接改，不需要绕动作队列。
-            let mut 相机 = 上下文.界面.相机;
-            if ui
-                .selectable_label(相机.显示网格, 语言.取("grid"))
-                .on_hover_text(语言.取("tooltip_toggle_grid"))
-                .clicked()
-            {
-                相机.显示网格 = !相机.显示网格;
-            }
-            if ui
-                .selectable_label(相机.显示坐标轴, 语言.取("axes"))
-                .clicked()
-            {
-                相机.显示坐标轴 = !相机.显示坐标轴;
-            }
-            if ui
-                .selectable_label(相机.显示包围框, 语言.取("bounds"))
-                .clicked()
-            {
-                相机.显示包围框 = !相机.显示包围框;
-            }
-            上下文.界面.相机 = 相机;
-            true
-        }
-        开发模式::三维 => {
-            // 与 2D 同一套工具组：工具模式是**视口无关**的界面状态，
-            // 切到 3D 时不该换一套工具概念。
-            if let Some(工具) = crate::gizmo::绘制工具组(ui, 上下文) {
-                // 切工具会顺手取消正在进行的拖拽（见 `gizmo::切换工具`）。
-                crate::gizmo::切换工具(上下文, 工具);
-            }
-            ui.separator();
-            if 上下文
-                .图标
-                .图标按钮(
-                    ui,
-                    图标::刷新,
-                    Some(语言.取("orbit_reset")),
-                    图标尺寸,
-                    配色.文字,
-                    true,
-                )
-                .on_hover_text(语言.取("orbit_reset_hint"))
-                .clicked()
-            {
-                上下文.动作.推(UiAction::三维重置轨道);
-            }
-            if 上下文
-                .图标
-                .图标按钮(
-                    ui,
-                    图标::最大化,
-                    Some(语言.取("fit_window")),
-                    图标尺寸,
-                    配色.文字,
-                    true,
-                )
-                .clicked()
-            {
-                上下文.动作.推(UiAction::视口适应窗口);
-            }
-            if ui
-                .add_enabled(
-                    !上下文.编辑器.选择.为空(),
-                    egui::Button::new(语言.取("focus_selection")).small(),
-                )
-                .on_hover_text(语言.取("focus_selection_hint"))
-                .clicked()
-            {
-                上下文.动作.推(UiAction::聚焦选中实体);
-            }
-            // 三维相机的实时读数：让用户确认自己在什么视角。
-            let 相机 = &上下文.界面.三维相机;
-            ui.label(
-                RichText::new(format!(
-                    "{} {:.0}° {:.0}° {:.0}",
-                    语言.取("camera"),
-                    相机.偏航.to_degrees(),
-                    相机.俯仰.to_degrees(),
-                    相机.距离
-                ))
-                .small()
-                .color(配色.次要文字),
-            );
-            true
+            // 全局工具栏因此保持"与视口无关"：运行、编辑、实体、面板。
+            false
         }
         开发模式::脚本 => {
             let 有文档 = 上下文.界面.脚本.文档.is_some();

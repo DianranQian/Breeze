@@ -23,11 +23,11 @@ use std::collections::BTreeSet;
 use bevy::prelude::*;
 
 use editor_app::bsn_templates::{
-    从模板生成文档, 从模板生成场景, 内置模板列表, 内置模板说明, 二维原型模板, 编辑器提取器,
-    可见性转文档,
+    二维原型模板, 从模板生成场景, 从模板生成文档, 内置模板列表, 内置模板说明, 可见性转文档,
+    编辑器提取器,
 };
 use editor_app::scene_bridge::{
-    默认组件注册表, 构建世界, 编辑器相机2d, 可见性属性, Sprite属性,
+    Sprite属性, 可见性属性, 构建世界, 编辑器相机2d, 默认组件注册表
 };
 use editor_core::command::编辑器命令;
 use editor_core::state::编辑器状态;
@@ -74,7 +74,9 @@ fn BSN模板生成的文档能构建出正确的运行时世界() {
     let 根标识 = 文档.顶层顺序[0];
     let 根实体 = 映射.取运行时(根标识).expect("根实体应被创建");
     assert_eq!(
-        世界.get::<Name>(根实体).map(|名字| 名字.as_str().to_string()),
+        世界
+            .get::<Name>(根实体)
+            .map(|名字| 名字.as_str().to_string()),
         Some("二维关卡".to_string())
     );
     let 子级 = 世界
@@ -86,7 +88,10 @@ fn BSN模板生成的文档能构建出正确的运行时世界() {
     // ---- 变换真的进了运行时 ----
     let 玩家标识 = 按名称取(&文档, "玩家");
     let 玩家实体 = 映射.取运行时(玩家标识).unwrap();
-    let 玩家变换 = 世界.get::<Transform>(玩家实体).copied().expect("玩家应有 Transform");
+    let 玩家变换 = 世界
+        .get::<Transform>(玩家实体)
+        .copied()
+        .expect("玩家应有 Transform");
     assert_eq!(玩家变换.translation, Vec3::new(0.0, -80.0, 0.0));
     // 四元数与文档一致（文档里是 (x,y,z,w)）。
     let 文档旋转 = 文档.取(玩家标识).unwrap().变换.unwrap().旋转;
@@ -98,17 +103,26 @@ fn BSN模板生成的文档能构建出正确的运行时世界() {
     let 相机实体 = 映射.取运行时(相机标识).unwrap();
     assert_eq!(
         世界.get::<编辑器相机2d>(相机实体).copied(),
-        Some(编辑器相机2d { 正交半高: 360.0 }),
+        Some(编辑器相机2d {
+            正交半高: 360.0
+        }),
         "`编辑器相机2d` 必须原样进入运行时"
     );
 
     let 背景标识 = 按名称取(&文档, "背景板");
     let 背景实体 = 映射.取运行时(背景标识).unwrap();
-    let 背景 = 世界.get::<Sprite属性>(背景实体).expect("背景板应有 Sprite属性");
-    assert_eq!(背景.颜色, scene_doc::property::颜色值::srgb(0.10, 0.12, 0.16, 1.0));
+    let 背景 = 世界
+        .get::<Sprite属性>(背景实体)
+        .expect("背景板应有 Sprite属性");
+    assert_eq!(
+        背景.颜色,
+        scene_doc::property::颜色值::srgb(0.10, 0.12, 0.16, 1.0)
+    );
 
     // ---- 玩家有贴图引用，且文档资源表登记了它 ----
-    let 玩家 = 世界.get::<Sprite属性>(玩家实体).expect("玩家应有 Sprite属性");
+    let 玩家 = 世界
+        .get::<Sprite属性>(玩家实体)
+        .expect("玩家应有 Sprite属性");
     assert_eq!(
         玩家.贴图路径.as_ref().map(|路径| 路径.文本()),
         Some("textures/玩家.png"),
@@ -116,9 +130,16 @@ fn BSN模板生成的文档能构建出正确的运行时世界() {
     );
     assert_eq!(玩家.自定义尺寸, Some((48.0, 48.0)));
     assert!(
-        文档.资源表.keys().any(|路径| 路径.文本() == "textures/玩家.png"),
+        文档
+            .资源表
+            .keys()
+            .any(|路径| 路径.文本() == "textures/玩家.png"),
         "资源表应登记 BSN 里引用的贴图：{:?}",
-        文档.资源表.keys().map(|路径| 路径.文本()).collect::<Vec<_>>()
+        文档
+            .资源表
+            .keys()
+            .map(|路径| 路径.文本())
+            .collect::<Vec<_>>()
     );
 
     // ---- 可见性：BSN 里写的是 Visible，文档归一为"可见"，运行时回到 Inherited ----
@@ -146,10 +167,7 @@ fn 模板生成的文档实体身份稳定且唯一() {
     // 两次生成必须是两份独立身份（UUID 不复用）。
     let 另一份 = 生成二维文档();
     let 另一标识: BTreeSet<实体标识> = 另一份.实体表.keys().copied().collect();
-    assert!(
-        唯一.is_disjoint(&另一标识),
-        "两次生成不应共享实体标识"
-    );
+    assert!(唯一.is_disjoint(&另一标识), "两次生成不应共享实体标识");
 }
 
 #[test]
@@ -212,11 +230,7 @@ fn BSN模板生成的文档进入编辑器会话后可撤销重做() {
         原名称,
         "撤销必须回到 BSN 提取时的名称"
     );
-    assert_eq!(
-        状态.会话.文档.实体数量(),
-        4,
-        "撤销不应影响其他实体"
-    );
+    assert_eq!(状态.会话.文档.实体数量(), 4, "撤销不应影响其他实体");
 
     assert!(状态.重做一步(), "应能重做");
     assert_eq!(状态.会话.文档.取(根标识).unwrap().名称, "重命名后的关卡");
@@ -244,7 +258,9 @@ fn BSN文档里的组件属性可以被编辑器正常修改() {
     let 精灵 = 玩家.取组件("Sprite").expect("Sprite 组件应仍在");
     assert_eq!(
         精灵.属性.get("颜色"),
-        Some(&属性值::颜色(scene_doc::property::颜色值::srgb(1.0, 0.0, 0.0, 1.0)))
+        Some(&属性值::颜色(scene_doc::property::颜色值::srgb(
+            1.0, 0.0, 0.0, 1.0
+        )))
     );
 
     // 撤销后回到 BSN 提取出来的原始颜色。
@@ -298,27 +314,27 @@ fn 模板元数据与真实提取一致() {
 #[test]
 fn 默认组件注册表未被_bsn_接入改动() {
     let 注册表 = 默认组件注册表();
-    // 与 `scene_bridge` 里写死的四个内置组件严格一致。
+    // 与 `scene_bridge` 里的内置组件严格一致。`TileTerrain` / `Primitive3d`
+    // 是编辑器程序化渲染新增的组件，不是 BSN 接入带来的。
     assert_eq!(
         注册表.组件名列表(),
         vec![
             "Camera2d".to_string(),
+            "Primitive3d".to_string(),
             "Sprite".to_string(),
+            "TileTerrain".to_string(),
             "Transform".to_string(),
             "Visibility".to_string(),
         ],
         "接入 BSN 不应增删或重命名任何已注册组件"
     );
-    assert_eq!(注册表.数量(), 4);
+    assert_eq!(注册表.数量(), 6);
 }
 
 #[test]
 fn 编辑器提取器与注册表一一对应() {
     let 注册表 = 默认组件注册表();
-    let 提取名: BTreeSet<&str> = 编辑器提取器()
-        .iter()
-        .map(|提取器| 提取器.组件名)
-        .collect();
+    let 提取名: BTreeSet<&str> = 编辑器提取器().iter().map(|提取器| 提取器.组件名).collect();
     for 组件名 in 注册表.组件名列表() {
         if 组件名 == "Transform" {
             // Transform 映射到 `变换` 字段，不是一个文档组件。

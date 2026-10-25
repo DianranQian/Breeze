@@ -197,8 +197,10 @@ impl Default for 外观 {
     fn default() -> Self {
         Self {
             缩放: 1.0,
-            基础字号: 13.0,
-            圆角: 3.0,
+            基础字号: 13.5,
+            // 6px：比"网页按钮"硬一点、比"命令行工具"软一点，
+            // 与 30px 行高一起给出工作台的呼吸感。
+            圆角: 6.0,
             间距: 6.0,
             图标尺寸: 16.0,
         }
@@ -253,6 +255,13 @@ impl 主题 {
 
     /// 把主题真正应用到 egui 上下文。
     ///
+    /// # 这一处是"视觉体系"的唯一入口
+    ///
+    /// 面板代码不各自调间距、不各自给控件描边：字号、圆角、控件高度、
+    /// 悬停/按下/选中/禁用四态、滚动条粗细、浮窗阴影全部在这里定一次。
+    /// 面板负责的是**内容与层级**，不是像素级装饰。这样换主题、改密度、
+    /// 做高对比度版本都不会出现"某个面板忘了跟"的半吊子状态。
+    ///
     /// # 两处容易漏的细节
     ///
     /// 1. **两份样式**：egui 0.36 把样式拆成亮/暗两份，必须用
@@ -268,14 +277,42 @@ impl 主题 {
         let 圆角 = CornerRadius::same(外观.圆角.round().clamp(0.0, 12.0) as u8);
         let 基础字号 = 外观.基础字号;
         let 间距 = 外观.间距;
+        // 控件高度由字号推出，但给一个不低的下限：13px 字 + 上下各 5px
+        // 内边距 = 23px，再留一点描边余量，取 26 才不会挤成一条。
+        // 30px：13.5 字 + 上下各 8px。行高与控件同高，
+        // 列表与表单才不会出现"一行 26、一行 30"的参差。
+        let 控件高度 = (基础字号 + 16.0).max(30.0);
+
+        // 深色主题的浮窗阴影要更硬、更黑（浅色主题用更淡的一层），
+        // 否则深色界面上的白色柔光会像"背后有灯"。
+        let 浮窗阴影 = match self.明暗 {
+            明暗::深色 => egui::epaint::Shadow {
+                offset: [0, 8],
+                blur: 24,
+                spread: 0,
+                color: Color32::from_black_alpha(150),
+            },
+            明暗::浅色 => egui::epaint::Shadow {
+                offset: [0, 6],
+                blur: 18,
+                spread: 0,
+                color: Color32::from_black_alpha(38),
+            },
+        };
 
         上下文.all_styles_mut(|样式| {
             样式.visuals.dark_mode = self.明暗 == 明暗::深色;
             样式.visuals.panel_fill = 配色.面板背景;
-            样式.visuals.window_fill = 配色.浮窗标题背景;
+            样式.visuals.window_fill = 配色.面板背景;
             样式.visuals.faint_bg_color = 配色.面板次背景;
             样式.visuals.extreme_bg_color = 配色.输入框背景;
-            样式.visuals.override_text_color = Some(配色.文字);
+            样式.visuals.text_edit_bg_color = Some(配色.输入框背景);
+            样式.visuals.code_bg_color = 配色.面板次背景;
+            // 不给 `override_text_color`：那会把禁用态、弱文字、强调文字
+            // 一起压成同一个颜色，界面立刻失去层级。文字色由各控件状态
+            // 自己的 `fg_stroke` 给出。
+            样式.visuals.override_text_color = None;
+            样式.visuals.weak_text_color = Some(配色.禁用文字);
             样式.visuals.selection.bg_fill = 配色.选中背景;
             样式.visuals.selection.stroke = Stroke::new(1.0, 配色.文字);
             样式.visuals.hyperlink_color = 配色.链接;
@@ -283,44 +320,69 @@ impl 主题 {
             样式.visuals.error_fg_color = 配色.错误;
             样式.visuals.window_stroke = Stroke::new(1.0, 配色.边框强);
             样式.visuals.window_corner_radius = 圆角;
+            样式.visuals.window_shadow = 浮窗阴影;
+            样式.visuals.popup_shadow = 浮窗阴影;
             样式.visuals.menu_corner_radius = 圆角;
+            样式.visuals.button_frame = true;
+            // 折叠标题不套底色：面板里已经有分组线，再叠一层底色会变成
+            // "卡片里套卡片"，这是存量界面里最显眼的廉价感来源。
+            样式.visuals.collapsing_header_frame = false;
+            样式.visuals.indent_has_left_vline = false;
+            样式.visuals.striped = false;
+            样式.visuals.resize_corner_size = 10.0;
+
+            // ---- 默认（不可交互）----
+            // 底色等于面板：不给静态文字底下偷偷加一层方块。
             样式.visuals.widgets.noninteractive.bg_fill = 配色.面板背景;
             样式.visuals.widgets.noninteractive.weak_bg_fill = 配色.面板背景;
-            样式.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, 配色.边框);
+            样式.visuals.widgets.noninteractive.bg_stroke = Stroke::NONE;
             样式.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, 配色.文字);
             样式.visuals.widgets.noninteractive.corner_radius = 圆角;
 
-            样式.visuals.widgets.inactive.bg_fill = 配色.按钮背景;
-            样式.visuals.widgets.inactive.weak_bg_fill = 配色.按钮背景;
-            样式.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, 配色.边框);
+            // ---- 可交互但未悬停 ----
+            // ---- 去边框：按钮不再画一圈 1px 灰边 ----
+            //
+            // 密集工具栏里每格都带边框时，整行读起来像"一排格子"，这是
+            // 普通桌面软件与专业工具最直接的观感差别。这里用**底色分档**：
+            // 默认比面板深一档、悬停亮一档、按下再深一档，边框只留给
+            // 输入框与需要强调的聚焦态。
+            样式.visuals.widgets.inactive.bg_fill = 配色.面板背景;
+            样式.visuals.widgets.inactive.weak_bg_fill = 配色.面板背景;
+            样式.visuals.widgets.inactive.bg_stroke = Stroke::NONE;
             样式.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, 配色.文字);
             样式.visuals.widgets.inactive.corner_radius = 圆角;
+            样式.visuals.widgets.inactive.expansion = 0.0;
 
-            样式.visuals.widgets.hovered.bg_fill = 配色.按钮悬停;
-            样式.visuals.widgets.hovered.weak_bg_fill = 配色.按钮悬停;
-            样式.visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, 配色.强调);
+            // ---- 悬停：只提亮底色并给一道强调色描边 ----
+            样式.visuals.widgets.hovered.bg_fill = 配色.悬停背景;
+            样式.visuals.widgets.hovered.weak_bg_fill = 配色.悬停背景;
+            样式.visuals.widgets.hovered.bg_stroke = Stroke::NONE;
             样式.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, 配色.文字);
             样式.visuals.widgets.hovered.corner_radius = 圆角;
             样式.visuals.widgets.hovered.expansion = 0.0;
 
-            样式.visuals.widgets.active.bg_fill = 配色.按钮按下;
-            样式.visuals.widgets.active.weak_bg_fill = 配色.按钮按下;
-            样式.visuals.widgets.active.bg_stroke = Stroke::new(1.0, 配色.强调亮);
+            // ---- 按下：底色再深一档，描边换成亮强调 ----
+            样式.visuals.widgets.active.bg_fill = 配色.激活背景;
+            样式.visuals.widgets.active.weak_bg_fill = 配色.激活背景;
+            样式.visuals.widgets.active.bg_stroke = Stroke::NONE;
             样式.visuals.widgets.active.fg_stroke = Stroke::new(1.0, 配色.文字);
             样式.visuals.widgets.active.corner_radius = 圆角;
             样式.visuals.widgets.active.expansion = 0.0;
 
+            // ---- 打开（菜单展开、下拉保持）----
             样式.visuals.widgets.open.bg_fill = 配色.激活背景;
             样式.visuals.widgets.open.weak_bg_fill = 配色.激活背景;
-            样式.visuals.widgets.open.bg_stroke = Stroke::new(1.0, 配色.边框强);
+            样式.visuals.widgets.open.bg_stroke = Stroke::NONE;
             样式.visuals.widgets.open.fg_stroke = Stroke::new(1.0, 配色.文字);
             样式.visuals.widgets.open.corner_radius = 圆角;
 
             // 字号：一处定义，全界面生效。
+            // 层级只靠三档字号 + 字重，不靠颜色堆叠：
+            // 面板/分区标题 12，正文 13，辅助 11，数值与路径等宽 12。
             样式.text_styles = [
                 (
                     TextStyle::Heading,
-                    FontId::new(基础字号 + 7.0, FontFamily::Proportional),
+                    FontId::new(基础字号 + 6.0, FontFamily::Proportional),
                 ),
                 (
                     TextStyle::Body,
@@ -332,22 +394,37 @@ impl 主题 {
                 ),
                 (
                     TextStyle::Small,
-                    FontId::new((基础字号 - 2.0).max(8.0), FontFamily::Proportional),
+                    FontId::new((基础字号 - 2.5).max(8.0), FontFamily::Proportional),
                 ),
                 (
                     TextStyle::Monospace,
                     FontId::new(基础字号 - 1.0, FontFamily::Monospace),
                 ),
+                (
+                    crate::visual_spec::节标题文本样式(),
+                    FontId::new(基础字号 - 2.0, FontFamily::Proportional),
+                ),
             ]
             .into();
 
-            // 间距：编辑器一屏要放很多控件，默认偏松。
-            样式.spacing.item_spacing = egui::vec2(间距, (间距 * 0.66).max(2.0));
-            样式.spacing.button_padding = egui::vec2(间距 + 2.0, (间距 * 0.5).max(2.0));
-            样式.spacing.menu_margin = egui::Margin::same((间距 * 0.66) as i8);
-            样式.spacing.indent = 间距 * 2.2;
-            样式.spacing.interact_size.y = (基础字号 + 7.0).max(16.0);
+            // ---- 间距与尺寸 ----
+            // 编辑器的密度靠"行高稳定 + 分组靠留白"实现，不靠把控件压扁。
+            样式.spacing.item_spacing = egui::vec2(间距 + 2.0, (间距 * 0.7).max(3.0));
+            样式.spacing.button_padding = egui::vec2(间距 + 5.0, (间距 * 0.6).max(4.0));
+            样式.spacing.menu_margin = egui::Margin::same((间距 + 2.0) as i8);
+            样式.spacing.window_margin = egui::Margin::same((间距 + 4.0) as i8);
+            样式.spacing.indent = 间距 * 2.4;
+            样式.spacing.interact_size.y = 控件高度;
+            样式.spacing.slider_width = 120.0;
+            样式.spacing.combo_width = 168.0;
+            样式.spacing.text_edit_width = 200.0;
+            样式.spacing.icon_width = 外观.图标尺寸;
             样式.spacing.scroll.bar_width = 8.0;
+            样式.spacing.scroll.floating = true;
+            样式.spacing.scroll.floating_width = 4.0;
+            样式.spacing.scroll.bar_inner_margin = 4.0;
+            样式.spacing.scroll.bar_outer_margin = 2.0;
+            样式.spacing.scroll.dormant_handle_opacity = 0.0;
         });
     }
 
@@ -355,42 +432,56 @@ impl 主题 {
     ///
     /// 从 `Style::from_egui` 起步再覆盖：这样没显式设置的部分仍然
     /// 跟随整体 `egui::Style`，不会出现"改了字号但停靠区还是旧字号"。
+    ///
+    /// # 停靠区的视觉规则
+    ///
+    /// * 标签栏与面板同色，只在底部留一道 1px 线；
+    /// * **激活标签**靠文字色 + 强调色描边表示，不用整块高亮底色；
+    /// * 分隔条 3px，空闲时接近隐形，悬停才变成强调色。
     pub fn dock样式(&self, egui样式: &egui::Style) -> egui_dock::Style {
         let 配色 = self.配色;
-        let 圆角 = CornerRadius::same(self.外观.收敛().圆角.round().clamp(0.0, 12.0) as u8);
+        let 外观 = self.外观.收敛();
+        let 基础字号 = 外观.基础字号;
         let mut 停靠 = egui_dock::Style::from_egui(egui样式);
 
-        停靠.main_surface_border_stroke = Stroke::new(1.0, 配色.边框);
-        停靠.main_surface_border_rounding = 圆角;
+        停靠.main_surface_border_stroke = Stroke::NONE;
+        停靠.main_surface_border_rounding = CornerRadius::ZERO;
 
-        停靠.separator.color_idle = 配色.分割线;
+        停靠.separator.color_idle = 配色.边框;
         停靠.separator.color_hovered = 配色.强调;
         停靠.separator.color_dragged = 配色.强调亮;
-        停靠.separator.width = 2.0;
+        停靠.separator.width = 3.0;
 
-        停靠.tab_bar.bg_fill = 配色.标签栏背景;
+        停靠.tab_bar.bg_fill = 配色.面板背景;
+        停靠.tab_bar.height = (基础字号 * 2.2).max(28.0);
         停靠.tab_bar.hline_color = 配色.边框;
-        停靠.tab_bar.corner_radius = 圆角;
+        停靠.tab_bar.inner_margin = egui::Margin::symmetric(10, 0);
+        停靠.tab_bar.corner_radius = CornerRadius::ZERO;
+        停靠.tab_bar.height = (基础字号 * 2.1).max(30.0);
+        停靠.tab_bar.fill_tab_bar = false;
 
-        停靠.tab.active.bg_fill = 配色.标签激活背景;
+        // 激活标签：与面板同色的"无缝"标签 + 一道强调下划线。
+        // 不用整格高亮，是因为右边有 5 个标签时整格高亮会变成一块色块，
+        // 看起来像被选中的按钮，而不是"当前这一页"。
+        停靠.tab.active.bg_fill = 配色.面板背景;
         停靠.tab.active.text_color = 配色.文字;
         停靠.tab.active.outline_color = 配色.强调;
-        停靠.tab.active.corner_radius = 圆角;
+        停靠.tab.active.corner_radius = CornerRadius::ZERO;
 
-        停靠.tab.inactive.bg_fill = 配色.标签栏背景;
-        停靠.tab.inactive.text_color = 配色.标签文字;
+        停靠.tab.inactive.bg_fill = 配色.面板背景;
+        停靠.tab.inactive.text_color = 配色.次要文字;
         停靠.tab.inactive.outline_color = Color32::TRANSPARENT;
-        停靠.tab.inactive.corner_radius = 圆角;
+        停靠.tab.inactive.corner_radius = CornerRadius::ZERO;
 
         停靠.tab.hovered.bg_fill = 配色.悬停背景;
         停靠.tab.hovered.text_color = 配色.文字;
-        停靠.tab.hovered.outline_color = 配色.边框强;
-        停靠.tab.hovered.corner_radius = 圆角;
+        停靠.tab.hovered.outline_color = 配色.边框;
+        停靠.tab.hovered.corner_radius = CornerRadius::ZERO;
 
         停靠.tab.focused = 停靠.tab.active.clone();
         停靠.tab.tab_body.bg_fill = 配色.面板背景;
-        停靠.tab.tab_body.stroke = Stroke::new(1.0, 配色.边框);
-        停靠.tab.tab_body.corner_radius = 圆角;
+        停靠.tab.tab_body.stroke = Stroke::NONE;
+        停靠.tab.tab_body.corner_radius = CornerRadius::ZERO;
 
         停靠.buttons.close_tab_color = 配色.次要文字;
         停靠.buttons.close_tab_active_color = 配色.错误;
@@ -488,96 +579,107 @@ impl 内置主题 {
 }
 
 /// 深色配色。
+///
+/// 现场是石墨灰的编辑工作台：底色压到接近黑，面板只比背景亮一级，
+/// 强调色用低饱和的青（取自"微风"掠过测试场时的冷色），只负责选中、焦点
+/// 与运行态，不做装饰。层级靠三档背景 + 两档分隔线建立，不靠描边堆叠。
 fn 深色配色() -> 编辑器配色 {
     编辑器配色 {
-        窗口背景: Color32::from_rgb(20, 21, 23),
-        面板背景: Color32::from_rgb(30, 31, 34),
-        面板次背景: Color32::from_rgb(24, 26, 28),
-        输入框背景: Color32::from_rgb(16, 17, 19),
-        悬停背景: Color32::from_rgb(42, 45, 49),
-        激活背景: Color32::from_rgb(51, 55, 61),
-        文字: Color32::from_rgb(222, 226, 230),
-        次要文字: Color32::from_rgb(140, 148, 158),
-        禁用文字: Color32::from_rgb(90, 96, 104),
-        链接: Color32::from_rgb(108, 182, 255),
-        强调: Color32::from_rgb(86, 156, 214),
-        强调亮: Color32::from_rgb(127, 184, 232),
-        强调淡: Color32::from_rgba_unmultiplied(40, 70, 100, 120),
-        选中背景: Color32::from_rgba_unmultiplied(86, 156, 214, 70),
-        边框: Color32::from_rgb(52, 56, 62),
-        边框强: Color32::from_rgb(74, 80, 88),
-        视口背景: Color32::from_rgb(22, 23, 26),
-        网格主: Color32::from_rgb(70, 74, 80),
-        网格次: Color32::from_rgb(44, 47, 52),
-        轴_x: Color32::from_rgb(200, 80, 80),
-        轴_y: Color32::from_rgb(90, 180, 90),
-        实体框: Color32::from_rgb(125, 136, 150),
-        选择框: Color32::from_rgb(255, 184, 77),
-        信息: Color32::from_rgb(108, 182, 255),
-        成功: Color32::from_rgb(110, 190, 120),
-        警告: Color32::from_rgb(220, 180, 80),
-        错误: Color32::from_rgb(232, 106, 106),
-        按钮背景: Color32::from_rgb(42, 44, 48),
-        按钮悬停: Color32::from_rgb(52, 55, 60),
-        按钮按下: Color32::from_rgb(62, 66, 72),
-        标签栏背景: Color32::from_rgb(25, 26, 29),
-        标签激活背景: Color32::from_rgb(38, 40, 44),
-        标签文字: Color32::from_rgb(184, 192, 200),
-        分割线: Color32::from_rgb(52, 56, 62),
-        浮窗标题背景: Color32::from_rgb(36, 38, 42),
-        提示背景: Color32::from_rgb(38, 40, 44),
-        叠加背景: Color32::from_rgba_unmultiplied(20, 21, 24, 216),
-        叠加边框: Color32::from_rgba_unmultiplied(74, 80, 88, 220),
+        窗口背景: Color32::from_rgb(15, 17, 19),
+        面板背景: Color32::from_rgb(22, 25, 28),
+        面板次背景: Color32::from_rgb(18, 21, 24),
+        输入框背景: Color32::from_rgb(13, 15, 17),
+        悬停背景: Color32::from_rgb(35, 41, 47),
+        激活背景: Color32::from_rgb(43, 51, 58),
+        文字: Color32::from_rgb(228, 232, 235),
+        次要文字: Color32::from_rgb(155, 164, 174),
+        禁用文字: Color32::from_rgb(94, 102, 111),
+        链接: Color32::from_rgb(111, 200, 216),
+        强调: Color32::from_rgb(87, 176, 196),
+        强调亮: Color32::from_rgb(127, 207, 223),
+        强调淡: Color32::from_rgba_unmultiplied(87, 176, 196, 38),
+        选中背景: Color32::from_rgba_unmultiplied(87, 176, 196, 62),
+        边框: Color32::from_rgb(38, 44, 50),
+        边框强: Color32::from_rgb(57, 66, 75),
+        视口背景: Color32::from_rgb(15, 17, 19),
+        网格主: Color32::from_rgb(42, 50, 56),
+        网格次: Color32::from_rgb(28, 34, 38),
+        轴_x: Color32::from_rgb(201, 106, 106),
+        轴_y: Color32::from_rgb(111, 179, 122),
+        实体框: Color32::from_rgb(124, 139, 150),
+        选择框: Color32::from_rgb(232, 180, 103),
+        信息: Color32::from_rgb(111, 200, 216),
+        成功: Color32::from_rgb(121, 192, 140),
+        警告: Color32::from_rgb(224, 180, 99),
+        错误: Color32::from_rgb(224, 118, 110),
+        按钮背景: Color32::from_rgb(34, 39, 44),
+        按钮悬停: Color32::from_rgb(43, 50, 56),
+        按钮按下: Color32::from_rgb(52, 61, 68),
+        标签栏背景: Color32::from_rgb(18, 21, 24),
+        标签激活背景: Color32::from_rgb(27, 32, 36),
+        标签文字: Color32::from_rgb(166, 175, 184),
+        分割线: Color32::from_rgb(38, 44, 50),
+        浮窗标题背景: Color32::from_rgb(30, 35, 40),
+        提示背景: Color32::from_rgb(36, 42, 48),
+        叠加背景: Color32::from_rgba_unmultiplied(16, 18, 20, 220),
+        叠加边框: Color32::from_rgba_unmultiplied(90, 102, 112, 200),
     }
 }
 
 /// 浅色配色。
+///
+/// 现场是雾白纸面：暖灰底 + 纯白输入区，分隔靠一档细线而不是边框盒子。
+/// 强调色压成深青墨（#2C7A8C），在纸面上足够清楚，又不会把工作区变成
+/// 一块蓝色调色板。
 fn 浅色配色() -> 编辑器配色 {
     编辑器配色 {
-        窗口背景: Color32::from_rgb(232, 233, 235),
-        面板背景: Color32::from_rgb(245, 246, 247),
-        面板次背景: Color32::from_rgb(236, 238, 240),
+        窗口背景: Color32::from_rgb(231, 230, 226),
+        面板背景: Color32::from_rgb(244, 243, 239),
+        面板次背景: Color32::from_rgb(236, 234, 229),
         输入框背景: Color32::from_rgb(255, 255, 255),
-        悬停背景: Color32::from_rgb(227, 230, 234),
-        激活背景: Color32::from_rgb(214, 218, 224),
-        文字: Color32::from_rgb(30, 32, 34),
-        次要文字: Color32::from_rgb(90, 97, 105),
-        禁用文字: Color32::from_rgb(154, 161, 169),
-        链接: Color32::from_rgb(31, 111, 235),
-        强调: Color32::from_rgb(47, 111, 208),
-        强调亮: Color32::from_rgb(74, 139, 232),
-        强调淡: Color32::from_rgba_unmultiplied(47, 111, 208, 40),
-        选中背景: Color32::from_rgba_unmultiplied(47, 111, 208, 55),
-        边框: Color32::from_rgb(201, 206, 213),
-        边框强: Color32::from_rgb(169, 176, 185),
-        视口背景: Color32::from_rgb(255, 255, 255),
-        网格主: Color32::from_rgb(194, 199, 207),
-        网格次: Color32::from_rgb(226, 229, 234),
-        轴_x: Color32::from_rgb(192, 74, 74),
-        轴_y: Color32::from_rgb(62, 158, 74),
-        实体框: Color32::from_rgb(107, 118, 132),
-        选择框: Color32::from_rgb(224, 138, 0),
-        信息: Color32::from_rgb(31, 111, 235),
-        成功: Color32::from_rgb(46, 139, 71),
-        警告: Color32::from_rgb(176, 122, 0),
-        错误: Color32::from_rgb(192, 57, 43),
-        按钮背景: Color32::from_rgb(232, 234, 238),
-        按钮悬停: Color32::from_rgb(220, 224, 229),
-        按钮按下: Color32::from_rgb(207, 213, 220),
-        标签栏背景: Color32::from_rgb(230, 232, 235),
-        标签激活背景: Color32::from_rgb(245, 246, 247),
-        标签文字: Color32::from_rgb(58, 64, 72),
-        分割线: Color32::from_rgb(201, 206, 213),
-        浮窗标题背景: Color32::from_rgb(232, 234, 238),
+        悬停背景: Color32::from_rgb(231, 229, 223),
+        激活背景: Color32::from_rgb(220, 217, 210),
+        文字: Color32::from_rgb(34, 38, 43),
+        次要文字: Color32::from_rgb(95, 102, 110),
+        禁用文字: Color32::from_rgb(162, 167, 173),
+        链接: Color32::from_rgb(31, 110, 128),
+        强调: Color32::from_rgb(44, 122, 140),
+        强调亮: Color32::from_rgb(58, 147, 168),
+        强调淡: Color32::from_rgba_unmultiplied(44, 122, 140, 30),
+        选中背景: Color32::from_rgba_unmultiplied(44, 122, 140, 48),
+        边框: Color32::from_rgb(218, 215, 208),
+        边框强: Color32::from_rgb(194, 190, 181),
+        视口背景: Color32::from_rgb(252, 251, 248),
+        // 浅色下网格最容易"抢戏"：纸白画布上任何一条灰线都显得重。
+        // 这里把主/次网格都往背景方向压一档，只保留"能对齐、不争视线"的程度。
+        网格主: Color32::from_rgb(222, 219, 212),
+        网格次: Color32::from_rgb(240, 238, 233),
+        轴_x: Color32::from_rgb(184, 90, 85),
+        轴_y: Color32::from_rgb(78, 143, 91),
+        实体框: Color32::from_rgb(138, 143, 148),
+        选择框: Color32::from_rgb(180, 118, 31),
+        信息: Color32::from_rgb(31, 110, 128),
+        成功: Color32::from_rgb(53, 121, 74),
+        警告: Color32::from_rgb(138, 97, 18),
+        错误: Color32::from_rgb(168, 64, 58),
+        按钮背景: Color32::from_rgb(232, 230, 224),
+        按钮悬停: Color32::from_rgb(220, 217, 210),
+        按钮按下: Color32::from_rgb(207, 203, 195),
+        标签栏背景: Color32::from_rgb(233, 231, 225),
+        标签激活背景: Color32::from_rgb(244, 243, 239),
+        标签文字: Color32::from_rgb(74, 81, 88),
+        分割线: Color32::from_rgb(218, 215, 208),
+        浮窗标题背景: Color32::from_rgb(236, 234, 229),
         提示背景: Color32::from_rgb(255, 255, 255),
-        // 浅色主题：白底 + 深字。半透明程度比深色主题略低，
-        // 因为浅色背景下"压不住内容"会更明显。
-        叠加背景: Color32::from_rgba_unmultiplied(255, 255, 255, 232),
-        叠加边框: Color32::from_rgba_unmultiplied(169, 176, 185, 235),
+        叠加背景: Color32::from_rgba_unmultiplied(255, 255, 255, 236),
+        叠加边框: Color32::from_rgba_unmultiplied(194, 190, 181, 240),
     }
 }
 
 /// 高对比度配色（可访问性）。
+///
+/// 这一套不为观感服务：纯黑底、纯白字、黄强调，任何一处对比度都不低于
+/// 7:1。它保留下来本身就是一项功能 —— 用户看不清时不必换编辑器。
 fn 高对比度配色() -> 编辑器配色 {
     编辑器配色 {
         窗口背景: Color32::from_rgb(0, 0, 0),

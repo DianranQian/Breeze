@@ -398,6 +398,16 @@ fn 插入已知组件(
         世界.entity_mut(运行时实体).insert(*值);
         return true;
     }
+    // 自定义：程序化瓦片地形
+    if let Some(值) = 实例.downcast_ref::<瓦片地形属性>() {
+        世界.entity_mut(运行时实体).insert(值.clone());
+        return true;
+    }
+    // 自定义：程序化三维几何体
+    if let Some(值) = 实例.downcast_ref::<几何体属性>() {
+        世界.entity_mut(运行时实体).insert(值.clone());
+        return true;
+    }
     false
 }
 
@@ -565,6 +575,136 @@ impl Default for 编辑器相机2d {
     fn default() -> Self {
         Self {
             正交半高: 360.0
+        }
+    }
+}
+
+/// 程序化瓦片地形在编辑器文档里的表示。
+///
+/// # 为什么不是一张烘焙好的 PNG
+///
+/// 原项目的 2D 地面是**双网格自动瓦片**：逻辑格只存地形，视觉瓦片按四角
+/// 掩码去 `透明到X.png` 图集里取 16px 瓦片，再按材质分层合成。它不是一个
+/// 美术预先拼好的整图 —— 同一份数据换一套图集就是另一套画面。
+///
+/// 如果把整张地图烘焙成 PNG 再塞进场景，丢掉的正是这套系统：
+/// 改一格地形、换一套图集、调整变体概率都做不到了，而且图会随分辨率变糊。
+/// 所以这里存的是**参数与数据路径**，由预览在加载时按原项目规格程序化合成。
+#[derive(Component, Debug, Clone, PartialEq)]
+pub struct 瓦片地形属性 {
+    /// 地形数据文件（项目相对路径，RON）。字段见 `assets/.../*.terrain.ron`。
+    pub 地形文件: String,
+    /// 瓦片图集目录（项目相对路径）。目录内按固定文件名放 10 张 64×64 图集
+    /// 与 1 张 112×96 变体表，文件名见 [`crate::tile_terrain`]。
+    pub 图集目录: String,
+    /// 通用瓦片地图文件（`.tilemap.ron`，项目相对路径）。
+    ///
+    /// 非空时走**资产驱动**渲染：瓦片集由开发者自己定义，不再依赖固定文件名。
+    /// 为空时回退到 `地形文件` + `图集目录` 的旧路径。
+    pub 地图文件: String,
+    /// 通用瓦片集文件（`.tileset.ron`，项目相对路径）。
+    ///
+    /// 为空时使用地图文件里记录的 `瓦片集` 路径。
+    pub 瓦片集: String,
+    /// 地形在世界里的显示尺寸（像素）。渲染结果按这个尺寸铺开，
+    /// 视口包围框也用它 —— 改这里等于整体缩放地形。
+    pub 显示尺寸: (f32, f32),
+    /// 每个逻辑格烘焙成多少像素。16 = 原生尺寸，64 = 默认（清晰）。
+    pub 每格像素: u32,
+    /// 整格瓦片抽到手绘变体的概率（原项目 0.35）。
+    pub 变体概率: f32,
+}
+
+impl Default for 瓦片地形属性 {
+    fn default() -> Self {
+        Self {
+            地形文件: String::new(),
+            图集目录: "assets/terrain/tiles".to_string(),
+            地图文件: String::new(),
+            瓦片集: String::new(),
+            显示尺寸: (1024.0, 1024.0),
+            每格像素: 64,
+            变体概率: 0.35,
+        }
+    }
+}
+
+/// 三维程序化几何体的形状。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 几何体形状 {
+    /// 长方体（地面、围墙、箱体）。
+    立方体,
+    /// 水平面（法线 +Y，贴花、地面薄片）。
+    平面,
+}
+
+impl 几何体形状 {
+    /// 场景文件里保存的稳定变体名。
+    pub fn 变体名(self) -> &'static str {
+        match self {
+            Self::立方体 => "Cuboid",
+            Self::平面 => "Plane",
+        }
+    }
+
+    /// 变体序号（名字失配时的兜底）。
+    pub fn 序号(self) -> u32 {
+        match self {
+            Self::立方体 => 0,
+            Self::平面 => 1,
+        }
+    }
+
+    /// 从名字 + 序号恢复。未知名字按序号兜底；两者都未知时退化为立方体。
+    pub fn 由值(名: &str, 序号: u32) -> Self {
+        match 名 {
+            "Cuboid" => Self::立方体,
+            "Plane" => Self::平面,
+            _ if 序号 == 1 => Self::平面,
+            _ => Self::立方体,
+        }
+    }
+}
+
+/// 程序化三维几何体在编辑器文档里的表示。
+///
+/// # 为什么需要它
+///
+/// 原 3D 项目的竞技场不是"几张平面贴图"：地面是 48×48×0.6 的长方体，
+/// 四面围墙是 48×8×0.6 的实心墙，材质是受光的 PBR，纹理按 UV 重复。
+/// 编辑器的 `Sprite` 只能画一个 unlit 四边形，做不出厚度、重复纹理、
+/// 受光与阴影 —— 3D 示例于是必然看起来像"纸片搭的舞台"。
+///
+/// 这个组件把原项目的几何/材质描述搬进文档：形状、尺寸、贴图、UV 重复、
+/// 是否受光、是否双面。预览据此生成真正的 `Mesh3d` + `StandardMaterial`。
+#[derive(Component, Debug, Clone, PartialEq)]
+pub struct 几何体属性 {
+    /// 几何形状。
+    pub 形状: 几何体形状,
+    /// 世界尺寸 `(x, y, z)`。立方体是全长，平面用 `(x, z)`。
+    pub 尺寸: (f32, f32, f32),
+    /// 贴图资源引用。
+    pub 贴图路径: Option<scene_doc::path::项目相对路径>,
+    /// 基础色/着色。
+    pub 颜色: 颜色值,
+    /// 纹理在 UV 上的重复次数 `(u, v)`。
+    pub 贴图重复: (f32, f32),
+    /// 是否受光。地面/墙面应为 true，UI 类薄片可关掉。
+    pub 受光: bool,
+    /// 是否双面可见。薄墙、单面贴花用得到。
+    pub 双面: bool,
+}
+
+impl Default for 几何体属性 {
+    fn default() -> Self {
+        Self {
+            形状: 几何体形状::立方体,
+            尺寸: (1.0, 1.0, 1.0),
+            贴图路径: None,
+            颜色: 颜色值::白(),
+            贴图重复: (1.0, 1.0),
+            受光: true,
+            双面: false,
         }
     }
 }
@@ -770,6 +910,15 @@ impl 组件类型 for Sprite组件类型 {
                 None => 属性值::空,
             },
         );
+        结果.insert(
+            "模型".to_string(),
+            match &属性.模型路径 {
+                Some(路径) => 属性值::资源(scene_doc::property::资源引用值::按路径(
+                    路径.clone(),
+                )),
+                None => 属性值::空,
+            },
+        );
         Some(结果)
     }
 
@@ -795,6 +944,9 @@ impl 组件类型 for Sprite组件类型 {
         }
         if let Some(值) = 数据.get("自定义尺寸") {
             属性.自定义尺寸 = 值.取二维();
+        }
+        if let Some(值) = 数据.get("模型") {
+            属性.模型路径 = 值.取资源().map(|引用| 引用.路径.clone());
         }
         true
     }
@@ -894,6 +1046,276 @@ fn 相机字段描述() -> &'static [属性描述] {
     })
 }
 
+/// 整数属性描述构造辅助。
+fn 整数(
+    字段: &str, 显示: &'static str, 默认: i64, 最小: i64, 最大: i64
+) -> 属性描述 {
+    属性描述::新建(
+        字段,
+        显示,
+        属性种类::整数 {
+            最小: Some(最小),
+            最大: Some(最大),
+        },
+        属性值::整数(默认),
+    )
+}
+
+/// `瓦片地形` 的编辑器适配。
+struct 瓦片地形组件类型;
+
+impl 组件类型 for 瓦片地形组件类型 {
+    fn 组件名(&self) -> &'static str {
+        "TileTerrain"
+    }
+
+    fn 默认实例(&self) -> Box<dyn std::any::Any> {
+        Box::new(瓦片地形属性::default())
+    }
+
+    fn 字段描述(&self) -> &[属性描述] {
+        瓦片地形字段描述()
+    }
+
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
+        let 属性 = 实例.downcast_ref::<瓦片地形属性>()?;
+        let mut 结果 = std::collections::BTreeMap::new();
+        结果.insert("地形文件".to_string(), 属性值::文本(属性.地形文件.clone()));
+        结果.insert("图集目录".to_string(), 属性值::文本(属性.图集目录.clone()));
+        结果.insert("地图文件".to_string(), 属性值::文本(属性.地图文件.clone()));
+        结果.insert("瓦片集".to_string(), 属性值::文本(属性.瓦片集.clone()));
+        结果.insert(
+            "显示尺寸".to_string(),
+            属性值::二维(属性.显示尺寸.0, 属性.显示尺寸.1),
+        );
+        结果.insert("每格像素".to_string(), 属性值::整数(属性.每格像素 as i64));
+        结果.insert("变体概率".to_string(), 属性值::浮点(属性.变体概率));
+        Some(结果)
+    }
+
+    fn 实例化(
+        &self,
+        实例: &mut dyn std::any::Any,
+        数据: &std::collections::BTreeMap<String, 属性值>,
+    ) -> bool {
+        let Some(属性) = 实例.downcast_mut::<瓦片地形属性>() else {
+            return false;
+        };
+        if let Some(值) = 数据.get("地形文件").and_then(属性值::取文本) {
+            属性.地形文件 = 值.to_string();
+        }
+        if let Some(值) = 数据.get("图集目录").and_then(属性值::取文本) {
+            属性.图集目录 = 值.to_string();
+        }
+        if let Some(值) = 数据.get("地图文件").and_then(属性值::取文本) {
+            属性.地图文件 = 值.to_string();
+        }
+        if let Some(值) = 数据.get("瓦片集").and_then(属性值::取文本) {
+            属性.瓦片集 = 值.to_string();
+        }
+        if let Some(值) = 数据.get("显示尺寸").and_then(属性值::取二维) {
+            属性.显示尺寸 = (值.0.abs().max(1.0), 值.1.abs().max(1.0));
+        }
+        if let Some(值) = 数据.get("每格像素").and_then(属性值::取整数) {
+            // 上限与纹理尺寸一起约束：48 格 × 128px 已经是 6K。
+            属性.每格像素 = 值.clamp(8, 128) as u32;
+        }
+        if let Some(值) = 数据.get("变体概率").and_then(属性值::取浮点) {
+            属性.变体概率 = 值.clamp(0.0, 1.0);
+        }
+        true
+    }
+}
+
+/// `TileTerrain` 字段描述。
+fn 瓦片地形字段描述() -> &'static [属性描述] {
+    use std::sync::OnceLock;
+    static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
+    列表.get_or_init(|| {
+        vec![
+            文本(
+                "地形文件",
+                "tile_terrain_field_file",
+                "assets/terrain/example.terrain.ron",
+            )
+            .带提示("tile_terrain_field_file_tooltip"),
+            文本(
+                "图集目录",
+                "tile_terrain_field_atlas",
+                "assets/terrain/tiles",
+            )
+            .带提示("tile_terrain_field_atlas_tooltip"),
+            文本(
+                "地图文件",
+                "tile_terrain_field_map",
+                "assets/terrain/example.tilemap.ron",
+            )
+            .带提示("tile_terrain_field_map_tooltip"),
+            文本(
+                "瓦片集",
+                "tile_terrain_field_tileset",
+                "assets/terrain/example.tileset.ron",
+            )
+            .带提示("tile_terrain_field_tileset_tooltip"),
+            二维(
+                "显示尺寸",
+                "tile_terrain_field_display_size",
+                (1024.0, 1024.0),
+            )
+            .带提示("tile_terrain_field_display_size_tooltip"),
+            整数("每格像素", "tile_terrain_field_cell_pixels", 64, 8, 128)
+                .带提示("tile_terrain_field_cell_pixels_tooltip"),
+            浮点(
+                "变体概率",
+                "tile_terrain_field_variant_chance",
+                0.35,
+                0.0,
+                1.0,
+                0.01,
+            )
+            .带提示("tile_terrain_field_variant_chance_tooltip"),
+        ]
+    })
+}
+
+/// `几何体` 的编辑器适配。
+struct 几何体组件类型;
+
+impl 组件类型 for 几何体组件类型 {
+    fn 组件名(&self) -> &'static str {
+        "Primitive3d"
+    }
+
+    fn 默认实例(&self) -> Box<dyn std::any::Any> {
+        Box::new(几何体属性::default())
+    }
+
+    fn 字段描述(&self) -> &[属性描述] {
+        几何体字段描述()
+    }
+
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
+        let 属性 = 实例.downcast_ref::<几何体属性>()?;
+        let mut 结果 = std::collections::BTreeMap::new();
+        结果.insert(
+            "形状".to_string(),
+            属性值::枚举(scene_doc::property::枚举值::新建(
+                属性.形状.变体名(),
+                属性.形状.序号(),
+            )),
+        );
+        结果.insert(
+            "尺寸".to_string(),
+            属性值::三维(属性.尺寸.0, 属性.尺寸.1, 属性.尺寸.2),
+        );
+        结果.insert(
+            "贴图".to_string(),
+            match &属性.贴图路径 {
+                Some(路径) => 属性值::资源(scene_doc::property::资源引用值::按路径(
+                    路径.clone(),
+                )),
+                None => 属性值::空,
+            },
+        );
+        结果.insert("颜色".to_string(), 属性值::颜色(属性.颜色));
+        结果.insert(
+            "贴图重复".to_string(),
+            属性值::二维(属性.贴图重复.0, 属性.贴图重复.1),
+        );
+        结果.insert("受光".to_string(), 属性值::布尔(属性.受光));
+        结果.insert("双面".to_string(), 属性值::布尔(属性.双面));
+        Some(结果)
+    }
+
+    fn 实例化(
+        &self,
+        实例: &mut dyn std::any::Any,
+        数据: &std::collections::BTreeMap<String, 属性值>,
+    ) -> bool {
+        let Some(属性) = 实例.downcast_mut::<几何体属性>() else {
+            return false;
+        };
+        if let Some(属性值::枚举(枚举)) = 数据.get("形状") {
+            属性.形状 = 几何体形状::由值(&枚举.变体名, 枚举.序号);
+        }
+        if let Some(值) = 数据.get("尺寸").and_then(属性值::取三维) {
+            属性.尺寸 = (
+                值.0.abs().max(0.001),
+                值.1.abs().max(0.001),
+                值.2.abs().max(0.001),
+            );
+        }
+        if let Some(值) = 数据.get("贴图") {
+            属性.贴图路径 = 值.取资源().map(|引用| 引用.路径.clone());
+        }
+        if let Some(值) = 数据.get("颜色").and_then(属性值::取颜色) {
+            属性.颜色 = 值;
+        }
+        if let Some(值) = 数据.get("贴图重复").and_then(属性值::取二维) {
+            属性.贴图重复 = (值.0.abs().max(0.0), 值.1.abs().max(0.0));
+        }
+        if let Some(值) = 数据.get("受光").and_then(属性值::取布尔) {
+            属性.受光 = 值;
+        }
+        if let Some(值) = 数据.get("双面").and_then(属性值::取布尔) {
+            属性.双面 = 值;
+        }
+        true
+    }
+}
+
+/// `Primitive3d` 字段描述。
+fn 几何体字段描述() -> &'static [属性描述] {
+    use std::sync::OnceLock;
+    static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
+    列表.get_or_init(|| {
+        vec![
+            属性描述::新建(
+                "形状",
+                "primitive_field_shape",
+                属性种类::枚举 {
+                    选项: vec![
+                        ("Cuboid".to_string(), "Cuboid".to_string(), 0),
+                        ("Plane".to_string(), "Plane".to_string(), 1),
+                    ],
+                },
+                属性值::枚举(scene_doc::property::枚举值::新建("Cuboid", 0)),
+            )
+            .带提示("primitive_field_shape_tooltip"),
+            三维("尺寸", "primitive_field_size", (1.0, 1.0, 1.0))
+                .带提示("primitive_field_size_tooltip"),
+            资源(
+                "贴图",
+                "primitive_field_texture",
+                scene_doc::property::资源类别::图片,
+            )
+            .带提示("primitive_field_texture_tooltip"),
+            颜色("颜色", "primitive_field_tint", 颜色值::白()),
+            二维("贴图重复", "primitive_field_uv_repeat", (1.0, 1.0))
+                .带提示("primitive_field_uv_repeat_tooltip"),
+            布尔("受光", "primitive_field_lit", true).带提示("primitive_field_lit_tooltip"),
+            布尔("双面", "primitive_field_double_sided", false)
+                .带提示("primitive_field_double_sided_tooltip"),
+        ]
+    })
+}
+
+/// 三维向量属性描述构造辅助（供 `Primitive3d` 使用）。
+fn 三维(字段: &str, 显示: &'static str, 默认: (f32, f32, f32)) -> 属性描述 {
+    属性描述::新建(
+        字段,
+        显示,
+        属性种类::三维 { 步进: 0.1 },
+        属性值::三维(默认.0, 默认.1, 默认.2),
+    )
+}
+
 /// 构建编辑器默认的组件注册表。
 ///
 /// 注册失败会 panic：这些是编辑器自带的组件，若它们的描述与默认值
@@ -906,6 +1328,8 @@ pub fn 默认组件注册表() -> 组件注册表 {
         Box::new(可见性组件类型),
         Box::new(Sprite组件类型),
         Box::new(相机组件类型),
+        Box::new(瓦片地形组件类型),
+        Box::new(几何体组件类型),
     ] {
         注册表
             .注册(类型)
@@ -931,10 +1355,17 @@ mod 测试 {
     #[test]
     fn 默认注册表包含全部内置组件() {
         let 注册表 = 默认组件注册表();
-        for 名字 in ["Transform", "Visibility", "Sprite", "Camera2d"] {
+        for 名字 in [
+            "Transform",
+            "Visibility",
+            "Sprite",
+            "Camera2d",
+            "TileTerrain",
+            "Primitive3d",
+        ] {
             assert!(注册表.已注册(名字), "内置组件 `{名字}` 应当被注册");
         }
-        assert_eq!(注册表.数量(), 4);
+        assert_eq!(注册表.数量(), 6);
     }
 
     #[test]
@@ -1215,8 +1646,10 @@ mod 测试 {
     #[test]
     fn 内置组件名列表与注册表一致() {
         let 列表 = 内置组件名列表();
-        assert_eq!(列表.len(), 4);
+        assert_eq!(列表.len(), 6, "注册表新增组件时要同步更新这条断言");
         assert!(列表.contains(&"Transform".to_string()));
+        assert!(列表.contains(&"TileTerrain".to_string()));
+        assert!(列表.contains(&"Primitive3d".to_string()));
     }
 
     /// 守住"注册表里的每个类型都必须有插入分支"这条不变量。

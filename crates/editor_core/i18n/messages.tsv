@@ -7,7 +7,6 @@ number_four_decimals	{}	{}
 about_bevy_studio	关于 微风	About Breeze
 about_scene_format	RON（场景与项目清单的序列化格式）	RON (serialization format for scenes and project manifests)
 about_tagline	一个以 Godot Editor 为工作流参考、建立在 Bevy 之上的可视化游戏编辑器。	A visual game editor built on Bevy, using the Godot Editor as its workflow reference.
-about_ui_stack	egui 0.36 + egui_dock 0.21（界面与可停靠布局）	egui 0.36 + egui_dock 0.21 (UI and dockable layout)
 add_component	添加组件	Add Component
 add_component_2	添加组件…	Add Component…
 add_element	＋ 添加元素	＋ Add Element
@@ -348,7 +347,7 @@ runtime_not_running_hint	游戏未在运行。\n点击工具栏的「运行」�
 runtime_world_isolation_note	说明：运行时世界与编辑器文档是两份独立数据。运行时对实体和组件的改动不会写回场景文件。	Note: the runtime world and the editor document are separate data. Runtime changes to entities and components are not written back to the scene file.
 runtime_panel_scope_note	本面板展示的是游戏运行时的 ECS 统计，不是编辑器文档的统计。编辑器文档里的实体数量见「场景树」面板。	This panel shows ECS statistics of the running game, not of the editor document. See the Scene Tree panel for editor document entity counts.
 performance_not_running_hint	游戏未运行，没有性能数据。\n编辑器自身的界面帧时间由 egui 统计，可在「性能」里查看编辑器开销。	The game is not running, so there is no performance data.\nThe editor's own UI frame time is measured by egui; see Performance for editor overhead.
-about_implemented_features	本版本已实现：项目建立/打开、场景编辑与保存、场景树、检查器、2D 视口、资源浏览、撤销重做、控制台。\n尚未实现的功能在菜单里显示为禁用，不会假装可用。	Implemented in this version: creating and opening projects, scene editing and saving, scene tree, inspector, 2D viewport, asset browser, undo/redo, console.\nUnimplemented features appear disabled in the menus and are never faked.
+about_implemented_features	项目：新建/打开/关闭、模板与示例、项目设置、最近项目、崩溃后自动恢复点；场景：层级编辑、组件注册表驱动的检查器、原子保存与备份回退、撤销重做、复制粘贴、子场景实例与刷新；视口：2D 选择与拖动、2D/3D gizmo、多选与框选、对齐分布，3D 透视轨道相机与拾取；资源：浏览搜索、单击预览（图片/模型/音频/字体/场景）、引用追踪与改名同步、稳定 UID；运行与调试：运行/暂停/单步/停止、远程 ECS 检查、统一诊断、构建与打包、存档槽位浏览；生产工具：动画时间轴与事件、2D 物理与碰撞轮廓、UI 布局；其他：可停靠工作区与浮窗、主题与中英文界面、Rust 代码编辑、AI Agent 模式。	Project: create/open/close, templates and examples, project settings, recent projects, crash recovery points; Scene: hierarchy editing, registry-driven inspector, atomic saving with backup fallback, undo/redo, copy and paste, sub-scene instances and refresh; Viewport: 2D select and drag, 2D/3D gizmos, multi-select and box select, align and distribute, 3D perspective orbit camera and picking; Assets: browsing and search, single-click preview (image/model/audio/font/scene), reference tracking and rename sync, stable UIDs; Run and debug: run/pause/step/stop, remote ECS inspection, unified diagnostics, build and package, savegame slot browser; Production tools: animation timeline and events, 2D physics and collision outlines, UI layout; Other: dockable workspaces and floating panels, themes and Chinese/English UI, Rust code editing, AI Agent mode.
 value_empty	空	Empty
 value_list_items	{} 项	{} items
 value_struct_fields	{} 个字段	{} fields
@@ -575,6 +574,79 @@ tile_terrain_field_cell_pixels	每格像素	Pixels per Cell
 tile_terrain_field_cell_pixels_tooltip	烘焙分辨率：16 为原生尺寸，64 为默认清晰档	Bake resolution: 16 is native, 64 is the default crisp setting
 tile_terrain_field_variant_chance	变体概率	Variant Chance
 tile_terrain_field_variant_chance_tooltip	整格瓦片抽到手绘变体的概率，原项目为 0.35	Chance that a full tile uses a hand-drawn variant; the original project uses 0.35
+tile_terrain_field_map	地图文件	Map File
+tile_terrain_field_map_tooltip	项目相对的 .tilemap.ron 路径；非空时按瓦片集与双网格规则渲染	Project-relative .tilemap.ron path; when set, renders using the tileset and dual-grid rules
+tile_terrain_field_tileset	瓦片集	Tileset
+tile_terrain_field_tileset_tooltip	项目相对的 .tileset.ron 路径；为空时使用地图里记录的路径	Project-relative .tileset.ron path; empty means use the path recorded in the map
+log_tilemap_saved	已保存瓦片地图：{}	Saved tile map: {}
+log_tileset_saved	已保存瓦片集：{}	Saved tileset: {}
+tilemap_title	瓦片地图	Tile Map
+tilemap	瓦片地图	Tile Map
+tilemap_no_project	尚未打开项目，无法编辑瓦片地图	No project open; cannot edit tile maps
+tilemap_entity_none	未绑定实体	No entity bound
+tilemap_unsaved	未保存	Unsaved
+tilemap_saved	已保存	Saved
+tilemap_map_file	地图文件	Map File
+tilemap_map_file_hint	例如 assets/terrain/demo.tilemap.ron	e.g. assets/terrain/demo.tilemap.ron
+tilemap_tileset_file	瓦片集	Tileset
+tilemap_tileset_file_hint	例如 assets/terrain/demo.tileset.ron	e.g. assets/terrain/demo.tileset.ron
+tilemap_load	载入	Load
+tilemap_save	保存	Save
+tilemap_create	新建	New
+tilemap_bind	绑定到组件	Bind to Component
+tilemap_bind_hint	把地图文件与瓦片集路径写回 TileTerrain 组件	Writes the map and tileset paths back to the TileTerrain component
+tilemap_discard_hint	当前有未保存修改，继续会丢弃它们	There are unsaved changes; continuing will discard them
+tilemap_discard_confirm	放弃修改并载入	Discard and Load
+tilemap_cancel	取消	Cancel
+tilemap_need_map_path	请先填写地图文件路径	Enter a map file path first
+tilemap_need_tileset_path	请先填写瓦片集路径	Enter a tileset path first
+tilemap_save_failed	保存瓦片数据失败	Failed to save tile data
+tilemap_tileset	瓦片集	Tileset
+tilemap_empty_hint	还没有载入瓦片集：先填路径并载入，或在下方导入图集源	No tileset loaded yet: enter a path and load, or import atlas sources below
+tilemap_tileset_name	名称	Name
+tilemap_tile_width	瓦片宽	Tile Width
+tilemap_tile_height	瓦片高	Tile Height
+tilemap_margin	边距	Margin
+tilemap_spacing	间距	Spacing
+tilemap_dual_grid	双网格自动瓦片	Dual-grid Autotiling
+tilemap_corner_bits	角位权	Corner Bits
+tilemap_mask_edit	编辑掩码	Edit Mask
+tilemap_mask_table	掩码表	Mask Table
+tilemap_mask_apply	应用	Apply
+tilemap_mask_use_global	改用全局	Use Global
+tilemap_variant	手绘变体表	Hand-drawn Variants
+tilemap_variant_image	变体图片	Variant Image
+tilemap_variant_cols	列	Columns
+tilemap_variant_rows	行	Rows
+tilemap_sources	图集源	Atlas Sources
+tilemap_source_name	名称	Name
+tilemap_source_dual	双网格	Dual-grid
+tilemap_source_order	绘制顺序	Draw Order
+tilemap_source_remove	移除	Remove
+tilemap_source_image	图片	Image
+tilemap_source_variant_row	变体行	Variant Row
+tilemap_import_source	从选中资源导入	Import Selected Asset
+tilemap_import_hint	在资源浏览器里选中一张图片，再点这里导入为图集源	Select an image in the Asset Browser, then click here to import it as an atlas source
+tilemap_import_no_selection	先在资源浏览器里选中一张图片	Select an image in the Asset Browser first
+tilemap_save_tileset	保存瓦片集	Save Tileset
+tilemap_palette	调色板	Palette
+tilemap_eraser	橡皮	Eraser
+tilemap_layers	图层	Layers
+tilemap_size	尺寸	Size
+tilemap_apply_size	应用尺寸	Apply Size
+tilemap_layer_up	上移	Move Up
+tilemap_layer_down	下移	Move Down
+tilemap_layer_delete	删除图层	Delete Layer
+tilemap_layer_name	图层名	Layer Name
+tilemap_layer_dual	双网格	Dual-grid
+tilemap_layer_add	新增图层	Add Layer
+tilemap_layer_default	图层 {}	Layer {}
+tilemap_layer_dual_suffix	 · 双网格	 · dual
+tilemap_undo	撤销	Undo
+tilemap_redo	重做	Redo
+tilemap_brush_radius	笔刷半径	Brush Radius
+tilemap_zoom	缩放	Zoom
+tilemap_show_grid	显示网格	Show Grid
 primitive_field_shape	形状	Shape
 primitive_field_shape_tooltip	Cuboid = 长方体；Plane = 水平面	Cuboid = box; Plane = horizontal plane
 primitive_field_size	尺寸	Size
@@ -1254,3 +1326,7 @@ asset_preview_decode_failed	解码失败：{}	Decoding failed: {}
 asset_preview_unsupported_type	该资源类型暂无可视化预览（{}）	No visual preview for this asset type ({})
 asset_preview_bytes	{} 字节	{} bytes
 asset_preview_open	打开	Open
+about_capabilities	主要能力	Main capabilities
+about_modes	工作模式	Work modes
+about_unimplemented_note	尚未实现的功能在菜单里显示为禁用，不会假装可用；Play-in-Editor 实时画面仍是原型。	Unimplemented features appear disabled in the menus and are never faked; the Play-in-Editor live view is still a prototype.
+about_ui_stack	界面：egui 0.36 + egui_dock 0.21（可停靠布局与浮动面板）	UI: egui 0.36 + egui_dock 0.21 (dockable layout and floating panels)

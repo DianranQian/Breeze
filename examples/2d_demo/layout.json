@@ -1,0 +1,520 @@
+{
+  "schema": 2,
+  "map": {
+    "cell_px": 64,
+    "cols": 48,
+    "rows": 32
+  },
+  "terrain": {
+    "name": "青岚山谷地形",
+    "file": "assets/xiuxian/地形/qinglan_valley.terrain.ron",
+    "atlas": "assets/xiuxian/瓦片",
+    "display_size": [
+      3072,
+      2048
+    ],
+    "cell_pixels": 64,
+    "variant_chance": 0.35,
+    "x": 0.0,
+    "y": 0.0,
+    "z": -20.0
+  },
+  "objects": [
+    {
+      "name": "青溪村·东屋",
+      "group": [
+        "村落",
+        "房屋"
+      ],
+      "x": 288.0,
+      "y": 432.0,
+      "w": 96,
+      "h": 96,
+      "z": 22.8,
+      "asset": "assets/xiuxian/道具/茅屋.png",
+      "flip_x": false
+    },
+    {
+      "name": "青溪村·西屋",
+      "group": [
+        "村落",
+        "房屋"
+      ],
+      "x": -224.0,
+      "y": 304.0,
+      "w": 96,
+      "h": 96,
+      "z": 25.36,
+      "asset": "assets/xiuxian/道具/茅屋.png",
+      "flip_x": true
+    },
+    {
+      "name": "青溪村·南屋",
+      "group": [
+        "村落",
+        "房屋"
+      ],
+      "x": -64.0,
+      "y": -144.0,
+      "w": 96,
+      "h": 96,
+      "z": 34.32,
+      "asset": "assets/xiuxian/道具/茅屋.png",
+      "flip_x": false
+    },
+    {
+      "name": "青溪村·谷仓",
+      "group": [
+        "村落",
+        "房屋"
+      ],
+      "x": 288.0,
+      "y": -136.0,
+      "w": 112,
+      "h": 112,
+      "z": 34.32,
+      "asset": "assets/xiuxian/道具/谷仓.png",
+      "flip_x": true
+    },
+    {
+      "name": "青溪村·水井",
+      "group": [
+        "村落",
+        "点景"
+      ],
+      "x": 0.0,
+      "y": 196.0,
+      "w": 64,
+      "h": 72,
+      "z": 27.28,
+      "asset": "assets/xiuxian/道具/水井.png",
+      "flip_x": false
+    },
+    {
+      "name": "青溪村·木牌",
+      "group": [
+        "村落",
+        "点景"
+      ],
+      "x": 192.0,
+      "y": -56.0,
+      "w": 56,
+      "h": 80,
+      "z": 32.4,
+      "asset": "assets/xiuxian/道具/木牌.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 01",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1312.0,
+      "y": 256.0,
+      "w": 96,
+      "h": 128,
+      "z": 26.64,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 02",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1184.0,
+      "y": 0.0,
+      "w": 96,
+      "h": 128,
+      "z": 31.76,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": true
+    },
+    {
+      "name": "古樟 03",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1376.0,
+      "y": -320.0,
+      "w": 96,
+      "h": 128,
+      "z": 38.16,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 04",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1184.0,
+      "y": -448.0,
+      "w": 96,
+      "h": 128,
+      "z": 40.72,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": true
+    },
+    {
+      "name": "古樟 05",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1120.0,
+      "y": -832.0,
+      "w": 96,
+      "h": 128,
+      "z": 48.4,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 06",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1248.0,
+      "y": -896.0,
+      "w": 96,
+      "h": 128,
+      "z": 49.68,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": true
+    },
+    {
+      "name": "古樟 07",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -672.0,
+      "y": -192.0,
+      "w": 96,
+      "h": 128,
+      "z": 35.6,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 08",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -224.0,
+      "y": -768.0,
+      "w": 96,
+      "h": 128,
+      "z": 47.12,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": true
+    },
+    {
+      "name": "古樟 09",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -416.0,
+      "y": -896.0,
+      "w": 96,
+      "h": 128,
+      "z": 49.68,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 10",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -992.0,
+      "y": 576.0,
+      "w": 96,
+      "h": 128,
+      "z": 20.24,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": true
+    },
+    {
+      "name": "古樟 11",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": 608.0,
+      "y": 640.0,
+      "w": 96,
+      "h": 128,
+      "z": 18.96,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": false
+    },
+    {
+      "name": "古樟 12",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": 1248.0,
+      "y": -256.0,
+      "w": 96,
+      "h": 128,
+      "z": 36.88,
+      "asset": "assets/xiuxian/道具/阔叶树.png",
+      "flip_x": true
+    },
+    {
+      "name": "松树 01",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -1440.0,
+      "y": 708.0,
+      "w": 80,
+      "h": 136,
+      "z": 17.68,
+      "asset": "assets/xiuxian/道具/松树.png",
+      "flip_x": false
+    },
+    {
+      "name": "松树 02",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": -800.0,
+      "y": 772.0,
+      "w": 80,
+      "h": 136,
+      "z": 16.4,
+      "asset": "assets/xiuxian/道具/松树.png",
+      "flip_x": true
+    },
+    {
+      "name": "松树 03",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": 1184.0,
+      "y": 836.0,
+      "w": 80,
+      "h": 136,
+      "z": 15.12,
+      "asset": "assets/xiuxian/道具/松树.png",
+      "flip_x": false
+    },
+    {
+      "name": "松树 04",
+      "group": [
+        "植被",
+        "乔木"
+      ],
+      "x": 1440.0,
+      "y": -700.0,
+      "w": 80,
+      "h": 136,
+      "z": 45.84,
+      "asset": "assets/xiuxian/道具/松树.png",
+      "flip_x": true
+    },
+    {
+      "name": "灌木 01",
+      "group": [
+        "植被",
+        "灌木"
+      ],
+      "x": -992.0,
+      "y": -290.0,
+      "w": 80,
+      "h": 60,
+      "z": 36.88,
+      "asset": "assets/xiuxian/道具/灌木.png",
+      "flip_x": false
+    },
+    {
+      "name": "灌木 02",
+      "group": [
+        "植被",
+        "灌木"
+      ],
+      "x": -288.0,
+      "y": -418.0,
+      "w": 80,
+      "h": 60,
+      "z": 39.44,
+      "asset": "assets/xiuxian/道具/灌木.png",
+      "flip_x": true
+    },
+    {
+      "name": "灌木 03",
+      "group": [
+        "植被",
+        "灌木"
+      ],
+      "x": 480.0,
+      "y": 542.0,
+      "w": 80,
+      "h": 60,
+      "z": 20.24,
+      "asset": "assets/xiuxian/道具/灌木.png",
+      "flip_x": false
+    },
+    {
+      "name": "灌木 04",
+      "group": [
+        "植被",
+        "灌木"
+      ],
+      "x": 928.0,
+      "y": -546.0,
+      "w": 80,
+      "h": 60,
+      "z": 42.0,
+      "asset": "assets/xiuxian/道具/灌木.png",
+      "flip_x": true
+    },
+    {
+      "name": "山石 01",
+      "group": [
+        "山石"
+      ],
+      "x": -1120.0,
+      "y": 732.0,
+      "w": 72,
+      "h": 56,
+      "z": 16.4,
+      "asset": "assets/xiuxian/道具/岩石.png",
+      "flip_x": false
+    },
+    {
+      "name": "山石 02",
+      "group": [
+        "山石"
+      ],
+      "x": -480.0,
+      "y": 796.0,
+      "w": 72,
+      "h": 56,
+      "z": 15.12,
+      "asset": "assets/xiuxian/道具/岩石.png",
+      "flip_x": true
+    },
+    {
+      "name": "山石 03",
+      "group": [
+        "山石"
+      ],
+      "x": 800.0,
+      "y": 732.0,
+      "w": 72,
+      "h": 56,
+      "z": 16.4,
+      "asset": "assets/xiuxian/道具/岩石.png",
+      "flip_x": false
+    },
+    {
+      "name": "山石 04",
+      "group": [
+        "山石"
+      ],
+      "x": 1248.0,
+      "y": 28.0,
+      "w": 72,
+      "h": 56,
+      "z": 30.48,
+      "asset": "assets/xiuxian/道具/岩石.png",
+      "flip_x": true
+    },
+    {
+      "name": "山石 05",
+      "group": [
+        "山石"
+      ],
+      "x": 1376.0,
+      "y": -868.0,
+      "w": 72,
+      "h": 56,
+      "z": 48.4,
+      "asset": "assets/xiuxian/道具/岩石.png",
+      "flip_x": false
+    },
+    {
+      "name": "主角",
+      "group": [
+        "人物"
+      ],
+      "x": 192.0,
+      "y": -16.0,
+      "w": 160,
+      "h": 160,
+      "z": 32.9,
+      "asset": "assets/xiuxian/人物/主角.png",
+      "flip_x": false
+    },
+    {
+      "name": "同门师姐",
+      "group": [
+        "人物"
+      ],
+      "x": 320.0,
+      "y": 80.0,
+      "w": 160,
+      "h": 160,
+      "z": 30.98,
+      "asset": "assets/xiuxian/人物/师姐.png",
+      "flip_x": true,
+      "tint": [
+        0.82,
+        1.0,
+        0.86
+      ]
+    },
+    {
+      "name": "采药人",
+      "group": [
+        "人物"
+      ],
+      "x": -320.0,
+      "y": 240.0,
+      "w": 160,
+      "h": 160,
+      "z": 27.78,
+      "asset": "assets/xiuxian/人物/采药人.png",
+      "flip_x": false,
+      "tint": [
+        1.0,
+        0.92,
+        0.78
+      ]
+    },
+    {
+      "name": "村民",
+      "group": [
+        "人物"
+      ],
+      "x": 0.0,
+      "y": -272.0,
+      "w": 160,
+      "h": 160,
+      "z": 38.02,
+      "asset": "assets/xiuxian/人物/村民.png",
+      "flip_x": true,
+      "tint": [
+        0.84,
+        0.9,
+        1.0
+      ]
+    }
+  ]
+}

@@ -159,6 +159,16 @@ pub enum 图标 {
     隐藏,
     /// 未上锁 → 实体未锁定。
     未锁定,
+
+    // ---- 变换工具（视口工具条）----
+    /// 指针 → 选择工具。
+    指针,
+    /// 四向箭头 → 移动工具。
+    移动,
+    /// 顺时针圆弧 → 旋转工具。
+    旋转,
+    /// 角点缩放 → 缩放工具。
+    缩放,
 }
 
 impl 图标 {
@@ -222,6 +232,10 @@ impl 图标 {
             图标::层级容器,
             图标::隐藏,
             图标::未锁定,
+            图标::指针,
+            图标::移动,
+            图标::旋转,
+            图标::缩放,
         ]
     }
 
@@ -285,6 +299,10 @@ impl 图标 {
             Self::层级容器 => "hierarchy",
             Self::隐藏 => "eye-off",
             Self::未锁定 => "lock-open",
+            Self::指针 => "pointer",
+            Self::移动 => "arrows-move",
+            Self::旋转 => "rotate-clockwise",
+            Self::缩放 => "resize",
         }
     }
 
@@ -348,6 +366,10 @@ impl 图标 {
             Self::层级容器 => include_bytes!("../assets/icons/png/hierarchy.png"),
             Self::隐藏 => include_bytes!("../assets/icons/png/eye-off.png"),
             Self::未锁定 => include_bytes!("../assets/icons/png/lock-open.png"),
+            Self::指针 => include_bytes!("../assets/icons/png/pointer.png"),
+            Self::移动 => include_bytes!("../assets/icons/png/arrows-move.png"),
+            Self::旋转 => include_bytes!("../assets/icons/png/rotate-clockwise.png"),
+            Self::缩放 => include_bytes!("../assets/icons/png/resize.png"),
         }
     }
 

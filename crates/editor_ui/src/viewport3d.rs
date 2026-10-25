@@ -281,7 +281,79 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
     // 3D 视口此前完全没有键盘处理：切了工具之后只能靠工具栏切回去。
     let _ = crate::gizmo::处理工具快捷键(ui, 上下文);
 
-    // ⑥ 左下角提示（与 2D 视口一致的输入说明）。
+    // ⑥ 顶部工具条：与 2D 视口同一套位置和语法。
+    //
+    // 工具（选择/移动/旋转/缩放）已经从全局工具栏搬到视口；3D 若没有这一条，
+    // 用户在三维模式里就完全没有切换工具的入口，那是功能回退而不是布局取舍。
+    let 工具条位置 = Pos2::new(内容矩形.min.x + 8.0, 内容矩形.min.y + 8.0);
+    let mut 工具条 = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(Rect::from_min_size(
+                工具条位置,
+                egui::vec2(内容矩形.width() - 16.0, 30.0),
+            ))
+            .layout(egui::Layout::left_to_right(egui::Align::Center)),
+    );
+    egui::Frame::NONE
+        .fill(egui::Color32::TRANSPARENT)
+        .inner_margin(egui::Margin::symmetric(0, 0))
+        .show(&mut 工具条, |ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            let 切换 = crate::visual_spec::分段容器(ui, 上下文.配色, |ui| {
+                crate::gizmo::绘制工具组(ui, 上下文)
+            });
+            if let Some(工具) = 切换 {
+                crate::gizmo::切换工具(上下文, 工具);
+            }
+            ui.add_space(4.0);
+            crate::visual_spec::工具栏分组(ui, 上下文.配色);
+            ui.add_space(2.0);
+            if crate::viewport_panel::图标动作按钮(ui, 上下文, crate::icons::图标::刷新)
+                .on_hover_text(上下文.语言.取("orbit_reset_hint"))
+                .clicked()
+            {
+                上下文.动作.推(UiAction::三维重置轨道);
+            }
+            if crate::viewport_panel::图标动作按钮(ui, 上下文, crate::icons::图标::最大化)
+                .on_hover_text(上下文.语言.取("fit_window_hint"))
+                .clicked()
+            {
+                上下文.动作.推(UiAction::视口适应窗口);
+            }
+            if ui
+                .add_enabled(
+                    !上下文.编辑器.选择.为空(),
+                    egui::Button::new(
+                        RichText::new(上下文.语言.取("focus_selection"))
+                            .size(11.0)
+                            .color(上下文.配色.次要文字),
+                    )
+                    .frame(false),
+                )
+                .on_hover_text(上下文.语言.取("focus_selection_hint"))
+                .clicked()
+            {
+                上下文.动作.推(UiAction::聚焦选中实体);
+            }
+            ui.add_space(4.0);
+            crate::visual_spec::工具栏分组(ui, 上下文.配色);
+            ui.add_space(2.0);
+            // 三维相机的实时读数：让用户确认自己在什么视角。
+            let 相机 = &上下文.界面.三维相机;
+            ui.label(
+                RichText::new(format!(
+                    "{} {:.0}° {:.0}° {:.0}",
+                    上下文.语言.取("camera"),
+                    相机.偏航.to_degrees(),
+                    相机.俯仰.to_degrees(),
+                    相机.距离
+                ))
+                .size(11.0)
+                .color(上下文.配色.次要文字),
+            );
+        });
+
+    // ⑦ 左下角提示（与 2D 视口一致的输入说明）。
     let 提示位置 = Pos2::new(内容矩形.min.x + 8.0, 内容矩形.max.y - 24.0);
     let mut 提示 = ui.new_child(
         egui::UiBuilder::new()
@@ -291,11 +363,17 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
             ))
             .layout(egui::Layout::left_to_right(egui::Align::Center)),
     );
+    // 与 2D 的读数条同一套容器语法（细胶囊、无描边、半透明面板色）。
+    let 底色 = 上下文.配色.面板背景;
     egui::Frame::NONE
-        .fill(上下文.配色.叠加背景)
-        .stroke(Stroke::new(1.0, 上下文.配色.叠加边框))
-        .inner_margin(egui::Margin::symmetric(6, 1))
-        .corner_radius(3)
+        .fill(egui::Color32::from_rgba_unmultiplied(
+            底色.r(),
+            底色.g(),
+            底色.b(),
+            190,
+        ))
+        .inner_margin(egui::Margin::symmetric(8, 2))
+        .corner_radius(egui::CornerRadius::same(6))
         .show(&mut 提示, |ui| {
             ui.label(
                 RichText::new(上下文.语言.取("viewport3d_input_hint"))
@@ -407,8 +485,19 @@ fn 绘制操纵器(画布: &egui::Painter, 上下文: &绘制上下文<'_>) {
 }
 
 /// 把相机对准整个场景。
+///
+/// # 为什么不是"包围盒对角线 × 常数"
+///
+/// 旧实现用 `跨度 × 1.6`，它把**场景半径**当成了**距离**，对大场景会
+/// 过度拉远（48×48 的竞技场会被推到几乎看不见细节），而且完全没考虑
+/// 视场角与窗口宽高比。这里按透视投影真正的约束算：
+///
+/// ```text
+/// 距离 = 包围球半径 / sin(半视角)
+/// ```
+///
+/// 同时取竖直与水平两个方向中更紧的那个，窗口越扁越不会切掉两侧。
 fn 适应场景(上下文: &绘制上下文<'_>, 相机: &mut 三维相机, 尺寸: egui::Vec2) {
-    let _ = 尺寸;
     let mut 最小 = (f32::MAX, f32::MAX, f32::MAX);
     let mut 最大 = (f32::MIN, f32::MIN, f32::MIN);
     let mut 有内容 = false;
@@ -432,10 +521,20 @@ fn 适应场景(上下文: &绘制上下文<'_>, 相机: &mut 三维相机, 尺�
         (最小.1 + 最大.1) * 0.5,
         (最小.2 + 最大.2) * 0.5,
     );
+
     let 跨度 = ((最大.0 - 最小.0).powi(2) + (最大.1 - 最小.1).powi(2) + (最大.2 - 最小.2).powi(2))
         .sqrt()
         .max(1.0);
-    相机.距离 = (跨度 * 1.6).clamp(三维相机::最小距离, 三维相机::最大距离);
+    let 半径 = 跨度 * 0.5;
+
+    let 半视场 = (相机.视场角 * 0.5).max(0.01);
+    let 竖直 = 半径 / 半视场.sin();
+    let 宽高比 = (尺寸.x / 尺寸.y.max(1.0)).max(0.001);
+    let 水平半角 = (半视场.tan() * 宽高比).atan();
+    let 水平 = 半径 / 水平半角.sin().max(0.001);
+
+    // 留 10% 边距，避免包围球正好贴着画面边缘。
+    相机.距离 = (竖直.max(水平) * 1.1).clamp(三维相机::最小距离, 三维相机::最大距离);
 }
 
 /// 屏幕空间最近的实体。

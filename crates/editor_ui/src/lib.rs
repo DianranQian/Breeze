@@ -47,8 +47,10 @@ pub mod state;
 pub mod theme;
 pub mod theme_editor;
 pub mod timeline_panel;
+pub mod tilemap_panel;
 pub mod viewport3d;
 pub mod viewport_panel;
+pub mod visual_spec;
 pub mod workbench_panel;
 pub mod workspace_bar;
 pub mod workspaces;
@@ -170,33 +172,52 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
                 上下文: 绘制上下文
             };
 
+            // 顶部 chrome 的视觉规则：
+            //
+            // * 菜单栏与模式栏**共用一层底色**，看起来是一条完整的标题区，
+            //   而不是两条各自带分割线的横条；
+            // * 工作区栏退到次一级底色，它管的是"面板怎么摆"，比模式更次要；
+            // * 工具栏回到面板底色，并用一条 1px 细线收边 —— 工具按钮自己
+            //   有描边，工具栏再套一层边框就成了"框里套框"。
+            //
+            // 四块区域各自保留稳定标识（menubar / modebar / workspacebar /
+            // toolbar）：自动验收按这些标识取矩形并断言垂直顺序，
+            // 合并行会直接让那几条断言失效。
+            let 标题区底色 = 配色.面板次背景;
+            let 顶部框 = |底色: egui::Color32| {
+                egui::Frame::NONE
+                    .fill(底色)
+                    .inner_margin(egui::Margin::ZERO)
+            };
+
             // 顶部：菜单栏
             egui::Panel::top("bevy_studio_菜单栏")
-                .exact_size(24.0)
+                .exact_size(crate::visual_spec::高度::菜单栏)
+                .frame(顶部框(标题区底色))
+                .show_separator_line(false)
                 .show(界面ui, |ui| {
                     查看器.记录区域("menubar", ui.max_rect());
                     查看器.绘制菜单栏(ui);
                 });
 
-            // 顶部：主开发模式栏（2D / 3D / 脚本 / 运行 / 资源）
+            // 顶部：导航行（左=编辑模式，右=工作区）
+            //
+            // 模式与工作区合并成一行：它们都是"当前上下文"，分开占两行
+            // 会让顶部堆成四层横条。两个区域仍然各自记录矩形
+            // （`modebar` / `workspacebar`），自动验收的垂直顺序断言照旧成立。
             egui::Panel::top("bevy_studio_mode_bar")
-                .exact_size(dev_mode_bar::模式栏高度)
+                .exact_size(crate::visual_spec::高度::模式栏)
+                .frame(顶部框(标题区底色))
+                .show_separator_line(false)
                 .show(界面ui, |ui| {
                     查看器.记录区域("modebar", ui.max_rect());
                     查看器.绘制模式栏(ui);
                 });
 
-            // 顶部：工作区栏（切换 / 新建 / 复制 / 重命名 / 删除 / 重置）
-            egui::Panel::top("bevy_studio_workspace_bar")
-                .exact_size(workspace_bar::工作区栏高度)
-                .show(界面ui, |ui| {
-                    查看器.记录区域("workspacebar", ui.max_rect());
-                    查看器.绘制工作区栏(ui);
-                });
-
             // 顶部：工具栏
             egui::Panel::top("bevy_studio_工具栏")
-                .exact_size(28.0)
+                .exact_size(crate::visual_spec::高度::工具栏)
+                .frame(顶部框(配色.面板背景))
                 .show(界面ui, |ui| {
                     查看器.记录区域("toolbar", ui.max_rect());
                     查看器.绘制工具栏(ui);
@@ -204,7 +225,9 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
 
             // 底部：状态栏
             egui::Panel::bottom("bevy_studio_状态栏")
-                .exact_size(22.0)
+                .exact_size(crate::visual_spec::高度::状态栏)
+                .frame(顶部框(配色.面板次背景))
+                .show_separator_line(false)
                 .show(界面ui, |ui| {
                     查看器.记录区域("statusbar", ui.max_rect());
                     查看器.绘制状态栏(ui);
@@ -217,8 +240,14 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
             // 其余区域：可停靠面板
             egui_dock::DockArea::new(&mut 停靠)
                 .style(停靠样式)
-                // 关闭按钮：让用户能把面板收起来，再从「窗口」菜单打开。
-                .show_close_buttons(true)
+                // 逐标签的关闭按钮**关掉**：每个标签常亮一个 ✕，紧挨着
+                // 面板右上角的 ✕，窄窗口下两枚按钮几乎重叠，误关整个面板的
+                // 概率明显高于收益。关闭入口保留：面板级 ✕（egui_dock 自带）
+                // 与「窗口」菜单都能收起面板。
+                //
+                // 代价：标签栏右侧少了一个按钮，标签因此更宽 —— 这正好缓解
+                // 右侧面板标签溢出（5 个标签在 2400 宽下本来会把「性能」挤掉）。
+                .show_close_buttons(false)
                 // 折叠按钮：把整个面板折成一条标题栏，腾出屏幕空间做编辑。
                 // 这是"面板可以折叠"这条要求的实现。
                 .show_leaf_collapse_buttons(true)
@@ -1075,6 +1104,14 @@ fn 绘制_资源删除对话框(
 }
 
 /// "关于"窗口。
+///
+/// 内容分三层：**这是什么**（名称、版本、一句话定位）、
+/// **现在能做什么**（工作模式与主要能力）、
+/// **边界与现场**（存储格式、仍属原型的部分、当前场景）。
+///
+/// 能力列表刻意保持"每一项都能在代码或测试里找到对应实现"。
+/// 这里写下的每一句都是用户会当真去试的承诺，因此宁可少写，
+/// 也不把计划中的功能写成已实现。
 fn 绘制_关于窗口(
     egui上下文: &egui::Context,
     界面: &mut 界面状态,
@@ -1088,33 +1125,78 @@ fn 绘制_关于窗口(
     let mut 打开 = true;
     let 窗口响应 = egui::Window::new(语言.取("about_bevy_studio"))
         .collapsible(false)
-        .resizable(false)
+        .resizable(true)
+        .default_width(460.0)
         .open(&mut 打开)
         .show(egui上下文, |ui| {
-            ui.heading("微风 (Breeze)");
-            ui.label(语言.填充("version", &[&env!("CARGO_PKG_VERSION")]));
-            ui.separator();
-            ui.label(语言.取("about_tagline"));
-            ui.add_space(6.0);
-            ui.label(
-                egui::RichText::new(语言.取("tech_stack"))
-                    .strong()
-                    .color(配色.文字),
-            );
-            ui.label("Bevy 0.20 / bevy_egui 0.43");
-            ui.label(语言.取("about_ui_stack"));
-            ui.label(语言.取("about_scene_format"));
-            ui.separator();
-            ui.label(
-                egui::RichText::new(语言.填充("current_scene", &[&场景名]))
-                    .small()
-                    .color(配色.次要文字),
-            );
-            ui.label(
-                egui::RichText::new(语言.取("about_implemented_features"))
-                    .small()
-                    .color(配色.次要文字),
-            );
+            // 能力清单比早期版本长得多，窗口高度必须可滚动：
+            // 内容被裁掉时用户会以为"关于里没写这个"，
+            // 实际上只是看不见。
+            egui::ScrollArea::vertical()
+                .max_height(460.0)
+                .show(ui, |ui| {
+                    ui.heading(语言.取("app_title"));
+                    ui.label(语言.填充("version", &[&env!("CARGO_PKG_VERSION")]));
+                    ui.label(
+                        egui::RichText::new(help::技术栈说明())
+                            .small()
+                            .color(配色.次要文字),
+                    );
+                    ui.separator();
+                    ui.label(语言.取("about_tagline"));
+
+                    ui.add_space(6.0);
+                    ui.label(
+                        egui::RichText::new(语言.取("about_modes"))
+                            .strong()
+                            .color(配色.文字),
+                    );
+                    // 模式列表由模式注册表驱动，不在此处另抄一份：
+                    // 新增或删除模式时，关于窗口自动跟着变。
+                    for 模式 in 开发模式::全部() {
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "· {} — {}",
+                                语言.取(模式.名称键()),
+                                语言.取(模式.说明键())
+                            ))
+                            .small()
+                            .color(配色.文字),
+                        );
+                    }
+
+                    ui.add_space(6.0);
+                    ui.label(
+                        egui::RichText::new(语言.取("about_capabilities"))
+                            .strong()
+                            .color(配色.文字),
+                    );
+                    ui.label(
+                        egui::RichText::new(语言.取("about_implemented_features"))
+                            .small()
+                            .color(配色.文字),
+                    );
+                    ui.label(
+                        egui::RichText::new(语言.取("about_unimplemented_note"))
+                            .small()
+                            .color(配色.次要文字),
+                    );
+
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(语言.取("tech_stack"))
+                            .strong()
+                            .color(配色.文字),
+                    );
+                    ui.label(语言.取("about_ui_stack"));
+                    ui.label(语言.取("about_scene_format"));
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(语言.填充("current_scene", &[&场景名]))
+                            .small()
+                            .color(配色.次要文字),
+                    );
+                });
         });
     if !打开 {
         界面.显示关于 = false;
@@ -1167,6 +1249,7 @@ impl 面板查看器<'_, '_> {
             外观,
             图标: self.上下文.图标,
             缩略图: self.上下文.缩略图,
+            瓦片图集: self.上下文.瓦片图集,
             视口纹理: self.上下文.视口纹理,
             正在运行: self.上下文.正在运行,
             已暂停: self.上下文.已暂停,
@@ -1198,11 +1281,19 @@ impl 面板查看器<'_, '_> {
     }
 
     fn 绘制模式栏(&mut self, ui: &mut Ui) {
-        dev_mode_bar::绘制(ui, &mut self.视图());
-    }
-
-    fn 绘制工作区栏(&mut self, ui: &mut Ui) {
-        workspace_bar::绘制(ui, &mut self.视图());
+        let mut 视图 = self.视图();
+        let mut 工作区矩形 = None;
+        dev_mode_bar::绘制(ui, &mut 视图, |ui, 视图| {
+            // 同一行右侧：工作区切换。它自己的矩形也进证据文件
+            // （保留 `workspacebar` 标识，验收按它取几何）。
+            工作区矩形 = Some(workspace_bar::行内绘制(ui, 视图));
+        });
+        if let Some(矩形) = 工作区矩形 {
+            self.上下文.界面.布局快照.push(crate::state::区域快照 {
+                标识: "workspacebar",
+                矩形,
+            });
+        }
     }
 
     fn 绘制状态栏(&mut self, ui: &mut Ui) {
@@ -1324,27 +1415,49 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
         self.记录区域(tab.菜单键(), ui.max_rect());
 
         let mut 上下文 = self.视图();
-        match tab {
-            Tab::场景树 => hierarchy_panel::绘制(ui, &mut 上下文),
-            Tab::检查器 => inspector_panel::绘制(ui, &mut 上下文),
-            Tab::视口 => {
+
+        // 视口是唯一"内容要贴边"的面板：它画的是场景，四周留白只会让
+        // 可用面积变小。其余面板统一套一层内边距，让所有面板的文字左边缘
+        // 落在同一条竖线上 —— 这是"界面是一整套"最容易被看出来的地方。
+        let 是视口 = *tab == Tab::视口;
+        if 是视口 {
+            // 提示条改成浮层（见 `viewport_panel::绘制提示`），
+            // 因此视口拿到的是整个面板矩形，不再被顶部提示行截去一行。
+            let 可用 = ui.available_rect_before_wrap();
+            viewport_panel::绘制内容(ui, &mut 上下文, 可用);
+            // 提示最后画，压在场景之上（它是浮层，不占布局空间）。
+            // 三维视口自带一套"轨道相机"的操作说明（见 `viewport3d`），
+            // 这里再画 2D 的说明就会出现两条不一样的提示，反而让人不知道该读哪条。
+            if !viewport3d::活动(&上下文) {
                 viewport_panel::绘制提示(ui, &上下文);
-                // 视口需要知道自己能画多大的区域。
-                let 可用 = ui.available_rect_before_wrap();
-                viewport_panel::绘制内容(ui, &mut 上下文, 可用);
             }
-            Tab::资源浏览器 => assets_panel::绘制(ui, &mut 上下文),
-            Tab::控制台 => console_panel::绘制(ui, &mut 上下文),
-            Tab::历史 => history_panel::绘制历史(ui, &mut 上下文),
-            Tab::运行时ecs => runtime_panel::绘制(ui, &mut 上下文),
-            Tab::性能 => history_panel::绘制性能(ui, &mut 上下文),
-            Tab::脚本 => script::绘制(ui, &mut 上下文),
-            Tab::构建 => build_panel::绘制(ui, &mut 上下文),
-            Tab::运行 => workbench_panel::绘制(ui, &mut 上下文),
-            Tab::时间轴 => timeline_panel::绘制(ui, &mut 上下文),
-            Tab::智能体对话 => agent_panel::绘制对话(ui, &mut 上下文),
-            Tab::智能体会话 => agent_panel::绘制会话(ui, &mut 上下文),
-            Tab::智能体审查 => agent_panel::绘制审查(ui, &mut 上下文),
+        } else {
+            egui::Frame::NONE
+                .inner_margin(crate::visual_spec::面板内边距())
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    match tab {
+                        Tab::场景树 => hierarchy_panel::绘制(ui, &mut 上下文),
+                        Tab::检查器 => inspector_panel::绘制(ui, &mut 上下文),
+                        Tab::资源浏览器 => assets_panel::绘制(ui, &mut 上下文),
+                        Tab::控制台 => console_panel::绘制(ui, &mut 上下文),
+                        Tab::历史 => history_panel::绘制历史(ui, &mut 上下文),
+                        Tab::运行时ecs => runtime_panel::绘制(ui, &mut 上下文),
+                        Tab::性能 => history_panel::绘制性能(ui, &mut 上下文),
+                        Tab::脚本 => script::绘制(ui, &mut 上下文),
+                        Tab::构建 => build_panel::绘制(ui, &mut 上下文),
+                        Tab::运行 => workbench_panel::绘制(ui, &mut 上下文),
+                        Tab::时间轴 => timeline_panel::绘制(ui, &mut 上下文),
+                        Tab::瓦片地图 => tilemap_panel::绘制(ui, &mut 上下文),
+                        Tab::智能体对话 => agent_panel::绘制对话(ui, &mut 上下文),
+                        Tab::智能体会话 => agent_panel::绘制会话(ui, &mut 上下文),
+                        Tab::智能体审查 => agent_panel::绘制审查(ui, &mut 上下文),
+                        Tab::视口 => {
+                            // 上面已按 `是视口` 分支处理，这里不可达。
+                            // 保留分支只为让 `match` 穷尽，不画任何东西。
+                        }
+                    }
+                });
         }
     }
 

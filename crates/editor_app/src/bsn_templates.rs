@@ -40,14 +40,16 @@
 use bevy::prelude::*;
 
 use bsn_bridge::{
-    在世界上实例化, 提取产物, 提取并校验, 提取配置, 组件提取器, BSN宿主, BSN场景模板, BSN错误,
+    BSN场景模板, BSN宿主, BSN错误, 在世界上实例化, 提取产物, 提取并校验, 提取配置, 组件提取器,
 };
 use scene_doc::document::场景文档;
 use scene_doc::path::项目相对路径;
 use scene_doc::property::颜色值;
 use scene_doc::registry::组件注册表;
 
-use crate::scene_bridge::{默认组件注册表, 编辑器相机2d, 可见性属性, Sprite属性};
+use crate::scene_bridge::{
+    Sprite属性, 几何体属性, 可见性属性, 瓦片地形属性, 编辑器相机2d, 默认组件注册表,
+};
 
 /// 世界侧 `Visibility` → 文档侧 [`可见性属性`]。
 ///
@@ -74,6 +76,8 @@ pub fn 编辑器提取器() -> Vec<组件提取器> {
     vec![
         组件提取器::新建::<Sprite属性>("Sprite"),
         组件提取器::新建::<编辑器相机2d>("Camera2d"),
+        组件提取器::新建::<瓦片地形属性>("TileTerrain"),
+        组件提取器::新建::<几何体属性>("Primitive3d"),
         组件提取器::带转换::<Visibility, 可见性属性>("Visibility", 可见性转文档),
     ]
 }
@@ -85,7 +89,8 @@ pub fn 编辑器提取器() -> Vec<组件提取器> {
 ///
 /// 只要场景里存在无法转换的组件就返回错误，不会返回一份缺数据的文档。
 pub fn 从模板生成文档(
-    模板: &dyn BSN场景模板, 场景名: &str
+    模板: &dyn BSN场景模板,
+    场景名: &str,
 ) -> Result<提取产物, BSN错误> {
     let mut 宿主 = BSN宿主::新建();
     let 根 = 模板.实例化(宿主.世界可变())?;
@@ -97,7 +102,10 @@ pub fn 从模板生成文档(
 /// 把一个 BSN 模板直接转成可交给编辑器会话的文档。
 ///
 /// 这是给 UI / 动作层用的便利函数：它只返回文档，错误已带上足够上下文。
-pub fn 从模板生成场景(模板: &dyn BSN场景模板, 场景名: &str) -> Result<场景文档, BSN错误> {
+pub fn 从模板生成场景(
+    模板: &dyn BSN场景模板,
+    场景名: &str,
+) -> Result<场景文档, BSN错误> {
     从模板生成文档(模板, 场景名).map(|产物| 产物.文档)
 }
 
@@ -123,7 +131,9 @@ impl BSN场景模板 for 二维原型模板 {
 
     fn 实例化(&self, 世界: &mut World) -> Result<Entity, BSN错误> {
         // 中文命名的组件类型经变量插入，见模块文档。
-        let 主相机 = 编辑器相机2d { 正交半高: 360.0 };
+        let 主相机 = 编辑器相机2d {
+            正交半高: 360.0
+        };
         let 背景板 = Sprite属性 {
             颜色: 颜色值::srgb(0.10, 0.12, 0.16, 1.0),
             ..Default::default()
@@ -202,12 +212,14 @@ mod 测试 {
                 .expect("模板缺少说明条目");
             let 产物 = 从模板生成文档(模板.as_ref(), "规模核对").expect("应无损失提取");
             assert_eq!(
-                产物.报告.实体数, 说明.预期实体数,
+                产物.报告.实体数,
+                说明.预期实体数,
                 "模板 `{}` 的实体数与说明不符",
                 模板.标识()
             );
             assert_eq!(
-                产物.报告.最大深度, 说明.预期最大深度,
+                产物.报告.最大深度,
+                说明.预期最大深度,
                 "模板 `{}` 的层级深度与说明不符",
                 模板.标识()
             );
@@ -217,10 +229,8 @@ mod 测试 {
     #[test]
     fn 编辑器提取器与注册表组件名对齐() {
         let 注册表 = 默认组件注册表();
-        let 提取器名: std::collections::BTreeSet<&str> = 编辑器提取器()
-            .iter()
-            .map(|提取器| 提取器.组件名)
-            .collect();
+        let 提取器名: std::collections::BTreeSet<&str> =
+            编辑器提取器().iter().map(|提取器| 提取器.组件名).collect();
 
         for 组件名 in 注册表.组件名列表() {
             // Transform 走 `变换` 字段，不是文档组件，因此不在提取器表里。

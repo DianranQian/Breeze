@@ -81,7 +81,9 @@ pub fn 最小空白区宽度() -> f32 {
 /// 跟着变高，否则图标会被裁切；字号变大时同样成立。
 pub fn 行高(ui: &Ui, 上下文: &绘制上下文<'_>) -> f32 {
     let 图标 = 上下文.外观.图标尺寸;
-    ui.spacing().interact_size.y.max(图标 + 4.0).max(18.0)
+    crate::visual_spec::行高(ui.spacing().interact_size.y)
+        .max(图标 + 4.0)
+        .max(18.0)
 }
 
 /// 行内图标的实际绘制尺寸。
@@ -188,51 +190,76 @@ pub fn 按名称过滤(行列表: &[显示行], 关键字: &str) -> Vec<显示�
 pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 编辑器 = 上下文.编辑器;
 
+    // ---- 头部：场景名 + 计数 + 两个高频动作 ----
+    //
+    // 场景名用正文字号 + strong，不额外加大：面板标签已经写着"场景树"，
+    // 这里再放一个大标题会和标签争层级。计数退成等宽小字，说明它只是信息。
     ui.horizontal(|ui| {
-        ui.label(
-            RichText::new(crate::场景占位名(编辑器, 上下文.语言))
-                .strong()
-                .color(上下文.配色.文字),
+        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.add(
+            egui::Label::new(
+                RichText::new(crate::场景占位名(编辑器, 上下文.语言))
+                    .strong()
+                    .color(上下文.配色.文字),
+            )
+            .truncate(),
         );
         if 编辑器.有未保存修改() {
-            ui.label(RichText::new("●").color(上下文.配色.警告))
-                .on_hover_text(上下文.语言.取("has_unsaved_changes"));
+            ui.label(
+                RichText::new("●")
+                    .size((上下文.外观.基础字号 - 4.0).max(7.0))
+                    .color(上下文.配色.警告),
+            )
+            .on_hover_text(上下文.语言.取("has_unsaved_changes"));
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui
-                .small_button("＋")
-                .on_hover_text(上下文.语言.取("new_child_entity_under_selection"))
-                .clicked()
-            {
-                let 父 = 上下文.主选中();
-                上下文.界面.开始新建实体(父);
-            }
-            if ui
-                .small_button("🗑")
+            ui.spacing_mut().item_spacing.x = 2.0;
+            let 尺寸 = 上下文.外观.图标尺寸 * 0.9;
+            if 上下文
+                .图标
+                .图标按钮(
+                    ui,
+                    图标::删除,
+                    None,
+                    尺寸,
+                    上下文.配色.错误,
+                    !编辑器.选择.为空(),
+                )
                 .on_hover_text(上下文.语言.取("delete_selected_entities"))
                 .clicked()
                 && let Some(目标) = 上下文.主选中()
             {
                 上下文.动作.推(UiAction::删除实体(目标));
             }
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::新建, None, 尺寸, 上下文.配色.文字, true)
+                .on_hover_text(上下文.语言.取("new_child_entity_under_selection"))
+                .clicked()
+            {
+                let 父 = 上下文.主选中();
+                上下文.界面.开始新建实体(父);
+            }
         });
     });
-
-    ui.separator();
 
     // 搜索框：直接绑定界面状态里的字段。
     // egui 的 `TextEdit` 需要 `&mut String`，因此不能在闭包里借用
     // `上下文`（那会与外层的 `&mut 绘制上下文` 冲突）。
     // 这里先把字段"借出来"单独用，绘制结束后再放回去。
+    //
+    // 不再在输入框左边写"搜索"两个字：输入框的占位文案已经说了它是什么，
+    // 前面再加一个标签只是在重复，还把输入框挤窄了。
     let mut 关键字 = std::mem::take(&mut 上下文.界面.实体搜索);
-    ui.horizontal(|ui| {
-        ui.label(上下文.语言.取("search"));
-        ui.add(
-            egui::TextEdit::singleline(&mut 关键字)
-                .hint_text(上下文.语言.取("entity_name"))
-                .desired_width(f32::INFINITY),
-        );
-    });
+    ui.add(
+        egui::TextEdit::singleline(&mut 关键字)
+            .hint_text(上下文.语言.取("entity_name"))
+            .desired_width(f32::INFINITY)
+            .frame(crate::visual_spec::输入框框架(
+                上下文.配色,
+                上下文.主题.明暗,
+            )),
+    );
     let 有搜索 = !关键字.trim().is_empty();
     上下文.界面.实体搜索 = 关键字.clone();
     if 有搜索 {
@@ -247,8 +274,6 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             );
         });
     }
-
-    ui.separator();
 
     上下文.界面.规范折叠(&编辑器.会话.文档);
     let 折叠 = 上下文.界面.折叠集合().clone();
@@ -452,15 +477,24 @@ fn 绘制行(
     // 因此文字与图标永远在背景之上；且它的矩形天然等于整行（含缩进以外的
     // 全部宽度），不需要我们自己预测行高。`set_min_width` 让背景横跨
     // 实际可用宽度，鼠标扫过时不会出现"只有半个身子高亮"的割裂感。
+    // 悬停与选中用**同一套语法**：选中是实心一档的强调淡底 + 左侧 2px
+    // 强调竖条；悬停只是比面板略亮一档的中性底，且不带竖条。
+    // 圆角为 0：行是列表的一部分，带圆角会让人以为每一行都是独立卡片。
+    // 行矩形在布局前就能算出来：行永远占满可用宽度、高度固定。
+    // 用 `max_rect()` 判断悬停会把整个面板都算成"悬停在这一行"。
+    let 预判行矩形 =
+        egui::Rect::from_min_size(ui.cursor().min, egui::vec2(ui.available_width(), 行高));
+    let 悬停 = ui.rect_contains_pointer(预判行矩形);
     let 行背景 = if 选中 {
-        上下文.配色.强调淡
+        上下文.配色.选中背景
+    } else if 悬停 {
+        上下文.配色.悬停背景
     } else {
         egui::Color32::TRANSPARENT
     };
     let 整行 = egui::Frame::NONE
         .fill(行背景)
-        .corner_radius(egui::CornerRadius::same(3))
-        .inner_margin(egui::Margin::symmetric(0, 1))
+        .inner_margin(egui::Margin::symmetric(2, 1))
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {
@@ -543,9 +577,7 @@ fn 绘制行(
                 // 普通（正常文字色）。三者必须不同，否则用户无法从场景树
                 // 判断某个实体当前处于什么状态。
                 let 名称文本 = RichText::new(&行.名称).color(if 行.隐藏 {
-                    上下文.配色.次要文字
-                } else if 选中 {
-                    上下文.配色.强调
+                    上下文.配色.禁用文字
                 } else {
                     上下文.配色.文字
                 });
@@ -629,6 +661,16 @@ fn 绘制行(
     // 才是名称标签的响应（点击/双击走它，保持原有选择与重命名语义）。
     let 行矩形响应 = 整行.response;
     let 响应 = 整行.inner.inner;
+
+    // 选中态的左侧竖条：颜色是最亮的强调色，宽度 2px，高度内缩 2px。
+    // 它比"整行换底色"更能说明"选中了哪一个"，也不会在多层缩进里糊成一片。
+    if 选中 {
+        let 条 = egui::Rect::from_min_max(
+            egui::pos2(行矩形响应.rect.min.x, 行矩形响应.rect.min.y + 2.0),
+            egui::pos2(行矩形响应.rect.min.x + 2.0, 行矩形响应.rect.max.y - 2.0),
+        );
+        ui.painter().rect_filled(条, 0.0, 上下文.配色.强调);
+    }
 
     if 响应.clicked() {
         推送选择(上下文, ui, 行.标识);

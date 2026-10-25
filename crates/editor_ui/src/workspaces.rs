@@ -168,7 +168,7 @@ fn 场景预设() -> egui_dock::DockState<Tab> {
     let [上方, _底部] = 主.split_below(
         主区,
         0.82,
-        vec![Tab::控制台, Tab::构建, Tab::运行, Tab::性能, Tab::脚本],
+        vec![Tab::控制台, Tab::构建, Tab::运行, Tab::性能, Tab::脚本, Tab::瓦片地图],
     );
     let [_视口, _左列] = 主.split_left(
         上方,
@@ -200,7 +200,7 @@ fn 资源预设() -> egui_dock::DockState<Tab> {
     let [_资源, _左列] = 主.split_left(
         中区,
         0.34,
-        vec![Tab::场景树, Tab::构建, Tab::运行, Tab::运行时ecs, Tab::脚本],
+        vec![Tab::场景树, Tab::构建, Tab::运行, Tab::运行时ecs, Tab::脚本, Tab::瓦片地图],
     );
     布局
 }
@@ -233,6 +233,7 @@ fn 调试预设() -> egui_dock::DockState<Tab> {
             Tab::运行时ecs,
             Tab::资源浏览器,
             Tab::脚本,
+            Tab::瓦片地图,
         ],
     );
     let [_视口, _左列] = 主.split_left(上方, 0.20, vec![Tab::场景树]);

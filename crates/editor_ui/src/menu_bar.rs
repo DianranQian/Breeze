@@ -259,6 +259,7 @@ pub fn 菜单定义() -> Vec<(&'static str, Vec<菜单分组>)> {
                         菜单项::常可用("build", None),
                         菜单项::常可用("run", None),
                         菜单项::常可用("timeline", None),
+                        菜单项::常可用("tilemap", None),
                     ],
                 },
                 菜单分组 {
@@ -347,6 +348,7 @@ pub fn 窗口菜单对应面板(文本: &str) -> Option<Tab> {
         "build" => Some(Tab::构建),
         "run" => Some(Tab::运行),
         "timeline" => Some(Tab::时间轴),
+        "tilemap" => Some(Tab::瓦片地图),
         _ => None,
     }
 }
@@ -721,6 +723,33 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 /// 只有图标需要用户记住含义（对新用户不友好），只有文字则一屏放不下
 /// 几个操作。专业编辑器的通行做法是"图标 + 短文字"：
 /// 图标负责快速识别，文字负责首次学习，悬停再给完整说明。
+/// 把项目运行摘要里的状态前缀换成当前语言。
+///
+/// # 为什么在界面层做这件事
+///
+/// 摘要由 `editor_app::run` 组装，其中的状态词来自 `项目运行状态::文案()`，
+/// 那是**写进日志的中文**（日志要可 grep，不随界面语言变）。英文界面直接
+/// 显示它就会漏出一句中文 —— 实测在 1024×700 的英文截图里就能看到。
+/// 这里只替换开头的状态词，后面的命令行（路径、进程号）保持原样。
+fn 本地化运行摘要(摘要: &str, 语言: crate::i18n::语言) -> String {
+    if 语言 != crate::i18n::语言::英文 || 摘要.is_empty() {
+        return 摘要.to_string();
+    }
+    for 状态 in [
+        editor_core::run_entry::项目运行状态::空闲,
+        editor_core::run_entry::项目运行状态::启动中,
+        editor_core::run_entry::项目运行状态::运行中,
+        editor_core::run_entry::项目运行状态::已停止,
+        editor_core::run_entry::项目运行状态::失败,
+    ] {
+        let 原文 = 状态.文案();
+        if let Some(其余) = 摘要.strip_prefix(原文) {
+            return format!("{}{}", 语言.取(状态.词条键()), 其余);
+        }
+    }
+    摘要.to_string()
+}
+
 pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 编辑器 = 上下文.编辑器;
     let 正在运行 = 上下文.正在运行;
@@ -738,7 +767,7 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         // ---- 模式专用工具 ----
         // 放在最左边：它随主开发模式变化，是"当前任务"最直接的入口。
         if crate::dev_mode_bar::绘制模式工具栏(ui, 上下文) {
-            ui.separator();
+            crate::visual_spec::工具栏分组(ui, 上下文.配色);
         }
 
         // ---- 预览控制（编辑器内）----
@@ -810,7 +839,7 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             次要色
         }));
 
-        ui.separator();
+        crate::visual_spec::工具栏分组(ui, 上下文.配色);
 
         // ---- 项目运行（独立进程）----
         //
@@ -858,7 +887,7 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         if 响应.clicked() {
             上下文.动作.推(UiAction::停止项目);
         }
-        let 摘要 = 上下文.界面.项目运行摘要.clone();
+        let 摘要 = 本地化运行摘要(&上下文.界面.项目运行摘要, 语言);
         if !摘要.is_empty() {
             ui.label(RichText::new(摘要).small().color(if 项目在跑 {
                 上下文.配色.成功
@@ -867,7 +896,7 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             }));
         }
 
-        ui.separator();
+        crate::visual_spec::工具栏分组(ui, 上下文.配色);
 
         // ---- 编辑 ----
         if 上下文
@@ -916,7 +945,7 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             上下文.动作.推(UiAction::保存场景);
         }
 
-        ui.separator();
+        crate::visual_spec::工具栏分组(ui, 上下文.配色);
 
         // ---- 实体 ----
         if 上下文
@@ -938,7 +967,7 @@ pub fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             上下文.动作.推(UiAction::删除实体(标识));
         }
 
-        ui.separator();
+        crate::visual_spec::工具栏分组(ui, 上下文.配色);
 
         // ---- 面板快捷入口（图标即面板身份）----
         for (面板, 图标项) in [

@@ -505,6 +505,24 @@ mod 测试 {
                 ],
             ),
             ("语言自称", &["language_self_zh_cn", "language_self_en"]),
+            // 「关于」窗口。它只在用户主动打开时才出现，最容易被漏翻
+            // 而没人发现；这里把整块文案列成清单，漏一条就失败。
+            (
+                "关于窗口",
+                &[
+                    "about_bevy_studio",
+                    "about_tagline",
+                    "about_modes",
+                    "about_capabilities",
+                    "about_implemented_features",
+                    "about_unimplemented_note",
+                    "about_ui_stack",
+                    "about_scene_format",
+                    "tech_stack",
+                    "version",
+                    "current_scene",
+                ],
+            ),
         ];
 
         let mut 缺失 = Vec::new();

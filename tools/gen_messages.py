@@ -65,6 +65,7 @@ import sys
     "crates/editor_ui/src/build_panel.rs",
     "crates/editor_ui/src/workbench_panel.rs",
     "crates/editor_ui/src/timeline_panel.rs",
+    "crates/editor_ui/src/tilemap_panel.rs",
     "crates/editor_ui/src/lib.rs",
     "crates/editor_ui/src/docks.rs",
     "crates/editor_ui/src/state.rs",
@@ -155,6 +156,10 @@ import sys
     "实体 {标识} 已有组件 `{}`",
     "实体 {标识} 没有组件 `{类型名}`",
     "父实体 {父} 不存在",
+    # 瓦片地图面板的掩码表解析错误：与上面同类，属于"错误携带键"的
+    # 下一轮改造范围，本轮如实排除。
+    "掩码表需要 16 项，当前 {} 项",
+    "掩码表第 {序号} 项 `{项}` 不是 0..65535 的整数",
 }
 
 

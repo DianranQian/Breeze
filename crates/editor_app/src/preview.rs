@@ -35,17 +35,20 @@
 //! 两者都是"文档的消费者"，互不干扰。
 
 use bevy::camera::{RenderTarget, ScalingMode, visibility::RenderLayers};
+use bevy::math::Affine2;
 use bevy::pbr::{MeshMaterial3d, StandardMaterial};
 use bevy::prelude::AlphaMode;
 use bevy::prelude::*;
 use bevy::render::render_resource::{
-    Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    Extent3d, Face, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 use bevy_egui::{EguiTextureHandle, EguiUserTextures};
 use scene_doc::document::{变换数据, 场景文档, 实体标识};
 use scene_doc::property::{属性值, 颜色值};
 
 use crate::plugin::EditorStateHolder;
+use crate::scene_bridge::几何体形状;
+use crate::tile_terrain::{地形参数, 地形缓存};
 
 /// 预览实体标记。
 ///
@@ -367,6 +370,148 @@ pub fn 投影预览项(文档: &场景文档) -> Vec<预览渲染项> {
     结果
 }
 
+/// 一个 `TileTerrain` 实体应当产生的渲染项。
+///
+/// 与 [`预览渲染项`] 分开，因为它的"贴图"不是一条资源路径，而是
+/// 加载时按地形数据程序化合成的纹理。把合成留给 `同步预览实体`，
+/// 投影本身仍然保持纯函数、可单测。
+#[derive(Debug, Clone, PartialEq)]
+pub struct 地形渲染项 {
+    /// 对应的文档实体标识。
+    pub 来源: 实体标识,
+    /// 该实体的变换。
+    pub 变换: Transform,
+    /// 地形参数（数据路径、图集目录、烘焙参数）。
+    pub 参数: 地形参数,
+    /// 世界显示尺寸。
+    pub 显示尺寸: (f32, f32),
+}
+
+/// 一个 `Primitive3d` 实体应当产生的渲染项。
+#[derive(Debug, Clone, PartialEq)]
+pub struct 几何渲染项 {
+    /// 对应的文档实体标识。
+    pub 来源: 实体标识,
+    /// 该实体的变换。
+    pub 变换: Transform,
+    /// 几何形状。
+    pub 形状: 几何体形状,
+    /// 世界尺寸。
+    pub 尺寸: (f32, f32, f32),
+    /// 贴图路径（项目相对）。
+    pub 贴图路径: Option<String>,
+    /// 基础色。
+    pub 颜色: 颜色值,
+    /// UV 重复。
+    pub 贴图重复: (f32, f32),
+    /// 是否受光。
+    pub 受光: bool,
+    /// 是否双面。
+    pub 双面: bool,
+    /// 二维视口里的代替尺寸（顶视图/正视图）。
+    pub 二维尺寸: (f32, f32),
+}
+
+/// 从 `TileTerrain` 组件投影地形渲染项。
+pub fn 投影地形项(文档: &场景文档) -> Vec<地形渲染项> {
+    let mut 结果 = Vec::new();
+    for (标识, _深度) in 文档.深度优先遍历() {
+        let Some(实体) = 文档.取(标识) else {
+            continue;
+        };
+        if 实体.编辑器隐藏 {
+            continue;
+        }
+        let Some(变换) = 实体.变换 else {
+            continue;
+        };
+        let Some(组件) = 实体.取组件("TileTerrain") else {
+            continue;
+        };
+        let 参数 = 地形参数::解析(&组件.属性);
+        let 显示尺寸 = 参数.显示尺寸;
+        结果.push(地形渲染项 {
+            来源: 标识,
+            变换: 变换转预览(变换),
+            参数,
+            显示尺寸,
+        });
+    }
+    结果
+}
+
+/// 从 `Primitive3d` 组件投影几何渲染项。
+pub fn 投影几何项(文档: &场景文档) -> Vec<几何渲染项> {
+    let mut 结果 = Vec::new();
+    for (标识, _深度) in 文档.深度优先遍历() {
+        let Some(实体) = 文档.取(标识) else {
+            continue;
+        };
+        if 实体.编辑器隐藏 {
+            continue;
+        }
+        let Some(变换) = 实体.变换 else {
+            continue;
+        };
+        let Some(组件) = 实体.取组件("Primitive3d") else {
+            continue;
+        };
+        let 属性 = &组件.属性;
+
+        let 形状 = match 属性.get("形状") {
+            Some(属性值::枚举(枚举)) => 几何体形状::由值(&枚举.变体名, 枚举.序号),
+            _ => 几何体形状::立方体,
+        };
+        let (x, y, z) = 属性
+            .get("尺寸")
+            .and_then(属性值::取三维)
+            .map(|(x, y, z)| (x.abs().max(0.001), y.abs().max(0.001), z.abs().max(0.001)))
+            .unwrap_or((1.0, 1.0, 1.0));
+        let 贴图路径 = 属性
+            .get("贴图")
+            .and_then(属性值::取资源)
+            .map(|引用| 引用.路径.文本().to_string());
+        let 颜色 = 属性
+            .get("颜色")
+            .and_then(属性值::取颜色)
+            .unwrap_or(颜色值::白());
+        let 贴图重复 = 属性
+            .get("贴图重复")
+            .and_then(属性值::取二维)
+            .map(|(u, v)| (u.abs().max(0.0), v.abs().max(0.0)))
+            .unwrap_or((1.0, 1.0));
+        let 受光 = 属性.get("受光").and_then(属性值::取布尔).unwrap_or(true);
+        let 双面 = 属性.get("双面").and_then(属性值::取布尔).unwrap_or(false);
+
+        // 2D 视口里没有"厚度"概念：地面取 (x,z) 的顶视图，
+        // 墙取 (x,y) 的正视图，保证两种主要用法都能看见。
+        let 二维尺寸 = match 形状 {
+            几何体形状::平面 => (x, z),
+            几何体形状::立方体 => {
+                if z > y {
+                    (x, z)
+                } else {
+                    (x, y)
+                }
+            }
+        };
+
+        结果.push(几何渲染项 {
+            来源: 标识,
+            变换: 变换转预览(变换),
+            形状,
+            尺寸: (x, y, z),
+            贴图路径,
+            颜色,
+            贴图重复,
+            受光,
+            双面,
+            二维尺寸,
+        });
+    }
+    结果
+}
+
 /// 把颜色值转成 Bevy 颜色。
 pub fn 颜色转_bevy(颜色: 颜色值) -> Color {
     if 颜色.是_srgb {
@@ -495,6 +640,8 @@ pub fn 初始化预览资源(
         纹理: Some(纹理),
     });
     命令.insert_resource(贴图缓存::default());
+    命令.insert_resource(地形缓存::default());
+    命令.insert_resource(地形文件监视::default());
     命令.insert_resource(预览同步状态::default());
     // 三维实体用同一个 1×1 四边形，按实体显示尺寸缩放：
     // 一个网格句柄服务全部实体，比每个实体建一个网格省得多。
@@ -505,9 +652,13 @@ pub fn 初始化预览资源(
 
     // 三维预览的照明：模型材质是受光的（与 unlit 的贴图四边形不同），
     // 没有光会渲染成纯黑。方向光负责形体，环境光保证背光面可见。
+    //
+    // 开启阴影：3D 示例的地面/围墙现在是受光的实体网格，没有阴影时
+    // 道具看起来像浮在地上；这是"程序化几何体"与"纸片"最直观的差别之一。
     命令.spawn((
         DirectionalLight {
             illuminance: 9_000.0,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(6.0, 12.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -599,6 +750,8 @@ pub fn 同步预览相机(
         return;
     }
     let 视口相机 = 界面.状态.相机;
+    // 可见世界矩形由 `视口相机` 内部按**设计帧**换算（见 `视口相机::画布尺寸`），
+    // 这里仍然把面板尺寸传进去：面板尺寸只用于 letterbox，不参与世界尺度。
     let 视口尺寸 = 界面.状态.视口尺寸;
     if 视口尺寸.x <= 0.0 || 视口尺寸.y <= 0.0 {
         return;
@@ -656,8 +809,10 @@ pub fn 同步预览实体(
     mut 同步状态: ResMut<预览同步状态>,
     已有: Query<(Entity, &预览来源), With<预览实体>>,
     mut 贴图缓存: ResMut<贴图缓存>,
+    mut 地形缓存: ResMut<地形缓存>,
     三维资源: Res<三维预览资源>,
     mut 材质表: ResMut<Assets<StandardMaterial>>,
+    mut 网格资源: ResMut<Assets<Mesh>>,
     mut 图片资源: ResMut<Assets<Image>>,
     资源服务器: Res<AssetServer>,
 ) {
@@ -680,6 +835,8 @@ pub fn 同步预览实体(
 
     // 投影判断全部在纯函数里完成，这里只负责把结果变成 ECS 实体。
     let 待渲染 = 投影预览项(文档);
+    let 地形项 = 投影地形项(文档);
+    let 几何项 = 投影几何项(文档);
 
     for 项 in &待渲染 {
         // 模型实体：交给 Bevy 的 glTF 场景加载器，位置/旋转/缩放沿用文档变换。
@@ -759,8 +916,207 @@ pub fn 同步预览实体(
         ));
     }
 
+    // ---- 程序化瓦片地形 ----
+    //
+    // 贴图不是项目里的 PNG，而是按 `TileTerrain` 的参数与字符网格在加载时
+    // 走双网格合成出来的。缓存键包含文件 mtime，数据或图集一改就重烘。
+    if let Some(根) = 项目根.as_deref() {
+        let mut 使用键 = Vec::with_capacity(地形项.len());
+        for 项 in &地形项 {
+            使用键.push(地形缓存::键(根, &项.参数));
+            let 图片 = 地形缓存.取或烘焙(根, &项.参数, &mut 图片资源);
+
+            // 二维视口：整张地形当作一个精灵，尺寸就是文档里的显示尺寸。
+            命令.spawn((
+                预览实体,
+                预览来源(项.来源),
+                Sprite {
+                    image: 图片.clone(),
+                    custom_size: Some(Vec2::new(项.显示尺寸.0, 项.显示尺寸.1)),
+                    ..default()
+                },
+                项.变换,
+                RenderLayers::layer(预览渲染层),
+            ));
+
+            // 三维视口：同一张纹理的四边形（2D 场景在 3D 模式下仍然是平面）。
+            let 材质 = StandardMaterial {
+                base_color_texture: Some(图片),
+                unlit: true,
+                alpha_mode: AlphaMode::Blend,
+                cull_mode: None,
+                ..default()
+            };
+            let 材质句柄 = 材质表.add(材质);
+            let mut 三维变换 = 项.变换;
+            三维变换.scale.x *= 项.显示尺寸.0;
+            三维变换.scale.y *= 项.显示尺寸.1;
+            命令.spawn((
+                预览实体,
+                预览来源(项.来源),
+                Mesh3d(三维资源.四边形.clone()),
+                MeshMaterial3d(材质句柄),
+                三维变换,
+                RenderLayers::layer(三维渲染层),
+            ));
+        }
+        // 删掉/改路径的地形不能把 25MB 纹理永久留在 `Assets<Image>` 里。
+        地形缓存.清理(&使用键, &mut 图片资源);
+    } else {
+        地形缓存.清理(&[], &mut 图片资源);
+    }
+
+    // ---- 程序化三维几何体（地面、围墙、箱体）----
+    //
+    // 这里不再用 unlit 四边形：按文档里的形状/尺寸生成真正的 `Mesh3d`，
+    // 材质是受光的 `StandardMaterial`，UV 按 `贴图重复` 缩放。
+    // 3D 示例的地面与四面墙就是由这一条路径渲染出来的。
+    for 项 in &几何项 {
+        let 图片 = 解析贴图句柄(
+            项.贴图路径.as_deref(),
+            项目根.as_deref(),
+            &mut 贴图缓存,
+            &mut 图片资源,
+        );
+
+        // 二维视口里的代替表示：地面看顶视图、墙看正视图。
+        命令.spawn((
+            预览实体,
+            预览来源(项.来源),
+            Sprite {
+                image: 图片.clone(),
+                color: 颜色转_bevy(项.颜色),
+                custom_size: Some(Vec2::new(项.二维尺寸.0, 项.二维尺寸.1)),
+                ..default()
+            },
+            项.变换,
+            RenderLayers::layer(预览渲染层),
+        ));
+
+        let 网格句柄 = match 项.形状 {
+            几何体形状::立方体 => {
+                网格资源.add(Cuboid::new(项.尺寸.0, 项.尺寸.1, 项.尺寸.2))
+            }
+            几何体形状::平面 => 网格资源.add(
+                Plane3d::new(Vec3::Y, Vec2::new(项.尺寸.0 * 0.5, 项.尺寸.2 * 0.5))
+                    .mesh()
+                    .build(),
+            ),
+        };
+
+        let mut 材质 = StandardMaterial {
+            base_color: 颜色转_bevy(项.颜色),
+            unlit: !项.受光,
+            alpha_mode: AlphaMode::Opaque,
+            cull_mode: if 项.双面 { None } else { Some(Face::Back) },
+            uv_transform: Affine2::from_scale(Vec2::new(项.贴图重复.0, 项.贴图重复.1)),
+            perceptual_roughness: 0.9,
+            ..default()
+        };
+        if 图片.is_strong() {
+            材质.base_color_texture = Some(图片);
+        }
+        let 材质句柄 = 材质表.add(材质);
+
+        命令.spawn((
+            预览实体,
+            预览来源(项.来源),
+            Mesh3d(网格句柄),
+            MeshMaterial3d(材质句柄),
+            项.变换,
+            RenderLayers::layer(三维渲染层),
+        ));
+    }
+
     同步状态.已同步修订 = Some(修订);
-    同步状态.预览实体数 = 待渲染.len();
+    同步状态.预览实体数 = 待渲染.len() + 地形项.len() + 几何项.len();
+    // 每次属性修改都会走到这里；用 debug 级别，正常使用不刷屏。
+    debug!(
+        "预览同步完成：Sprite {} / 地形 {} / 几何体 {}",
+        待渲染.len(),
+        地形项.len(),
+        几何项.len()
+    );
+}
+
+/// 地形文件监视：外部编辑 `.terrain.ron` 后，文档修订号不会变，
+/// 但预览应该刷新。
+///
+/// # 为什么需要它
+///
+/// 地形数据是**文本**，工作流是"在编辑器外改字符 → 回编辑器看结果"。
+/// 如果只在文档修订号变化时同步，改完文件必须再动一下场景才会重烘。
+/// 这里每秒查一次 mtime，变了就把同步状态置为未同步，下一帧按新数据重烘；
+/// 纹理缓存自己也会比对 mtime，不会做无用的重复烘焙。
+#[derive(Resource)]
+pub struct 地形文件监视 {
+    记录: std::collections::HashMap<实体标识, Option<std::time::SystemTime>>,
+    累计: f32,
+    首次: bool,
+}
+
+impl Default for 地形文件监视 {
+    fn default() -> Self {
+        Self {
+            记录: std::collections::HashMap::new(),
+            累计: 0.0,
+            // 首次只建立基线，不因为"记录表是空的"就误报变化。
+            首次: true,
+        }
+    }
+}
+
+/// 每秒检查一次地形数据文件是否被外部修改。
+pub fn 监视地形文件(
+    mut 监视: ResMut<地形文件监视>,
+    mut 同步: ResMut<预览同步状态>,
+    编辑器: Res<EditorStateHolder>,
+    time: Res<Time>,
+) {
+    监视.累计 += time.delta_secs();
+    if 监视.累计 < 1.0 {
+        return;
+    }
+    监视.累计 = 0.0;
+
+    let Some(项目根) = 编辑器
+        .状态
+        .项目
+        .as_ref()
+        .map(|项目| 项目.根目录().to_path_buf())
+    else {
+        return;
+    };
+
+    let mut 变化 = false;
+    let mut 新记录 = std::collections::HashMap::new();
+    for 实体 in 编辑器.状态.会话.文档.实体表.values() {
+        let Some(组件) = 实体.取组件("TileTerrain") else {
+            continue;
+        };
+        let 参数 = 地形参数::解析(&组件.属性);
+        if 参数.地形文件.trim().is_empty() {
+            continue;
+        }
+        let 路径 = 项目根.join(参数.地形文件.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let 时间 = std::fs::metadata(&路径)
+            .ok()
+            .and_then(|元| 元.modified().ok());
+        if !监视.首次 && 监视.记录.get(&实体.标识) != Some(&时间) {
+            变化 = true;
+            info!("[地形] 检测到 {} 变化，刷新预览", 参数.地形文件);
+        }
+        新记录.insert(实体.标识, 时间);
+    }
+
+    监视.记录 = 新记录;
+    if 监视.首次 {
+        info!("[地形] 文件监视已建立基线：{} 个地形实体", 监视.记录.len());
+    }
+    监视.首次 = false;
+    if 变化 {
+        同步.已同步修订 = None;
+    }
 }
 
 /// 三维模式下驱动预览相机：换成 `Camera3d`、跟随轨道相机。

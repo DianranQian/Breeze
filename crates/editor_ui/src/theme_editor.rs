@@ -191,18 +191,42 @@ pub fn 绘制(
         .id(egui::Id::new("bevy_studio_主题编辑器"))
         .open(&mut 打开)
         .resizable(true)
-        .default_size(egui::vec2(520.0, 620.0))
+        .collapsible(false)
+        .default_size(egui::vec2(620.0, 700.0))
+        .min_width(520.0)
+        // 离开左上角：贴边浮窗会压住菜单条与模式切换，用户第一眼会把它
+        // 当成"界面坏了"而不是"一个新窗口"。默认位置落在工作区中间偏左。
+        .default_pos(egui::pos2(320.0, 84.0))
         .show(egui上下文, |ui| {
-            // ---- 顶部：主题选择 + 操作 ----
-            ui.label(RichText::new(语言.取("theme_list")).strong());
+            // ---- 顶部：当前主题 + 切换 ----
+            //
+            // 主题列表用分段语法而不是普通按钮：它们是**互斥的一选一**。
+            // 每个内置主题带自己的身份图标（月亮 / 太阳 / 对比度），
+            // 用户不必先读文字才能认出深色与浅色。
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(语言.取("theme_list"))
+                        .size(13.0 - 0.5)
+                        .strong()
+                        .color(配色.文字),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(if 当前id.starts_with("user-") {
+                            format!("{} {用户数量}", 语言.取("theme_group_custom"))
+                        } else {
+                            String::new()
+                        })
+                        .size(11.0)
+                        .color(配色.禁用文字),
+                    );
+                });
+            });
+            ui.add_space(2.0);
             ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
                 for (id, 名称, 内置) in &主题列表 {
                     let 选中 = *id == 当前id;
-                    let 标签 = if *内置 {
-                        format!("{名称}·{}", 语言.取("theme_builtin_tag"))
-                    } else {
-                        名称.clone()
-                    };
                     // 内置主题各有一个"身份图标"：月亮=深色、太阳=浅色、
                     // 对比度=高对比度。用户在列表里不必读文字也能区分。
                     let 图标项 = match 内置主题::从id(id) {
@@ -211,51 +235,62 @@ pub fn 绘制(
                         Some(内置主题::高对比度) => crate::icons::图标::对比度,
                         None => crate::icons::图标::主题,
                     };
-                    let 色 = if 选中 {
-                        配色.文字
+                    let 纹理 = 图标库.纹理(egui上下文, 图标项).map(|纹理| {
+                        egui::load::SizedTexture::new(
+                            纹理.id(),
+                            egui::vec2(图标尺寸 * 0.8, 图标尺寸 * 0.8),
+                        )
+                    });
+                    let 标签 = if *内置 {
+                        format!("{}·{}", 名称, 语言.取("theme_builtin_tag"))
                     } else {
-                        配色.次要文字
+                        名称.clone()
                     };
-                    let Some(纹理) = 图标库.纹理(egui上下文, 图标项) else {
-                        continue;
-                    };
-                    let 图片 = egui::Image::new(egui::load::SizedTexture::new(
-                        纹理.id(),
-                        egui::vec2(图标尺寸 * 0.85, 图标尺寸 * 0.85),
-                    ))
-                    .tint(色);
-                    let 按钮 = egui::Button::image_and_text(图片, RichText::new(标签).color(色))
-                        .frame(false)
-                        .fill(if 选中 {
-                            配色.强调淡
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .corner_radius(egui::CornerRadius::same(3));
-                    if ui.add(按钮).clicked() && !选中 {
+                    if crate::visual_spec::分段标签(
+                        ui,
+                        配色,
+                        13.0,
+                        &标签,
+                        纹理.as_ref(),
+                        选中,
+                        true,
+                    )
+                    .clicked()
+                        && !选中
+                    {
                         待推.push(UiAction::设置主题(id.clone()));
                     }
                 }
             });
-            ui.separator();
+            ui.add_space(6.0);
 
             // ---- 草稿基本信息 ----
-            ui.horizontal(|ui| {
-                ui.label(语言.取("theme_name"));
-                let mut 名称 = 草稿.名称.clone().unwrap_or_else(|| 草稿.显示名(语言));
-                if ui
-                    .add(egui::TextEdit::singleline(&mut 名称).desired_width(180.0))
-                    .changed()
-                {
-                    草稿.名称 = Some(名称);
-                }
-                // 明暗属性影响 egui 的一些默认绘制，必须可调。
-                let 明暗标签 = match 草稿.明暗 {
-                    crate::theme::明暗::深色 => 语言.取("theme_dark"),
-                    crate::theme::明暗::浅色 => 语言.取("theme_light"),
-                };
-                ui.label(RichText::new(明暗标签).small().color(配色.次要文字));
-            });
+            egui::Grid::new("主题基本信息")
+                .num_columns(2)
+                .spacing([8.0, 6.0])
+                .show(ui, |ui| {
+                    ui.label(RichText::new(语言.取("theme_name")).color(配色.次要文字));
+                    ui.horizontal(|ui| {
+                        let mut 名称 = 草稿.名称.clone().unwrap_or_else(|| 草稿.显示名(语言));
+                        if ui
+                            .add(
+                                egui::TextEdit::singleline(&mut 名称)
+                                    .desired_width(200.0)
+                                    .frame(crate::visual_spec::输入框框架(配色, 草稿.明暗)),
+                            )
+                            .changed()
+                        {
+                            草稿.名称 = Some(名称);
+                        }
+                        // 明暗属性影响 egui 的一些默认绘制，必须可调。
+                        let 明暗标签 = match 草稿.明暗 {
+                            crate::theme::明暗::深色 => 语言.取("theme_dark"),
+                            crate::theme::明暗::浅色 => 语言.取("theme_light"),
+                        };
+                        ui.label(RichText::new(明暗标签).size(11.0).color(配色.禁用文字));
+                    });
+                    ui.end_row();
+                });
 
             ui.add_space(4.0);
             // 高度自适应窗口：固定 360 会在默认窗口高度下把
@@ -265,30 +300,59 @@ pub fn 绘制(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     for 组 in 颜色分组() {
-                        ui.add_space(4.0);
-                        ui.label(RichText::new(语言.取(组.标题键)).strong().color(配色.文字));
-                        ui.horizontal_wrapped(|ui| {
-                            for 槽位 in &组.槽 {
-                                let 值 = (槽位.取)(&草稿.配色);
-                                ui.label(
-                                    RichText::new(语言.取(槽位.键)).small().color(配色.次要文字),
-                                );
-                                let mut 新值 = 值;
-                                if ui
-                                    .color_edit_button_srgba(&mut 新值)
-                                    .on_hover_text(format!(
-                                        "#{:02X}{:02X}{:02X}",
-                                        值.r(),
-                                        值.g(),
-                                        值.b()
-                                    ))
-                                    .changed()
-                                {
-                                    (槽位.设)(&mut 草稿.配色, 新值);
-                                }
-                                ui.add_space(6.0);
-                            }
+                        ui.add_space(8.0);
+                        // 分组标题：小字 + 一条贯穿整行的细线。分组靠线断开，
+                        // 不靠给每组套一个背景块。
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(语言.取(组.标题键))
+                                    .size(11.0)
+                                    .strong()
+                                    .color(配色.次要文字),
+                            );
+                            let 剩余 = ui.available_width();
+                            let (线, _) =
+                                ui.allocate_exact_size(egui::vec2(剩余, 1.0), egui::Sense::hover());
+                            ui.painter().rect_filled(线, 0.0, 配色.边框);
                         });
+                        // 两列网格：每列 = 名称 + 色块。名称列宽固定，
+                        // 色块因此垂直对齐；改造前是流式换行，色块参差不齐。
+                        egui::Grid::new(("主题颜色", 组.标题键))
+                            .num_columns(4)
+                            .spacing([8.0, 4.0])
+                            .min_col_width(78.0)
+                            .show(ui, |ui| {
+                                for (下标, 槽位) in 组.槽.iter().enumerate() {
+                                    let 值 = (槽位.取)(&草稿.配色);
+                                    ui.label(
+                                        RichText::new(语言.取(槽位.键))
+                                            .size(11.0)
+                                            .color(配色.次要文字),
+                                    );
+                                    let mut 新值 = 值;
+                                    if ui
+                                        .color_edit_button_srgba(&mut 新值)
+                                        .on_hover_text(format!(
+                                            "#{:02X}{:02X}{:02X}",
+                                            值.r(),
+                                            值.g(),
+                                            值.b()
+                                        ))
+                                        .changed()
+                                    {
+                                        (槽位.设)(&mut 草稿.配色, 新值);
+                                    }
+                                    // 每行两项，第二项之后换行。
+                                    if 下标 % 2 == 1 {
+                                        ui.end_row();
+                                    }
+                                }
+                                if 组.槽.len() % 2 == 1 {
+                                    ui.label("");
+                                    ui.label("");
+                                    ui.end_row();
+                                }
+                            });
                     }
 
                     ui.add_space(8.0);
@@ -322,12 +386,19 @@ pub fn 绘制(
                     );
                 });
 
-            ui.separator();
+            ui.add_space(6.0);
+            crate::visual_spec::细线(ui, 配色);
             ui.horizontal_wrapped(|ui| {
                 if ui
-                    .add(egui::Button::new(
-                        RichText::new(语言.取("theme_save")).strong(),
-                    ))
+                    .add(
+                        egui::Button::new(
+                            RichText::new(语言.取("theme_save"))
+                                .color(配色.强调亮)
+                                .strong(),
+                        )
+                        .fill(配色.强调淡)
+                        .stroke(egui::Stroke::new(1.0, 配色.强调)),
+                    )
                     .on_hover_text(语言.取("theme_save_hint"))
                     .clicked()
                 {
@@ -342,9 +413,30 @@ pub fn 绘制(
                         名称: 语言.填充("theme_new_name", &[&(用户数量 + 1)]),
                     });
                 }
+                // 危险操作与普通操作分开：删除主题是唯一不可撤销的动作，
+                // 它用错误色描边、并与导入/导出之间隔一道分组线。
+                // 改造前七个按钮等宽等权排在一条线上，"删除主题"和"取消"
+                // 长得一样，误点代价却是丢掉一整套配色。
                 let 当前是内置 = 内置主题::从id(&当前id).is_some();
                 if ui
-                    .add_enabled(!当前是内置, egui::Button::new(语言.取("theme_delete")))
+                    .add_enabled(
+                        !当前是内置,
+                        egui::Button::new(RichText::new(语言.取("theme_delete")).color(
+                            if 当前是内置 {
+                                配色.禁用文字
+                            } else {
+                                配色.错误
+                            },
+                        ))
+                        .stroke(egui::Stroke::new(
+                            1.0,
+                            if 当前是内置 {
+                                配色.边框
+                            } else {
+                                配色.错误
+                            },
+                        )),
+                    )
                     .on_hover_text(if 当前是内置 {
                         语言.取("theme_builtin_not_deletable")
                     } else {
@@ -363,15 +455,18 @@ pub fn 绘制(
                 {
                     待推.push(UiAction::重置内置主题);
                 }
+                crate::visual_spec::工具栏分组(ui, 配色);
                 if ui.button(语言.取("theme_import")).clicked() {
                     待推.push(UiAction::导入主题);
                 }
                 if ui.button(语言.取("theme_export")).clicked() {
                     待推.push(UiAction::导出主题);
                 }
-                if ui.button(语言.取("cancel")).clicked() {
-                    待推.push(UiAction::关闭主题编辑器);
-                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button(语言.取("cancel")).clicked() {
+                        待推.push(UiAction::关闭主题编辑器);
+                    }
+                });
             });
             ui.label(
                 RichText::new(语言.取("theme_live_preview_hint"))

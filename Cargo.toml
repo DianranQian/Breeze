@@ -111,6 +111,7 @@ editor_ui = { path = "crates/editor_ui" }
 # 这是 Bevy 官方推荐的配置：编辑-运行循环的迭代速度显著提升。
 # ---------------------------------------------------------------------------
 [profile.dev]
+debug = 1
 opt-level = 1
 
 [profile.dev.package."*"]

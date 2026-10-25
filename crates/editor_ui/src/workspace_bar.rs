@@ -17,7 +17,7 @@
 //! 所有颜色都取自 [`crate::theme::编辑器配色`] 的语义槽位，不写字面色值；
 //! 因此深色/浅色/高对比度主题下这一条栏都会自动跟着变。
 
-use egui::{Button, Color32, CornerRadius, RichText, Ui};
+use egui::{Button, RichText, Ui};
 
 use crate::i18n::语言;
 use crate::icons::图标;
@@ -42,7 +42,7 @@ fn 内置工作区快照标识(内置: crate::workspaces::内置工作区) -> &'
 }
 
 /// 工作区栏高度（逻辑像素）。
-pub const 工作区栏高度: f32 = 26.0;
+pub const 工作区栏高度: f32 = crate::visual_spec::高度::工作区栏;
 
 /// 标签名称的最大显示字符数。
 ///
@@ -58,6 +58,158 @@ fn 截断名称(名称: &str) -> (String, bool) {
     }
     let 保留: String = 名称.chars().take(名称最大字符数 - 1).collect();
     (format!("{保留}…"), true)
+}
+
+/// 在**同一行**的右侧画工作区切换（紧凑版）。
+///
+/// # 为什么改成行内绘制
+///
+/// 改造前「模式」与「工作区」各占一整行，加上菜单栏与工具栏，窗口顶部
+/// 一共四层横条、约 130 逻辑像素。四层横条把视口往下推，也让"我在哪"
+/// 需要跨两行去找。
+///
+/// 现在两者共用一行：左边是"我在编辑什么"（2D / 3D / 代码 / Agent），
+/// 右边是"面板怎么摆"（通用 / 场景 / 资源 / 调试）。它们是两个正交维度，
+/// 但都是**高频切换的上下文**，并排放置比上下堆叠更省视线。
+///
+/// 返回本段占用的矩形，供自动验收记录 `workspacebar` 区域（保留这个标识，
+/// 因为验收断言按它取几何）。
+pub fn 行内绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -> egui::Rect {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    let 当前id = 上下文.界面.工作区.当前id().to_string();
+    let 条目: Vec<(String, String, bool)> = 上下文
+        .界面
+        .工作区
+        .列表()
+        .iter()
+        .map(|项| (项.id.clone(), 项.显示名(语言), 项.内置))
+        .collect();
+    let 当前是内置 = 上下文.界面.工作区.当前().内置;
+    let 当前名称 = 上下文.界面.工作区.当前().显示名(语言);
+
+    let mut 待推: Vec<UiAction> = Vec::new();
+    let mut 新对话框: Option<工作区对话框> = None;
+
+    let 矩形 = ui
+        .with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            // 从右往左：更多 ⋯ → 重置 → 删除 → 重命名 → 复制 → 新建 → 标签
+            ui.spacing_mut().item_spacing.x = 2.0;
+            let 图标尺寸 = 上下文.外观.图标尺寸 * 0.85;
+
+            ui.add(
+                Button::new("⋯")
+                    .frame(false)
+                    .min_size(egui::vec2(22.0, 22.0)),
+            )
+            .on_hover_text(语言.取("workspace_more"))
+            .context_menu(|ui| {
+                if ui.button(语言.取("restore_default_layout")).clicked() {
+                    待推.push(UiAction::重置当前工作区);
+                    ui.close();
+                }
+                if ui.button(语言.取("workspace_reset_all")).clicked() {
+                    待推.push(UiAction::重置全部内置工作区);
+                    ui.close();
+                }
+            });
+
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::刷新, None, 图标尺寸, 配色.次要文字, true)
+                .on_hover_text(语言.取("workspace_reset_current"))
+                .clicked()
+            {
+                待推.push(UiAction::重置当前工作区);
+            }
+            if 上下文
+                .图标
+                .图标按钮(ui, 图标::新建, None, 图标尺寸, 配色.次要文字, true)
+                .on_hover_text(语言.取("workspace_new"))
+                .clicked()
+            {
+                新对话框 = Some(工作区对话框::新建(
+                    false,
+                    语言.填充("workspace_new_name", &[&(条目.len() + 1)]),
+                ));
+            }
+
+            crate::visual_spec::工具栏分组(ui, 配色);
+
+            // 标签从右往左排，顺序反转回来才是"通用/场景/资源/调试"。
+            for (id, 名称, 内置) in 条目.iter().rev() {
+                let 激活 = *id == 当前id;
+                let (显示, _) = 截断名称(名称);
+                let 提示 = if *内置 {
+                    语言.填充("workspace_builtin_hint", &[名称])
+                } else {
+                    名称.clone()
+                };
+                let 响应 = crate::visual_spec::分段标签(
+                    ui,
+                    配色,
+                    上下文.外观.基础字号 - 1.0,
+                    &显示,
+                    None,
+                    激活,
+                    true,
+                )
+                .on_hover_text(提示);
+                if let Some(标识) = crate::workspaces::内置工作区::从id(id).map(内置工作区快照标识)
+                {
+                    上下文.界面.布局快照.push(区域快照 {
+                        标识,
+                        矩形: 响应.rect,
+                    });
+                }
+                if 响应.clicked() && !激活 {
+                    待推.push(UiAction::切换工作区(id.clone()));
+                }
+                响应.context_menu(|ui| {
+                    if ui.button(语言.取("workspace_duplicate")).clicked() {
+                        新对话框 = Some(工作区对话框::新建(
+                            true,
+                            语言.填充("workspace_copy_name", &[名称]),
+                        ));
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(!*内置, Button::new(语言.取("workspace_rename")))
+                        .clicked()
+                    {
+                        新对话框 = Some(工作区对话框::重命名(id.clone(), 名称.clone()));
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(!*内置, Button::new(语言.取("workspace_delete")))
+                        .clicked()
+                    {
+                        待推.push(UiAction::删除工作区(id.clone()));
+                        ui.close();
+                    }
+                });
+            }
+
+            // 行内身份标识：一个小图标 + "工作区"。字号压到最小，
+            // 它的作用是"这一簇是布局"，不参与内容阅读。
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(语言.取("workspace_label"))
+                    .size((上下文.外观.基础字号 - 3.0).max(8.0))
+                    .color(配色.禁用文字),
+            );
+        })
+        .response
+        .rect;
+
+    if let Some(对话框) = 新对话框 {
+        上下文.界面.工作区对话框 = Some(对话框);
+    }
+    for 动作 in 待推 {
+        上下文.动作.推(动作);
+    }
+    let _ = (当前是内置, 当前名称);
+    矩形
 }
 
 /// 绘制工作区栏。
@@ -91,48 +243,42 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         // 它与上一行的「模式」是两个不同维度：模式决定"我在编辑什么"，
         // 这里决定"面板怎么摆"。两行都有身份标识，才不会看起来像
         // 两排长得一样的文字按钮（那正是整改前"两行功能重复"的观感来源）。
-        上下文.图标.绘制(ui, 图标::工作区, 图标尺寸, 配色.次要文字);
-        ui.add_space(2.0);
+        //
+        // 字号压到辅助档、颜色退到次要文字，并且与标签之间只留一档间距：
+        // 它是一个"这是布局"的提示，不是并列的第五个工作区。
+        上下文
+            .图标
+            .绘制(ui, 图标::工作区, 图标尺寸 * 0.85, 配色.次要文字);
+        ui.add_space(3.0);
         ui.label(
             RichText::new(语言.取("workspace_label"))
-                .small()
-                .color(配色.次要文字),
+                .size((上下文.外观.基础字号 - 2.0).max(9.0))
+                .color(配色.禁用文字),
         );
-        ui.add_space(4.0);
+        ui.add_space(6.0);
 
         // ---- 工作区标签 ----
         for (id, 名称, 内置) in &条目 {
             let 激活 = *id == 当前id;
             let (显示, _截断) = 截断名称(名称);
-            let 文本颜色 = if 激活 {
-                配色.文字
-            } else {
-                配色.次要文字
-            };
-            let mut 文本 = RichText::new(显示).color(文本颜色).size(12.0);
-            if 激活 {
-                文本 = 文本.strong();
-            }
-            let 按钮 = Button::new(文本)
-                .frame(false)
-                .corner_radius(CornerRadius::same(3))
-                .fill(if 激活 {
-                    配色.强调淡
-                } else {
-                    Color32::TRANSPARENT
-                })
-                .stroke(if 激活 {
-                    egui::Stroke::new(1.0, 配色.强调)
-                } else {
-                    egui::Stroke::NONE
-                })
-                .min_size(egui::vec2(0.0, 20.0));
             let 提示 = if *内置 {
                 语言.填充("workspace_builtin_hint", &[名称])
             } else {
                 名称.clone()
             };
-            let 响应 = ui.add(按钮).on_hover_text(提示);
+            // 与模式栏同一套分段语法：选中 = 强调色淡底 + 描边，
+            // 未选中 = 透明底、悬停才出现浅底。两行视觉语法一致之后，
+            // 用户不会再把"模式"和"布局"看成同一种按钮。
+            let 响应 = crate::visual_spec::分段标签(
+                ui,
+                配色,
+                上下文.外观.基础字号,
+                &显示,
+                None,
+                激活,
+                true,
+            )
+            .on_hover_text(提示);
             // 内置工作区的标签矩形进证据文件，让"切换工作区"可以被
             // 按真实矩形中心点击验收（用户工作区 id 是动态的，
             // 而 `区域快照.标识` 需要 `&'static str`，故只登记内置项）。

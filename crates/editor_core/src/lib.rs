@@ -48,6 +48,9 @@ pub mod runtime_debug;
 pub mod selection;
 pub mod state;
 pub mod template;
+pub mod terrain;
+pub mod tilemap;
+pub mod tileset;
 pub mod ui_layout;
 pub mod undo;
 

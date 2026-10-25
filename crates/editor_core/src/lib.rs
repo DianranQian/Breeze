@@ -24,6 +24,10 @@
 
 pub mod animation;
 pub mod arrange;
+// P1 预留能力（代码↔场景关联、运行时检查器可行性）。
+// 单独成模块是为了让"哪些是**已验证**的能力、哪些只是数据模型"
+// 在文件边界上就分得清；见模块头部说明。
+pub mod architecture_reserved;
 pub mod asset_index;
 pub mod asset_uid;
 pub mod build;
@@ -43,20 +47,9 @@ pub mod run_entry;
 pub mod runtime_debug;
 pub mod selection;
 pub mod state;
+pub mod template;
 pub mod ui_layout;
 pub mod undo;
-
-// 模块名是中文，但 Rust 的模块文件查找只接受 ASCII 文件名，
-// 所以这里用 `#[path]` 指向中文文件名 —— 与仓库里"测试文件用中文命名"的
-// 习惯保持一致，同时不牺牲源码的可读性。
-#[path = "模板.rs"]
-pub mod 模板;
-
-// P1 预留能力（代码↔场景关联、运行时检查器可行性）。
-// 单独成模块是为了让"哪些是**已验证**的能力、哪些只是数据模型"
-// 在文件边界上就分得清；见模块头部说明。
-#[path = "架构预留.rs"]
-pub mod 架构预留;
 
 pub use animation::{
     关键帧, 关键帧值, 动画会话, 动画属性, 动画播放状态, 动画文档, 动画格式版本, 动画轨道, 时间容差,
@@ -106,7 +99,7 @@ pub use state::{场景会话, 日志条目, 日志级别, 编辑器状态};
 pub use undo::{
     合并键, 撤销条目, 撤销栈, 默认内存预算字节, 默认合并窗口, 默认最大步数
 };
-pub use 模板::{
+pub use template::{
     从根集合发现, 从环境值发现, 发现模板, 复制模板到, 复制结果, 复制选项, 打开已有项目目录,
     模板来源, 模板目录环境变量, 模板错误, 解析资源路径, 项目摘要,
 };

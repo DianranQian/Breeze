@@ -426,7 +426,7 @@
 
 ## 5. 已知跨工作线约束
 
-- 并行线正在做 UI 视觉升级与瓦片地形（`tile_terrain.rs`、`视觉规范.rs`）。
+- 并行线正在做 UI 视觉升级与瓦片地形（`tile_terrain.rs`、`visual_spec.rs`）。
   本轮只触碰**资源链路**，不修改这些文件；共享文件（`editor_ui/src/lib.rs`、
   `editor_app/src/plugin.rs`）只暂存本轮 hunk。
 - 全仓 `cargo fmt --all` 会重排并行线未提交文件；后续改为对改动文件单独 `rustfmt`。

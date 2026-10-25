@@ -86,7 +86,7 @@
 | 单元测试 | `cargo test -p scene_doc asset_refs` | 4 通过 |
 | 单元测试 | `cargo test -p editor_core asset_index` | 6 通过 |
 | 单元测试 | `cargo test -p editor_app --lib asset_ops` | 5 通过 |
-| 集成测试 | `cargo test -p editor_app --test 资源操作闭环` | 5 通过 |
+| 集成测试 | `cargo test -p editor_app --test asset_ops_loop` | 5 通过 |
 | 全量 | `cargo test --workspace` | 1048 通过 / 0 失败（`.verify/asset_ops/baseline_tests.log`） |
 | GUI 回归 | `powershell -File tools/gui_acceptance.ps1 -Filter assets` | 1 通过 |
 | GUI 对话框 | `.verify/asset_ops/delete_dialog/`、`.verify/asset_ops/rename_dialog/` | probe 通过（14 断言） |
@@ -95,18 +95,18 @@
 | R1 单元 | `cargo test -p editor_core --lib asset_uid` | 7 通过 |
 | R1 项目层 | `cargo test -p editor_core --lib project::测试` | 含 UID 同步/写盘/回连/冲突 4 条 |
 | R1 应用层 | `cargo test -p editor_app --lib asset_ops` | 7 通过（新增重命名保 UID、删除移除 UID） |
-| R1 集成 | `cargo test -p editor_app --test 资源标识重连` | 3 通过 |
+| R1 集成 | `cargo test -p editor_app --test asset_uid_reconnect` | 3 通过 |
 | R1 全量 | `cargo test --workspace` | 1064 通过 / 0 失败（`.verify/asset_ops/uid_tests.log`） |
 | R1 GUI | `.verify/asset_ops/uid_dialog/` | 真实打开示例副本，生成 `.breeze/asset_uids.ron`，删除对话框仍通过 14 条断言 |
 | R1.5 单元 | `cargo test -p editor_core --lib recovery` | 7 通过 |
-| R1.5 集成 | `cargo test -p editor_app --test 自动保存恢复` | 6 通过（含"保存后恢复点必须消失"） |
+| R1.5 集成 | `cargo test -p editor_app --test autosave_recovery` | 6 通过（含"保存后恢复点必须消失"） |
 | R1.5 全量 | `cargo test --workspace` | 1077 通过 / 0 失败（`.verify/recovery/all_tests.log`） |
 | R1.5 GUI | `.verify/recovery/dialog/` | 真实恢复点 + 对话框，probe 14 条断言通过 |
 | R3 单元 | `cargo test -p editor_core --lib animation` | 32 通过（含 6 条事件语义） |
-| R3 集成 | `cargo test -p editor_app --test 动画事件` | 5 通过 |
+| R3 集成 | `cargo test -p editor_app --test animation_events` | 5 通过 |
 | R3 全量 | `cargo test --workspace` | 1088 通过 / 0 失败（`.verify/anim_events/all_tests.log`） |
 | R3 GUI | `.verify/anim_events/timeline_clean/` | 时间轴事件行两个标记，probe 14 条断言通过 |
-| R4 集成 | `cargo test -p editor_app --test 资源查找引用` | 5 通过 |
+| R4 集成 | `cargo test -p editor_app --test asset_reference_search` | 5 通过 |
 | R4 全量 | `cargo test --workspace` | 1093 通过 / 0 失败（`.verify/find_refs/all_tests.log`） |
 | R4 GUI | `.verify/find_refs/dialog/` | 真实引用位置 + 定位按钮，probe 14 条断言通过 |
 | R5 单元 | `cargo test -p editor_ui --lib picking3d` | 8 通过 |
@@ -116,21 +116,21 @@
 | R6 真实指针 | `gui_probe drag`（`.verify/box_select/drag3/`） | 逻辑 (650,380)→(860,520)，选择数 0→3，日志"执行选择动作 设为(3 项)" |
 | R6 全量 | `cargo test --workspace` | 1104 通过 / 0 失败（`.verify/box_select/all_tests.log`） |
 | R7 单元 | `cargo test -p editor_core --lib arrange` | 8 通过 |
-| R7 集成 | `cargo test -p editor_app --test 对齐分布` | 4 通过（含"已对齐不产生撤销步"） |
+| R7 集成 | `cargo test -p editor_app --test align_distribute` | 4 通过（含"已对齐不产生撤销步"） |
 | R7 全量 | `cargo test --workspace` | 1116 通过 / 0 失败（`.verify/arrange/all_tests.log`） |
 | R7 GUI | `.verify/arrange/bar3/` | 2D 多选 3 个实体时视口右上出现对齐条（浮层），probe 14 条断言通过 |
 | R8 单元 | `cargo test -p editor_core --lib instance` | 13 通过（含刷新保留位置/拒绝非实例/拒绝空源） |
-| R8 集成 | `cargo test -p editor_app --test 场景实例刷新` | 3 通过（带入新内容、一步撤销、拒绝非实例） |
+| R8 集成 | `cargo test -p editor_app --test scene_instance_refresh` | 3 通过（带入新内容、一步撤销、拒绝非实例） |
 | R8 全量 | `cargo test --workspace` | 1122 通过 / 0 失败（`.verify/instance_refresh/all_tests.log`） |
 | R8 GUI | `.verify/instance_refresh/gui/` | 真实刷新：名称「门口宝箱」与位置 (120,60) 保留，来源组件可见 |
 | R9 单元 | `cargo test -p breeze_debug_adapter 资产统计` | 3 通过（真实 Assets 夹具） |
 | R9 协议 | `cargo test -p runtime_protocol 资产` | 2 通过（旧格式缺字段兼容、往返） |
-| R9 E2E | `cargo test -p editor_app --test 运行时调试桥 -- --ignored` | 1 通过（真实握手；demo 无资产时统计为空） |
+| R9 E2E | `cargo test -p editor_app --test runtime_debug_bridge -- --ignored` | 1 通过（真实握手；demo 无资产时统计为空） |
 | R9 全量 | `cargo test --workspace` | 1127 通过 / 0 失败（`.verify/runtime_assets/all_tests.log`） |
-| R10 集成 | `cargo test -p editor_app --test 动画事件` | 7 通过（新增改名+撤销、拒绝空名/失效下标） |
+| R10 集成 | `cargo test -p editor_app --test animation_events` | 7 通过（新增改名+撤销、拒绝空名/失效下标） |
 | R10 全量 | `cargo test --workspace` | 1129 通过 / 0 失败（`.verify/anim_event_edit/all_tests.log`） |
 | R10 GUI | `.verify/anim_event_edit/dialog2/` | 事件编辑区可见（类型/名称/参数/时间），probe 14 条断言通过 |
-| R11 集成 | `cargo test -p editor_core --test 场景Uid补全` | 3 通过（打开标脏、保存后重开不脏、无资源不脏） |
+| R11 集成 | `cargo test -p editor_core --test scene_uid_completion` | 3 通过（打开标脏、保存后重开不脏、无资源不脏） |
 | R11 全量 | `cargo test --workspace` | 1132 通过 / 0 失败（`.verify/uid_on_open/all_tests.log`） |
 | R11 GUI | `.verify/uid_on_open/gui3/` | 控制台"已为 12 个资源补全稳定标识"，状态栏未保存 |
 
@@ -158,7 +158,7 @@
 | 类别 | 命令 / 步骤 | 结果 |
 | --- | --- | --- |
 | 单元 | `cargo test -p savegame` | 9 通过（往返、倒序列表、写入失败不毁旧档、备份恢复、版本过新、槽位名、删除、迁移、编码往返） |
-| 集成 | `cargo test -p editor_app --test 存档槽位` | 3 通过（扫描+损坏标记、无项目、刷新看到新槽位） |
+| 集成 | `cargo test -p editor_app --test save_slots` | 3 通过（扫描+损坏标记、无项目、刷新看到新槽位） |
 | 全量 | `cargo test --workspace` | **1144 通过 / 0 失败**（`.verify/savegame/all_tests.log`） |
 | 端到端（真实进程） | `savegame_demo` 六个场景 | 全部 exit 0（`.verify/savegame/demo_run.log`）：init / play / load（读回初始态）/ verify（两槽互不覆盖）/ corrupt（备份恢复）/ future（拒绝新版本且不删文件） |
 | 静态检查 | `cargo clippy -p savegame -p editor_ui -p editor_app --all-targets` | 无新增告警 |
@@ -169,7 +169,7 @@
 | 类别 | 命令 / 步骤 | 结果 |
 | --- | --- | --- |
 | 单元 | `cargo test -p editor_app --lib pie_proto` | 5 通过（撞墙掉头、指针优先、键盘覆盖、dt 夹取、加速） |
-| 集成 | `cargo test -p editor_app --test pie原型` | 3 通过（生成相机/地面/方块且相机渲染到 Image、停止清空、三次启停计数递增、文档零污染） |
+| 集成 | `cargo test -p editor_app --test pie_prototype` | 3 通过（生成相机/地面/方块且相机渲染到 Image、停止清空、三次启停计数递增、文档零污染） |
 | 全量 | `cargo test --workspace` | **1152 通过 / 0 失败**（`.verify/pie/all_tests.log`） |
 | 实时（连续帧） | `gui_probe run --frame 90/240/300` 同会话日志 | 方块 x 逐 30 帧变化：0.05 → 4.55 → 3.00 → … |
 | 画面变化（像素） | `.verify/pie/frame_diff.txt` | 帧 90 vs 帧 300，PIE 区域 **1.570%** 像素不同 |
@@ -182,7 +182,7 @@
 | 类别 | 命令 / 步骤 | 结果 |
 | --- | --- | --- |
 | 单元 | `cargo test -p editor_app --lib pie_input` | 11 通过 |
-| 集成 | `cargo test -p editor_app --test pie输入` | 6 通过（路由驱动步进、未捕获全空、Esc 释放、停止清空、重启不继承、真实 `ButtonInput` → 路由） |
+| 集成 | `cargo test -p editor_app --test pie_input` | 6 通过（路由驱动步进、未捕获全空、Esc 释放、停止清空、重启不继承、真实 `ButtonInput` → 路由） |
 | 全量 | `cargo test --workspace` | **1169 通过 / 0 失败**（`.verify/pie_input/all_tests.log`） |
 | GUI 点击捕获 | `gui_probe run --pie-keys "click=886,467;..."` | 真实鼠标点击后日志 `PIE 输入焦点：已捕获` |
 | GUI 键盘路由 | 同上 | 帧 120/150 `键盘 左=true`（按住 A，方块到 -6 边界），帧 180 `键盘 右=true`（切到 D） |
@@ -198,7 +198,7 @@
 | 类别 | 命令 / 步骤 | 结果 |
 | --- | --- | --- |
 | 单元 | `cargo test -p editor_app --lib pie_proto` | 14 通过 |
-| 集成 | `cargo test -p editor_app --test pie生命周期` | 5 通过（真实 `World` 跑 `推进原型`） |
+| 集成 | `cargo test -p editor_app --test pie_lifecycle` | 5 通过（真实 `World` 跑 `推进原型`） |
 | 全量 | `cargo test --workspace` | **1183 通过 / 0 失败**（`.verify/pie_lifecycle/all_tests.log`） |
 | GUI 暂停 | `BEVY_STUDIO_PIE_SCENARIO=lifecycle` | `[生命周期] 第 90 帧：暂停`；此后 PIE 帧号停在 90，方块 x 不变 |
 | GUI 单步 | 同上 | `PIE 单步执行 #1（帧 89 → 90）`、`#2（帧 90 → 91）`；两次请求 = 两次执行 |
@@ -220,7 +220,7 @@
 | 根因定位 | 在 `Last` 调度打印停止来源 | `停止来源 = 退出时停止构建`；构建状态由「运行中」→「已取消」 |
 | 修复 | `退出时停止构建` 读取 `MessageReader<AppExit>` | 未收到退出消息时直接返回；与 `退出时停止项目运行` 语义一致 |
 | 单元回归（新增） | `cargo test -p editor_app --lib build::` | 8 通过；含「没有退出消息时构建不会被最后一帧取消」「收到退出消息时构建会被停止」 |
-| 集成回归 | `cargo test -p editor_app --test 原生工程构建与运行` 等 | 见 `.verify_r14/` 日志 |
+| 集成回归 | `cargo test -p editor_app --test native_build_and_run` 等 | 见 `.verify_r14/` 日志 |
 | 全量 | `cargo test --workspace` | 见 `.verify_r14/workspace_test3.log` |
 | 真实 GUI（第 1 次） | 打开项目 → 「构建并运行」 | `构建成功，用时 0.9 秒` → `产物：…\target\debug\xiuxian_adventure.exe` → `运行目标：Cargo 可执行目标 xiuxian_adventure::xiuxian_adventure` → 游戏 `[动画探针]` / `[心跳]` 进入运行面板；截图 `.verify_r14/` |
 | 真实 GUI（停止/退出） | 采集结束触发编辑器退出 | 退出后 `tasklist` 无 `xiuxian_adventure.exe` / `cargo.exe` 残留 |
@@ -237,7 +237,7 @@
 | 类别 | 命令 / 步骤 | 结果 |
 | --- | --- | --- |
 | 自动化：状态机 | `cargo test -p editor_ui --lib`（资源预览 7 条） | 325 通过 / 0 失败（含既有用例） |
-| 自动化：预览计算 | `cargo test -p editor_app --test 资源预览` | 14 通过 / 0 失败 |
+| 自动化：预览计算 | `cargo test -p editor_app --test asset_preview` | 14 通过 / 0 失败 |
 | 自动化：WAV 头 | `cargo test -p editor_app --lib asset_preview` | 3 通过 / 0 失败 |
 | 真实 GUI（可重跑） | `bash tools/asset_preview_acceptance.sh` | **9/9 通过**；报告 `docs/验收证据/68_资源预览_验收报告.json` |
 | 图片 | 真实单击 `floor.png` → `wall.png` | `ready` / `image` / `has_surface=true` / `256×256` 与磁盘一致；截图 60 |

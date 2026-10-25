@@ -332,7 +332,7 @@ fn 绘制运行状态(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     //
     // 现在没有任何运行时通道，因此这里明确写"不可用"，而不是画一个看起来
     // 能展开的占位树 —— 拿编辑器自己的实体冒充游戏进程里的实体是最坏的欺骗。
-    let 可行性 = editor_core::架构预留::运行时可行性::评估();
+    let 可行性 = editor_core::architecture_reserved::运行时可行性::评估();
     ui.horizontal_wrapped(|ui| {
         ui.label(
             RichText::new(语言.取("workbench_runtime_inspect"))

@@ -71,7 +71,7 @@ $env:BEVY_STUDIO_MODE = "3d"
 ## 重新生成
 
 ```powershell
-cargo run -p editor_core --example 生成演示项目
+cargo run -p editor_core --example generate_demo_project
 ```
 
 生成器只重写 `project.ron` 与 `scenes/`，不会删除 `assets/`。

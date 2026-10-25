@@ -530,7 +530,7 @@ Get-Content "$env:USERPROFILE\.cargo\registry\src\index.crates.io-1949cf8c6b5b55
 
 # 5. 跑本文档引用的全部测试
 cargo test -p bsn_bridge
-cargo test -p editor_app --test BSN场景接入
+cargo test -p editor_app --test bsn_scene_integration
 ```
 
 ---
@@ -544,11 +544,11 @@ cargo test -p editor_app --test BSN场景接入
 | 目标 | 用例数 | 结果 | 覆盖内容 |
 | --- | --- | --- | --- |
 | `cargo test -p bsn_bridge --lib` | 23 | ✅ 全过 | 能力清单与版本守卫、提取器分类、规范化记录、错误路径 |
-| `cargo test -p bsn_bridge --test 官方场景原型` | 9 | ✅ 全过 | `bsn!`/`bsn_list!`、变换分量、层级有序、补丁语义、必需组件 |
-| `cargo test -p bsn_bridge --test 标识符约束` | 3 | ✅ 全过 | 中文类型名约束与两条绕法 |
-| `cargo test -p bsn_bridge --test 转换边界` | 13 | ✅ 全过 | 无损 / 规范化 / 不支持 / 失败 四层；磁盘往返；身份唯一 |
+| `cargo test -p bsn_bridge --test official_scene_prototype` | 9 | ✅ 全过 | `bsn!`/`bsn_list!`、变换分量、层级有序、补丁语义、必需组件 |
+| `cargo test -p bsn_bridge --test identifier_rules` | 3 | ✅ 全过 | 中文类型名约束与两条绕法 |
+| `cargo test -p bsn_bridge --test conversion_boundary` | 13 | ✅ 全过 | 无损 / 规范化 / 不支持 / 失败 四层；磁盘往返；身份唯一 |
 | `cargo test -p editor_app --lib bsn_templates` | 5 | ✅ 全过 | 模板元数据与真实提取一致、提取器与注册表对齐 |
-| `cargo test -p editor_app --test BSN场景接入` | 12 | ✅ 全过 | BSN→文档→运行时全链路、保存重开、撤销重做、既有契约回归 |
+| `cargo test -p editor_app --test bsn_scene_integration` | 12 | ✅ 全过 | BSN→文档→运行时全链路、保存重开、撤销重做、既有契约回归 |
 | **合计** | **65** | **✅ 全过** | |
 
 ### 11.2 既有测试回归（`cargo test --workspace --no-fail-fast`）

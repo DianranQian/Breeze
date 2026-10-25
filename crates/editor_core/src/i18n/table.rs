@@ -1256,7 +1256,6 @@ pub static 词表: &[词条] = &[
     词条 { 键: "workspace_general", 中文: "通用", 英文: "General" },
     词条 { 键: "workspace_label", 中文: "工作区", 英文: "Workspace" },
     词条 { 键: "workspace_layout_parse_failed", 中文: "工作区布局解析失败：{}", 英文: "Failed to parse workspace layout: {}" },
-    词条 { 键: "workspace_migrated_name", 中文: "迁移的布局", 英文: "Migrated Layout" },
     词条 { 键: "workspace_more", 中文: "更多工作区操作", 英文: "More workspace actions" },
     词条 { 键: "workspace_name", 中文: "工作区名称", 英文: "Workspace name" },
     词条 { 键: "workspace_name_duplicate", 中文: "已有同名工作区「{}」", 英文: "A workspace named \"{}\" already exists" },

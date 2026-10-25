@@ -3460,7 +3460,7 @@ pub fn 示例安装目录() -> std::path::PathBuf {
 ///
 /// # 完整契约（这是"示例独立化"的落点）
 ///
-/// 1. **模板发现**（editor_core::模板::发现模板）：
+/// 1. **模板发现**（editor_core::template::发现模板）：
 ///    环境变量 BEVY_STUDIO_EXAMPLES_DIR → 可执行文件同级 examples/ → 开发期仓库兜底。
 ///    仓库路径只是**兜底来源之一**，不再是唯一来源，且完全可以用环境变量绕过。
 /// 2. **已安装就直接打开**：目标目录里已经有 project.ron 时不再复制，
@@ -3482,7 +3482,7 @@ pub fn 准备示例项目(
     }
 
     let 模板列表 =
-        editor_core::模板::发现模板().map_err(|错误| format!("未找到可用模板：{错误}"))?;
+        editor_core::template::发现模板().map_err(|错误| format!("未找到可用模板：{错误}"))?;
     let 模板 = 模板列表
         .iter()
         .find(|模板| 模板.名称 == 示例.目录名())
@@ -3491,7 +3491,7 @@ pub fn 准备示例项目(
             format!(
                 "模板目录里没有 {}（已发现：{可用:?}；可用环境变量 {} 指定模板目录）",
                 示例.目录名(),
-                editor_core::模板::模板目录环境变量
+                editor_core::template::模板目录环境变量
             )
         })?;
 
@@ -3501,10 +3501,10 @@ pub fn 准备示例项目(
         return Err(format!("无法创建安装目录 {}：{错误}", 父.display()));
     }
 
-    let 结果 = editor_core::模板::复制模板到(
+    let 结果 = editor_core::template::复制模板到(
         &模板.根目录,
         &目标,
-        editor_core::模板::复制选项::default(),
+        editor_core::template::复制选项::default(),
     )
     .map_err(|错误| format!("安装示例项目失败：{错误}"))?;
     Ok(结果.目标)

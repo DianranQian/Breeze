@@ -411,7 +411,6 @@ workspace_name_empty	工作区名称不能为空	Workspace name cannot be empty
 workspace_name_duplicate	已有同名工作区「{}」	A workspace named "{}" already exists
 workspace_layout_parse_failed	工作区布局解析失败：{}	Failed to parse workspace layout: {}
 workspace_archive_invalid	工作区存档不合法：{}	Invalid workspace archive: {}
-workspace_migrated_name	迁移的布局	Migrated Layout
 log_workspace_switched	已切换到工作区「{}」	Switched to workspace "{}"
 log_workspace_created	已创建工作区「{}」	Created workspace "{}"
 log_workspace_renamed	工作区已重命名为「{}」	Workspace renamed to "{}"

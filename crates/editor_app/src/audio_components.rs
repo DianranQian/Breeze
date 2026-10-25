@@ -24,7 +24,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use scene_doc::property::{属性值, 资源引用值, 资源类别};
-use scene_doc::registry::{属性描述, 属性种类, 组件注册表, 组件类型};
+use scene_doc::registry::{属性描述, 属性种类, 组件类型};
 
 /// 音频组件在场景文件里的类型名。
 pub const 音频组件名: &str = editor_core::collision::音频组件名;
@@ -154,27 +154,19 @@ fn 音频字段() -> &'static [属性描述] {
     })
 }
 
-/// 把音频组件注册进注册表。
-pub fn 扩展注册表(mut 基础: 组件注册表) -> 组件注册表 {
-    基础
-        .注册(Box::new(音频组件类型))
-        .expect("音频组件的字段描述与默认值必须自洽；失败说明代码有错");
-    基础
-}
-
 #[cfg(test)]
 mod 测试 {
     use super::*;
 
     #[test]
-    fn 扩展注册表包含音频组件() {
-        let 注册表 = 扩展注册表(组件注册表::新建());
+    fn 完整注册表包含音频组件() {
+        let 注册表 = crate::scene_bridge::全部内置组件注册表();
         assert!(注册表.已注册(音频组件名));
     }
 
     #[test]
     fn 默认值符合声明种类() {
-        let 注册表 = 扩展注册表(组件注册表::新建());
+        let 注册表 = crate::scene_bridge::全部内置组件注册表();
         let 类型 = 注册表.要求(音频组件名).expect("应当能查到");
         for 描述 in 类型.字段描述() {
             assert!(

@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use scene_doc::property::{属性值, 枚举值};
-use scene_doc::registry::{属性描述, 属性种类, 组件注册表, 组件类型};
+use scene_doc::registry::{属性描述, 属性种类, 组件类型};
 
 /// 碰撞体组件类型名。
 pub const 碰撞体组件名: &str = "碰撞体2d";
@@ -387,19 +387,6 @@ fn 刚体字段() -> &'static [属性描述] {
     })
 }
 
-/// 把物理组件注册进注册表。
-pub fn 扩展注册表(mut 基础: 组件注册表) -> 组件注册表 {
-    for 类型 in [
-        Box::new(碰撞体组件类型) as Box<dyn 组件类型>,
-        Box::new(刚体组件类型),
-    ] {
-        基础
-            .注册(类型)
-            .expect("物理组件的字段描述与默认值必须自洽；失败说明代码有错");
-    }
-    基础
-}
-
 /// 物理组件名列表。
 pub fn 物理组件名列表() -> Vec<&'static str> {
     vec![碰撞体组件名, 刚体组件名]
@@ -408,11 +395,10 @@ pub fn 物理组件名列表() -> Vec<&'static str> {
 #[cfg(test)]
 mod 测试 {
     use super::*;
-    use scene_doc::registry::组件注册表;
 
     #[test]
-    fn 注册表包含物理组件且默认值自洽() {
-        let 注册表 = 扩展注册表(组件注册表::新建());
+    fn 完整注册表包含物理组件且默认值自洽() {
+        let 注册表 = crate::scene_bridge::全部内置组件注册表();
         for 名字 in 物理组件名列表() {
             assert!(注册表.已注册(名字));
             let 类型 = 注册表.要求(名字).expect("应当能查到");

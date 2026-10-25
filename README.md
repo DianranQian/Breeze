@@ -153,7 +153,7 @@ cargo run -p editor_app --bin bevy-studio
 ### 跑测试
 
 ```powershell
-cargo test --workspace          # 全部通过（当前 454 项）
+cargo test --workspace          # 全部通过（数量以输出为准）
 cargo clippy --workspace --all-targets   # 零警告
 ```
 
@@ -343,7 +343,7 @@ editor_app  ──>  editor_ui  ──>  editor_core  ──>  scene_doc
 ## 测试
 
 ```text
-cargo test --workspace    →  全部通过（当前 454 项）
+cargo test --workspace    →  全部通过（数量以输出为准）
 ```
 
 下表是覆盖范围；具体数量会随新增测试增长，以 `cargo test` 输出为准。

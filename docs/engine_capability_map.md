@@ -8,6 +8,9 @@
 >
 > 成熟度口径见 §0。**任何条目只要没有真实数据模型 + 用户入口 + 运行时/持久化行为
 > + 可复核证据，就不得标 M4 以上。**
+>
+> **当前仓库事实（2026-10-25，`63d893b`）**：11 个 workspace 成员、1,235 个 `#[test]`。
+> 本文能力结论仍以 `7b2fa5b` 审计为准；数量与基线以 `AGENTS.md` 顶部为维护入口。
 
 ## 0. 成熟度模型
 
@@ -168,7 +171,7 @@
 | R1 | 统一诊断中心（构建/运行/资源/Agent） | M4 | 核心原生 | `diagnostics`、跳转 | 无问题归类统计 |
 | R2 | 自动化测试（700+） | M4 | 核心原生 | `cargo test --workspace` | 无 GUI 全矩阵 CI |
 | R3 | 真实 GUI 验收（像素/几何断言） | M4 | 核心原生 | `gui_probe` + `gui_acceptance.ps1` | 交互场景未全部入脚本 |
-| R4 | 截图/运行证据归档 | M4 | 核心原生 | `.verify*`、`docs/验收证据` | 证据目录分散 |
+| R4 | 截图/运行证据归档 | M4 | 核心原生 | `docs/验收证据/`（历史验证目录已删除） | 证据目录分散 |
 
 ## 11. 域 S–AB：性能、网络、构建、i18n、插件、Git、存档、文档、AI、稳定性
 
@@ -208,13 +211,16 @@
 
 ## 13. 证据索引
 
-| 事件 | 路径 |
+> 历史验证目录已按工作区纪律删除；下表只列仓库内仍保留的 `docs/验收证据/` 文件。
+> 找不到留存件的，明确标注“现场未保留”，不要再去旧路径找。
+
+| 事件 | 当前可核对路径 |
 | --- | --- |
-| 基线全量测试 | `.verify/asset_ops/baseline_tests.log`（本轮生成） |
-| 资源删除对话框（真实引用列表） | `.verify/asset_ops/delete_dialog/asset_delete_dialog.png` |
-| 资源重命名对话框 | `.verify/asset_ops/rename_dialog/asset_rename_dialog.png` |
-| probe 判定报告 | 同目录 `*.report.json` / `*.report.md` |
-| 资源工作区 GUI 场景 | `.verify/runs/acceptance/assets_zh_dark/` |
+| 基线全量测试 | `docs/验收证据/40_全量测试_本轮通过.log`、`docs/验收证据/34_全量测试_594通过.log` |
+| 资源删除对话框（真实引用列表） | 原始截图现场未保留；现有资源工作区证据见 `docs/验收证据/06_工作区_资源.png`，行为覆盖见 `crates/editor_app/tests/` |
+| 资源重命名对话框 | 原始截图现场未保留；行为覆盖见 `crates/editor_app/tests/` |
+| probe 判定报告 | `docs/验收证据/*.report.json` / `*.report.md`（如 `14_示例_2D.report.json`） |
+| 资源工作区 GUI 场景 | `docs/验收证据/06_工作区_资源.png` |
 
 ## 游戏存档（R12 新增）
 

@@ -1,7 +1,7 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-25，`63d893b`，11 个 workspace 成员，1,235 个 `#[test]`。
+> 当前基线：2026-10-25，`bf287a9`，11 个 workspace 成员，1,237 个 `#[test]`。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 
@@ -43,7 +43,7 @@
 - **禁止全库通读**。先声明读取清单，再开始读。
 - 单任务首轮预算：**≤ 6 个文件、≤ 3,000 行**；超预算先说明理由。
 - 定位只允许 `git grep -n <符号>` 或按行号区间读取；不要整文件读取巨型文件：
-  - `crates/editor_app/src/actions.rs`（4,288 行，按域定位）
+  - `crates/editor_app/src/actions/`（模块目录：`mod.rs` 4,004 行 + 资源/动画/编辑三个子域文件，按域定位）
   - `crates/editor_ui/src/state.rs`（3,065 行，按结构体/枚举定位）
   - `crates/editor_app/src/plugin.rs`（1,921 行，按函数定位）
   - `crates/editor_core/i18n/messages.tsv`（1,330 行，按前缀 grep）
@@ -74,14 +74,18 @@
 | 事实 | 数字 | 含义 |
 | --- | --- | --- |
 | 全库 Rust | 约 109,000 行，11 个成员 | 瓶颈不在总量 |
-| 三个中心文件 | `actions.rs`(4,288) + `state.rs`(3,065) + `plugin.rs`(1,921) ≈ 9,274 行 | 几乎每次改动都会经过 |
-| 单一执行器 | `执行单个动作` 约 2,800 行，13 个参数，202 处 `UiAction::` | 新增行为 = 往巨型函数加分支 |
+| 三个中心文件 | `actions/`(4,769，`mod.rs` 4,004 + 3 个子域) + `state.rs`(3,065) + `plugin.rs`(1,921) ≈ 9,755 行 | 几乎每次改动都会经过 |
+| 单一执行器 | `mod.rs` 的 `执行单个动作` 约 2,260 行（剩余总表 + 3 组哨兵），13 个参数 | 新增行为 = 先找对应域文件，找不到才加进总表 |
 | 动作变体 | `UiAction` 209 个 | 定义/处理/摘要三处 + 无编译期约束的构造点 |
 | 共享状态 | `界面状态` 85 个 `pub` 字段 | 16 个面板同时 `&mut`，影响面不可知 |
 | 数据扇出 | `绘制环境`(14) → `绘制上下文`(21) → 面板 | 新增一个数据源 = 6 个触点 |
 | 面板扇出 | 新增一个面板 = 18 个触点，6 张人工同步表 | 漏一处不报编译错，只表现为“打不开/布局消失” |
 
 **推论**：优先小步、可回滚、只加不改的改动；不要顺手大重构。
+
+**`actions/` 是模块目录**：`mod.rs` 只保留分派入口与尚未拆分的总表，
+资源 / 动画 / 编辑分别在同目录子文件（`resources.rs` / `animation.rs` / `edit.rs`）；
+新增动作时优先找对应域文件，跨域或无处安放时才动 `mod.rs`。
 
 ---
 
@@ -103,10 +107,10 @@
 | 任务类型 | 必读 | 可选 | 禁止 |
 | --- | --- | --- | --- |
 | **T1 新增/修改面板** | `crates/editor_ui/src/docks.rs`（Tab+三套键）、`workspaces.rs`（预设）、`menu_bar.rs`（window 分组）、`crates/editor_ui/src/lib.rs`（分发 match）、`state.rs`（目标字段+相关 `UiAction`）、`crates/editor_app/src/plugin.rs`（动作摘要+绘制环境）、`messages.tsv`（相关前缀）、目标面板文件 | `visual_spec.rs`、`theme.rs`、`crates/editor_app/tests/multi_panel_workspace.rs` | 其余 15 个面板；`preview`/`run`/`agent*`/`pie_*`/`debug_bridge`；`examples/`；除 `架构设计.md` 外的 `docs/` |
-| **T2 新增 `UiAction`** | `state.rs`（`pub enum UiAction` 段+动作队列）、`actions.rs`（`执行单个动作`+目标域）、`plugin.rs`（`动作摘要`）、`crates/editor_app/tests/action_reachability.rs` | 目标域既有处理函数、`crates/editor_app/tests/action_loop.rs` | `editor_core/*`、`scene_doc/*`（除非动作要读写文档） |
-| **T3 新增组件类型** | 目标组件族模块（`scene_bridge`/`components3d`/`physics_components`/`ui_components`/`audio_components`）、`scene_bridge.rs`（trait+注册表+同类 impl 范例）、`inspector_panel.rs`（字段绘制）、`messages.tsv` | 对应投影模块（若可渲染）、同类组件测试 | `actions.rs`（`构造默认组件` 已泛化）、`agent*`、`gui_probe` |
+| **T2 新增 `UiAction`** | `state.rs`（`pub enum UiAction` 段+动作队列）、`actions/`（`mod.rs` 路由器+目标域子文件）、`plugin.rs`（`动作摘要`）、`crates/editor_app/tests/action_reachability.rs` | 目标域既有处理函数、`crates/editor_app/tests/action_loop.rs` | `editor_core/*`、`scene_doc/*`（除非动作要读写文档） |
+| **T3 新增组件类型** | 目标组件族模块（`scene_bridge`/`components3d`/`physics_components`/`ui_components`/`audio_components`）、`scene_bridge.rs`（trait+注册表+同类 impl 范例）、`inspector_panel.rs`（字段绘制）、`messages.tsv` | 对应投影模块（若可渲染）、同类组件测试 | `actions/mod.rs`（`构造默认组件` 已泛化）、`agent*`、`gui_probe` |
 | **T4 改渲染/预览** | 目标投影模块、`crates/editor_app/src/preview.rs`、`scene_bridge.rs`（投影段）、`state.rs`（相机/视口段）、`viewport_panel.rs` **或** `viewport3d.rs` | `theme.rs`（叠加层配色）、`crates/editor_app/tests/preview_aspect_ratio.rs` | `agent*`、`assets_panel.rs`、`timeline_panel.rs`、`工作日志.md` |
-| **T5 新增文件格式/资产类型** | `editor_core` 新模块 + `lib.rs`、`actions.rs`（载入/保存动作）、`plugin.rs`（资源初始化）、`messages.tsv` | `project.rs`（资源列表/导入状态）、`assets_panel.rs` | `preview.rs`、`pie_proto.rs`、`gui_probe` |
+| **T5 新增文件格式/资产类型** | `editor_core` 新模块 + `lib.rs`、`actions/`（载入/保存动作，放对应域文件）、`plugin.rs`（资源初始化）、`messages.tsv` | `project.rs`（资源列表/导入状态）、`assets_panel.rs` | `preview.rs`、`pie_proto.rs`、`gui_probe` |
 | **T6 改界面文案** | `messages.tsv`（按前缀 grep）、`tools/gen_messages.py`（扫描目标/应排除）、目标文件 | — | 其余一切 |
 | **T7 修 bug（有报错/栈）** | 报错指向的文件 + 它直接调用的接口文件 + 覆盖它的测试 | 同簇的第二个文件 | 全库；无关 crate |
 
@@ -116,7 +120,7 @@
 
 | 簇 | 联合读取包 | 行数量级 |
 | --- | --- | --- |
-| 1 动作总线 | `state.rs`（`UiAction` 段）+ `actions.rs`（目标域）+ `plugin.rs`（摘要） | ~900 |
+| 1 动作总线 | `state.rs`（`UiAction` 段）+ `actions/`（`mod.rs` 路由器 + 目标域文件）+ `plugin.rs`（摘要） | ~900 |
 | 2 面板注册 | `docks.rs`（全）+ `workspaces.rs`（预设段）+ `menu_bar.rs`（window 段）+ `editor_ui/lib.rs`（分发段） | ~1,000 |
 | 3 共享状态 | `state.rs`（`界面状态` + `绘制上下文`）+ `plugin.rs`（`绘制环境` + `绘制一帧`） | ~470 |
 | 4 渲染投影 | 目标投影模块 + `scene_bridge.rs`（trait+一个 impl）+ `preview.rs`（相机/渲染目标） | ~900 |
@@ -189,7 +193,8 @@ git status --short                # 确认没有根目录临时产物
 - 不启动 3D 物理、粒子、寻路、导航网格、动画状态机、命令面板、LSP、多窗口等
   产品能力，除非用户明确排期。
 - 不做“大爆炸”重构；优先 D1–D5 的“只加不改”，D6 之后每步单独可回滚。
-- `actions.rs` 拆分前必须先做 `动作上下文` 收敛参数；不要直接按域硬拆。
+- `actions/` 已按域拆分；剩余域继续沿用 `Result<(), UiAction>` 路由器 + 分组哨兵的模式，
+  每个域一个 commit，恢复成单文件或按层重划都不做。
 
 ---
 

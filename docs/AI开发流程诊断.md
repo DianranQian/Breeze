@@ -10,26 +10,28 @@
 
 ## A. 诊断结论（10 条）
 
-**先说边界**：这个仓库的工程质量明显高于同类个人项目——1,234 个 `#[test]`、模块头
+**先说边界**：这个仓库的工程质量明显高于同类个人项目——1,237 个 `#[test]`、模块头
 几乎都写了"为什么这样设计、否决了哪些方案"、`docs/` 有 17 篇可核对的事实清单。
 所以下面的问题**不是"代码烂"**，而是"规模长到 10 万行后，原来正确的结构开始收税"。
 
 1. **瓶颈是三个中心文件，不是代码总量。**
    全库 109,099 行 Rust（11 个 workspace 成员）。其中
-   `editor_app/src/actions.rs`(4,288) + `editor_ui/src/state.rs`(3,065) +
-   `editor_app/src/plugin.rs`(1,921) = 9,274 行，占 8.5%，却承担几乎每一次功能改动。
+   `editor_app/src/actions/`(4,769：`mod.rs` 4,004 + 资源/动画/编辑 3 个子域) +
+   `editor_ui/src/state.rs`(3,065) + `editor_app/src/plugin.rs`(1,921) = 9,755 行，
+   占 8.9%，却承担几乎每一次功能改动。
    AI 每接一个任务都要先啃这三个文件里的一大段。
 
 2. **单一执行器已到临界点。**
-   `actions.rs` 的 `执行单个动作` 从 591 行开始，下一个顶层函数在 3429 行
-   —— **约 2,800 行一个函数**，**13 个参数**，处理 202 处 `UiAction::`。
-   新增任何行为都在这里加分支；改一处要先读完它周围的 2,800 行。
+   `actions/mod.rs` 的 `执行单个动作` 从 619 行开始，下一个顶层函数在 2881 行
+   —— **约 2,260 行一个函数**，**13 个参数**，剩余总表 + 3 组域哨兵。
+   新增任何行为都要先判断有没有对应域文件；只有找不到归属时才加进总表。
 
 3. **动作层与界面层没有编译期联系。**
    `UiAction` 有 209 个变体。历史上三次出现"处理逻辑写完了、界面上却没有入口"
    （`crates/editor_app/tests/action_reachability.rs:1-18` 逐条记录了
    `试听选中实体音频`、`移除最近项目`、`删除动画轨道`）。
-   现在靠"扫源码数出现次数 > 1"的测试兜底，而不是类型系统或注册表。
+   现在靠"扫源码构造点"的测试兜底（剔除分派函数后，每个变体至少 1 个构造点），
+   而不是类型系统或注册表。
 
 4. **共享状态是一个 85 字段的单体结构。**
    `界面状态`（`editor_ui/src/state.rs:1200-1474`，274 行，85 个 `pub` 字段）
@@ -129,24 +131,26 @@
 
 ### 簇 1 · 动作总线
 - **模块**：`editor_ui/src/state.rs`（`UiAction` 209 变体 + 动作队列）、
-  `editor_app/src/actions.rs`（`执行单个动作` 2,800 行 / 202 处理点）、
+  `editor_app/src/actions/`（`mod.rs` 路由器 + 剩余总表，资源/动画/编辑三个子域）、
   `editor_app/src/plugin.rs`（`动作摘要` 穷尽匹配）、
   `crates/editor_app/tests/action_reachability.rs`（可达性门禁）
 - **耦合原因**：一个变体要改 3 处（定义 / 处理 / 摘要），第 4 处（构造点）没有编译期
-  约束，只能靠扫描测试。处理器是单一巨型函数，任何新增分支都提高整段阅读成本。
-- **建议接口**：先引入 `动作上下文` 结构体收敛 13 个参数（纯机械改动，行为不变）；
+  约束，只能靠扫描测试。处理器已按域拆分，但剩余总表仍在一个函数里，
+  新增分支仍要提高整段阅读成本。
+- **建议接口**：已落地——先引入 `动作上下文` 收敛 13 个参数（纯机械改动，行为不变）；
   再按域拆成 `fn 处理_资源(动作, &mut 上下文) -> Result<(), UiAction>` 一族
   （返回 `Err(动作)` 表示"不归我管"，由路由器继续），穷尽性仍由现有测试保证。
-- **最小读取集**：`state.rs` 的 `pub enum UiAction` 段 → `actions.rs` 的目标域分支
+  下一步按同样模式继续拆瓦片 / 主题 / 构建 / 智能体域。
+- **最小读取集**：`state.rs` 的 `pub enum UiAction` 段 → `actions/` 的目标域文件
   → `plugin.rs` 的 `动作摘要` 对应行 → `tests/action_reachability.rs`。
 
 ### 簇 2 · 面板注册
 - **模块**：`editor_ui/{docks,workspaces,menu_bar,dev_modes,help}.rs`、
   `editor_ui/src/lib.rs`（分发）、`editor_app/src/plugin.rs`（窗口菜单动作）、
-  `editor_app/src/actions.rs`（`聚焦面板` / `浮动面板`）
+  `editor_app/src/actions/`（`mod.rs` 的 `聚焦面板` / `浮动面板`）
 - **耦合原因**：16 个面板 × 6 张同步表。`Tab::` 在 8 个文件出现 299 次
   （`docks.rs` 107 / `workspaces.rs` 68 / `lib.rs` 44 / `dev_modes.rs` 39 /
-  `menu_bar.rs` 24 / `actions.rs` 12 / `plugin.rs` 4 / `help.rs` 1）。
+  `menu_bar.rs` 24 / `actions/` 12 / `plugin.rs` 4 / `help.rs` 1）。
   漏一处不会编译失败，只会"面板打不开"或"布局恢复后消失"。
 - **建议接口**：单一 `面板注册表`：`&'static [面板描述 { tab, 标题键, 菜单键, 图标, 默认分组 }]`，
   `Tab::全部()`、窗口菜单、图标、i18n 校验全部从表派生；
@@ -248,10 +252,10 @@
 | 任务类型 | 必读 | 可选 | 禁止 |
 | --- | --- | --- | --- |
 | **T1 新增/修改面板** | `editor_ui/src/docks.rs`(Tab+三套键)、`workspaces.rs`(预设)、`menu_bar.rs`(window 分组)、`editor_ui/src/lib.rs`(分发 match)、`state.rs`(目标字段+相关 UiAction)、`plugin.rs`(动作摘要+绘制环境)、`messages.tsv`(相关前缀)、目标面板文件 | `visual_spec.rs`(间距/配色 API)、`theme.rs`(槽位)、`tests/multi_panel_workspace.rs` | 其余 15 个面板；`editor_app/{preview,run,agent*,pie_*,debug_bridge}.rs`；`examples/`；`docs/`（除 `架构设计.md`） |
-| **T2 新增 UiAction** | `state.rs`(`pub enum UiAction` 段+动作队列)、`actions.rs`(`执行单个动作`+目标域)、`plugin.rs`(`动作摘要`)、`tests/action_reachability.rs` | 目标域的既有处理函数、`tests/action_loop.rs` 的同类用例 | `editor_core/*`、`scene_doc/*`（除非动作要读写文档） |
-| **T3 新增组件类型** | 目标组件族模块（`scene_bridge` / `components3d` / `physics_components` / `ui_components` / `audio_components`）、`scene_bridge.rs`(trait+注册表+同类 impl 范例)、`inspector_panel.rs`(字段绘制)、`messages.tsv` | 对应投影模块（若可渲染）、`tests/` 同类组件测试 | `actions.rs`（`构造默认组件` 已泛化，不需要改）、`agent*`、`gui_probe` |
+| **T2 新增 UiAction** | `state.rs`(`pub enum UiAction` 段+动作队列)、`actions/`(`mod.rs` 路由器+目标域子文件)、`plugin.rs`(`动作摘要`)、`tests/action_reachability.rs` | 目标域的既有处理函数、`tests/action_loop.rs` 的同类用例 | `editor_core/*`、`scene_doc/*`（除非动作要读写文档） |
+| **T3 新增组件类型** | 目标组件族模块（`scene_bridge` / `components3d` / `physics_components` / `ui_components` / `audio_components`）、`scene_bridge.rs`(trait+注册表+同类 impl 范例)、`inspector_panel.rs`(字段绘制)、`messages.tsv` | 对应投影模块（若可渲染）、`tests/` 同类组件测试 | `actions/mod.rs`（`构造默认组件` 已泛化，不需要改）、`agent*`、`gui_probe` |
 | **T4 改渲染/预览** | 目标投影模块、`preview.rs`、`scene_bridge.rs`(投影段)、`state.rs`(相机/视口段)、`viewport_panel.rs` **或** `viewport3d.rs` | `theme.rs`(叠加层配色)、`tests/preview_aspect_ratio.rs` | `agent*`、`assets_panel.rs`、`timeline_panel.rs`、`docs/工作日志.md`(3,075 行) |
-| **T5 新增文件格式/资产类型** | `editor_core` 新模块 + `editor_core/src/lib.rs`、`editor_app/actions.rs`(载入/保存动作)、`plugin.rs`(资源初始化)、`messages.tsv` | `project.rs`(资源列表/导入状态)、`assets_panel.rs` | `preview.rs`、`pie_proto.rs`、`gui_probe` |
+| **T5 新增文件格式/资产类型** | `editor_core` 新模块 + `editor_core/src/lib.rs`、`editor_app/actions/`(载入/保存动作，放对应域文件)、`plugin.rs`(资源初始化)、`messages.tsv` | `project.rs`(资源列表/导入状态)、`assets_panel.rs` | `preview.rs`、`pie_proto.rs`、`gui_probe` |
 | **T6 改界面文案** | `messages.tsv`(按前缀 grep)、`tools/gen_messages.py`(扫描目标/应排除)、目标文件 | — | 其余一切 |
 | **T7 修 bug（有报错/栈）** | 报错指向的文件 + 它直接调用的接口文件 + 覆盖它的测试 | 同簇的第二个文件 | 全库；无关 crate |
 
@@ -259,7 +263,7 @@
 
 | 簇 | 联合读取包（一次读完，不要拆散） | 行数量级 |
 | --- | --- | --- |
-| 1 动作总线 | `state.rs`(UiAction 段 ~600 行) + `actions.rs`(目标域 ~200 行) + `plugin.rs`(摘要 ~60 行) | ~900 |
+| 1 动作总线 | `state.rs`(UiAction 段 ~600 行) + `actions/`(`mod.rs` 路由器 + 目标域文件 ~200 行) + `plugin.rs`(摘要 ~60 行) | ~900 |
 | 2 面板注册 | `docks.rs`(全) + `workspaces.rs`(预设段 ~300) + `menu_bar.rs`(window 段 ~120) + `editor_ui/lib.rs`(分发段 ~80) | ~1,000 |
 | 3 共享状态 | `state.rs`(界面状态 274 + 绘制上下文 90) + `plugin.rs`(绘制环境 40 + 绘制一帧 60) | ~470 |
 | 4 渲染投影 | 目标投影模块 + `scene_bridge.rs`(trait+一个 impl ~250) + `preview.rs`(相机/渲染目标 ~200) | ~900 |
@@ -293,7 +297,7 @@
 
 | # | 事项 | 收益 | 风险 | 缓解 |
 | --- | --- | --- | --- | --- |
-| 7 | `actions.rs` 按域拆分（先拆资源/动画/瓦片 3 个域） | 4,288 → 目标每文件 ≤ 800 | 借用冲突、漏改分支 | 先做 #4；每域一个 commit；测试不动 |
+| 7 | `actions/` 按域拆分（已完成资源/动画/编辑，继续瓦片/主题/构建/智能体） | `mod.rs` 4,004 → 目标 ≤ 1,500 | 借用冲突、漏改分支 | 先做 #4；沿用 `Result<(), UiAction>` 路由器 + 分组哨兵；每域一个 commit；测试不动 |
 | 8 | 面板注册表（6 张同步表 → 1 张） | 新增面板从 18 触点降到 ~8 | 布局存档 v3 兼容、4 个预设顺序 | 保留 v1/v2/v3 迁移测试 + 新增"注册表与分发一一对应"测试 |
 | 9 | `scene_bridge` 三分（注册 / 投影 / 运行时宿主） | 1,586 行 → 3 个 ≤ 600 | 组件注册顺序、测试断言 | 先纯搬移（不改逻辑），单 commit |
 | 10 | 界面状态按面板切片（85 字段） | AI 读状态从 274 行降到 ~30 行 | 16 个面板全动 | **只切 2 个试点**（瓦片地图 + 动画时间轴），其余不动 |
@@ -321,15 +325,15 @@
 | D1 | 落 `AGENTS.md`；修两处文档漂移 | 新增 `AGENTS.md`；`docs/项目现状总览.md`、`docs/engine_capability_map.md`(§13) | 新任务按清单执行一次，记录 1 条扩展原因；`git grep '.verify/'` 不再出现在证据索引 | 纯文档，`git revert` 即回滚 |
 | D2 | 诊断确认会：逐簇过一遍，确认优先级 | 本报告 | 用户确认 E.1/E.2 的取舍与 E.3 的暂缓 | 无 |
 | D3 | `gen_messages.py` 目录级扫描 + `--list` | `tools/gen_messages.py` | `--list` 输出与当前白名单一致；4 条缺口清零后脚本退出码 0 | 脚本行为变更会影响所有后续文案改动 → 保留 `--strict` 兼容旧行为 |
-| D4 | `动作上下文` 结构体（#4） | `editor_app/src/actions.rs`（只加 struct + 改 `执行单个动作` 签名与内部取值） | `cargo check --workspace --all-targets` 通过；`cargo test -p editor_app` 全绿；`执行单个动作` 参数从 13 降到 3 | 13 个参数全是 `&mut`，borrow 冲突可能一次改不完 → 按参数分批，每批一个 commit |
+| D4 | `动作上下文` 结构体（#4） | `editor_app/src/actions/mod.rs`（只加 struct + 改 `执行单个动作` 签名与内部取值） | `cargo check --workspace --all-targets` 通过；`cargo test -p editor_app` 全绿；`执行单个动作` 参数从 13 降到 3 | 13 个参数全是 `&mut`，borrow 冲突可能一次改不完 → 按参数分批，每批一个 commit |
 | D5 | 组件注册集中（#5） | `scene_bridge.rs`、`components3d.rs`、`physics_components.rs`、`ui_components.rs`、`audio_components.rs` | 5 处 `.注册` 变 1 张表；`默认注册表包含全部内置组件` 测试仍绿；新增 1 条"表与注册数一致" | 注册顺序可能影响 Inspector 组件排序 → 断言顺序不变 |
 
 ### 第 2 周：小步重构（每步一个 commit，可单独 revert）
 
 | 天 | 目标 | 涉及文件 | 验收标准 | 风险 / 回滚 |
 | --- | --- | --- | --- | --- |
-| D6 | `actions.rs` 拆第 1 个域（资源） | `actions.rs` → 新增 `actions/资源.rs` | 行为不变；`action_loop.rs`、`project_and_asset_management.rs` 全绿 | 拆分后 `pub` 可见性要放宽 → 用 `pub(crate)`，不放 `pub` |
-| D7 | 拆第 2 个域（动画）+ 第 3 个域（瓦片） | 同上 | 每文件 ≤ 800 行；`动作摘要` 与 `执行` 仍穷尽（编译器保证） | 三个域同时改容易混 → 一天一个域 |
+| D6 | `actions/` 拆第 1 个域（资源） | `actions/mod.rs` → 新增 `actions/resources.rs` | 行为不变；`action_loop.rs`、`project_and_asset_management.rs` 全绿 | 拆分后 `pub` 可见性要放宽 → 用 `pub(super)` / `pub(crate)`，不放 `pub` |
+| D7 | 拆第 2 个域（动画）+ 第 3 个域（编辑） | 同上（`animation.rs` / `edit.rs`） | 每域文件 ≤ 800 行；`动作摘要` 与 `执行` 仍穷尽（编译器保证） | 三个域同时改容易混 → 一天一个域 |
 | D8 | 面板注册表（#8）第 1 步：只建表不改行为 | `docks.rs` 新增 `面板描述` 表；`Tab::全部()` 改为从表派生 | `Tab::全部()` 元素与顺序不变（测试断言）；布局恢复测试全绿 | 表与 `match` 不一致 → 新增"注册表与分发一一对应"测试 |
 | D9 | 面板注册表第 2 步：窗口菜单 + 图标从表派生 | `menu_bar.rs`、`icons.rs`、`help.rs` | `窗口菜单映射到正确的面板` 测试绿；GUI 菜单截图 1 张 | 菜单顺序变化会影响 GUI 断言 → 断言按"包含"而非"顺序" |
 | D10 | 界面状态切片试点（2 个面板） | `state.rs`、`tilemap_panel.rs`、`timeline_panel.rs`、`plugin.rs` | 两个面板只依赖自己的 `XxxState`；其余面板编译不变；`cargo test -p editor_ui` 全绿 | 与并行工作线冲突概率最高 → 单独分支，先 rebase |
@@ -338,7 +342,7 @@
 
 | 风险 | 概率 | 影响 | 应对 |
 | --- | --- | --- | --- |
-| `actions.rs` 拆分时 borrow 冲突反复 | 高 | 中 | 先做 `动作上下文`；分批改；不追求一天拆完 |
+| `actions/` 拆分时 borrow 冲突反复 | 高 | 中 | 先做 `动作上下文`；分批改；每域一个 commit，不追求一天拆完 |
 | 布局存档 v3 兼容被破坏（面板注册表） | 中 | 高（用户布局丢失） | 保留三级迁移测试；表驱动只影响"新布局"，不改序列化格式 |
 | 界面状态切片与用户并行工作线冲突 | 高 | 中 | 只切 2 个面板；单独分支；一次一个 |
 | 渲染投影 trait 化引入画面回归 | 中 | 高（难自动断言） | 本轮不做；若做，先 light_preview 试点 + `docs/验收证据` 截图对比 |
@@ -363,15 +367,15 @@
 | --- | --- |
 | 代码规模 | 按 crate 汇总 `*.rs` 行数（排除 `target/`） |
 | 中心文件 | 按单文件行数排序取前 30 |
-| `执行单个动作` 规模 | `git grep -n "^fn \|^pub fn " crates/editor_app/src/actions.rs`（591 → 3429） |
-| `UiAction` 变体数 | 解析 `pub enum UiAction` 块 + 数 `UiAction::` 出现点（209 / 202） |
+| `执行单个动作` 规模 | `git grep -n "^fn \|^pub fn " crates/editor_app/src/actions/mod.rs`（619 → 2881） |
+| `UiAction` 变体数 | 解析 `pub enum UiAction` 块 + 数 `UiAction::` 出现点（209；处理点按域分散在 `actions/*.rs`） |
 | 界面状态字段数 | 定位 `pub struct 界面状态` 块，数 `^\s{4}pub `（85 / 274 行） |
 | 上下文扇出 | 读 `plugin.rs:1616` 与 `state.rs:2726` 的字段表 |
 | 面板扇出 | `git grep -c "Tab::"` 按文件统计（8 个文件 299 处） |
 | 实测改动面 | `git show --numstat HEAD~1 -- 'crates/**/*.rs'`（瓦片地图提交） |
 | 未开发项 | `git grep -c 粒子/寻路/导航网格/混合树/命令面板/多窗口/材质资产`（均 0 命中）+ 能力地图 M1 |
 | 状态判定 | 以 `docs/engine_capability_map.md` 的 M0–M5 为主证据，代码与测试为复核 |
-| 测试总量 | 全仓 `#[test]` 计数（1,234） |
+| 测试总量 | 全仓 `#[test]` 计数（1,237） |
 
 **假设（需要时请纠正）**
 

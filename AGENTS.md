@@ -1,7 +1,8 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-25，`8a258c7`，11 个 workspace 成员，1,237 个 `#[test]`。
+> 当前基线：2026-10-26，`c563008`，11 个 workspace 成员，
+> `cargo test --workspace` = 1,240 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,245 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 
@@ -73,13 +74,13 @@
 
 | 事实 | 数字 | 含义 |
 | --- | --- | --- |
-| 全库 Rust | 118,163 行（`src/` 101,271 + `tests/` 15,384），11 个成员 | 瓶颈不在总量 |
+| 全库 Rust | 119,754 行（`src/` 101,725 + `tests/` 15,711），11 个成员 | 瓶颈不在总量 |
 | 三个中心文件 | `actions/`(5,339，`mod.rs` 2,375 + 12 个域文件 2,964) + `state.rs`(3,250) + `plugin.rs`(2,023) ≈ 10,612 行 | 几乎每次改动都会经过 |
 | 单一执行器 | `mod.rs` 的 `执行单个动作` 615 行（12 个路由跳转 + 16 条总表分支 + 12 组哨兵），13 个 `&mut` 参数已收进 `动作上下文` | 新增行为 = 先找对应域文件，找不到才加进总表 |
 | 动作变体 | `UiAction` 182 个，其中 166 个（91%）已由域文件认领 | 定义/处理/摘要三处 + 无编译期约束的构造点 |
 | 共享状态 | `界面状态` 85 个 `pub` 字段 | 16 个面板同时 `&mut`，影响面不可知 |
 | 数据扇出 | `绘制环境`(14) → `绘制上下文`(21) → 面板 | 新增一个数据源 = 6 个触点 |
-| 面板扇出 | 新增一个面板 = 18 个触点，6 张人工同步表 | 漏一处不报编译错，只表现为“打不开/布局消失” |
+| 面板扇出 | 元数据 1 张表（`docks.rs` 863 行里的 `面板注册表`，16 行）+ 分发 1 处 `match tab` + 预设由注册表派生（`workspaces.rs` 1,820 行） | 手工触点收到 `lib.rs` 那处 match，漏了直接编译报错 |
 
 **推论**：优先小步、可回滚、只加不改的改动；不要顺手大重构。
 
@@ -90,6 +91,15 @@
 `project` / `ui` / `save` / `settings` / `run_debug`。
 新增动作时先找对应域文件，跨域或无处安放时才动 `mod.rs`；
 总表只剩 16 条（试听 / 剪贴板 / 资源管理器 / 编辑器内运行 / 脚本 / 项目运行）。
+
+**面板元数据只剩一张表**（D21 第一、二步）：`crates/editor_ui/src/docks.rs`（863 行）里的
+`面板注册表` 是唯一一份人工同步的面板元数据 —— 16 行，每行 `tab` / 标题键 / 菜单键 /
+中文标题 / 可关闭 / 分组。标题、菜单项、"菜单文本 → 面板"反映射、`Tab::全部()`、
+`Tab::全部含智能体()`，以及四个内置工作区出厂布局的兜底标签组，全部由它派生。
+`Tab::描述` 读编译期构建的 `面板描述表`：注册表少一行或重复登记都表现为
+`error[E0080]` 编译失败，运行期不再有 panic 分支。
+新增面板仍然要动 `editor_ui/src/lib.rs` 的 `match tab`（绘制分发）—— 这是刻意保留的
+编译期穷尽护栏，不是第二份元数据表。
 
 ---
 
@@ -110,7 +120,7 @@
 
 | 任务类型 | 必读 | 可选 | 禁止 |
 | --- | --- | --- | --- |
-| **T1 新增/修改面板** | `crates/editor_ui/src/docks.rs`（Tab+三套键）、`workspaces.rs`（预设）、`menu_bar.rs`（window 分组）、`crates/editor_ui/src/lib.rs`（分发 match）、`state.rs`（目标字段+相关 `UiAction`）、`crates/editor_app/src/plugin.rs`（动作摘要+绘制环境）、`messages.tsv`（相关前缀）、目标面板文件 | `visual_spec.rs`、`theme.rs`、`crates/editor_app/tests/multi_panel_workspace.rs` | 其余 15 个面板；`preview`/`run`/`agent*`/`pie_*`/`debug_bridge`；`examples/`；除 `架构设计.md` 外的 `docs/` |
+| **T1 新增/修改面板** | `crates/editor_ui/src/docks.rs`（`面板注册表` + 派生清单 + `补全标签组`）、`workspaces.rs`（预设兜底栏）、`crates/editor_ui/src/lib.rs`（分发 match）、`state.rs`（目标字段+相关 `UiAction`）、`crates/editor_app/src/plugin.rs`（动作摘要+绘制环境）、`messages.tsv`（相关前缀）、目标面板文件 | `visual_spec.rs`、`theme.rs`、`menu_bar.rs`（window 分组已派生）、`crates/editor_app/tests/multi_panel_workspace.rs` | 其余 15 个面板；`preview`/`run`/`agent*`/`pie_*`/`debug_bridge`；`examples/`；除 `架构设计.md` 外的 `docs/` |
 | **T2 新增 `UiAction`** | `state.rs`（`pub enum UiAction` 段+动作队列）、`actions/`（`mod.rs` 路由器+目标域子文件）、`plugin.rs`（`动作摘要`）、`crates/editor_app/tests/action_reachability.rs` | 目标域既有处理函数、`crates/editor_app/tests/action_loop.rs` | `editor_core/*`、`scene_doc/*`（除非动作要读写文档） |
 | **T3 新增组件类型** | 目标组件族模块（`scene_bridge`/`components3d`/`physics_components`/`ui_components`/`audio_components`）、`scene_bridge.rs`（trait+注册表+同类 impl 范例）、`inspector_panel.rs`（字段绘制）、`messages.tsv` | 对应投影模块（若可渲染）、同类组件测试 | `actions/mod.rs`（`构造默认组件` 已泛化）、`agent*`、`gui_probe` |
 | **T4 改渲染/预览** | 目标投影模块、`crates/editor_app/src/preview.rs`、`scene_bridge.rs`（投影段）、`state.rs`（相机/视口段）、`viewport_panel.rs` **或** `viewport3d.rs` | `theme.rs`（叠加层配色）、`crates/editor_app/tests/preview_aspect_ratio.rs` | `agent*`、`assets_panel.rs`、`timeline_panel.rs`、`工作日志.md` |

@@ -42,6 +42,7 @@ pub mod instance;
 pub mod log_source;
 pub mod package;
 pub mod prefab_catalog;
+pub mod prefab_graph;
 pub mod project;
 pub mod recovery;
 pub mod run_entry;
@@ -86,6 +87,7 @@ pub use package::{
 pub use prefab_catalog::{
     模板目录问题, 预制件告警, 预制件实例状态, 预制件目录
 };
+pub use prefab_graph::{依赖节点, 循环依赖, 预制件依赖图};
 pub use project::{
     清理文件名, 目录名, 资源条目, 资源移动结果, 项目描述, 项目格式版本, 项目清单, 项目清单文件名,
     项目类型, 项目结果, 项目设置, 项目错误,

@@ -893,6 +893,7 @@ fn 建实例(世界: &mut World, 模板: &预制件文档) -> scene_doc::documen
             editor_core::command::编辑器命令::创建预制件实例 {
                 模板: Box::new(模板.clone()),
                 模板路径: 动作模板路径(),
+                内层模板: BTreeMap::new(),
                 放置: 变换数据::单位(),
                 父实体: None,
                 指定实例根: None,
@@ -1089,7 +1090,7 @@ fn 通过动作队列把脱钩节点重新纳入模板管理() {
     推动作(
         &mut 世界,
         vec![UiAction::重新纳入预制件节点 {
-            实例根,
+            记录键: 实例根,
             地址: 子地址.clone(),
         }],
     );

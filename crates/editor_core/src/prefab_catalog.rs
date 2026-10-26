@@ -30,7 +30,7 @@
 还是该找回模板文件。
 */
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use scene_doc::document::{场景文档, 实体标识};
 use scene_doc::path::项目相对路径;
@@ -390,6 +390,41 @@ impl 预制件目录 {
             }
         }
         告警
+    }
+
+    /**
+     * 取一份模板的**嵌套闭包**快照（含自身），供编辑命令随身携带。
+     *
+     * 参数：`外层` 是最外层模板标识。返回值包含从它出发沿依赖边可达的
+     * 全部模板，目录里缺失的那一环直接跳过。
+     *
+     * 为什么不是"只取直接依赖"：嵌套展开最深处 8 层，命令若只带第一层，
+     * 第三层往下的站点在重做时一律按`模板缺失`降级 —— 撤销一次再重做，
+     * 用户的嵌套结构会被静默压平。闭包快照保证重做与首次执行读到同一批模板。
+     *
+     * 为什么由命令携带而不是执行时读目录：与 [`crate::command::编辑器命令::创建预制件实例`]
+     * 携带模板快照同一个理由 —— 重做必须在任何磁盘与目录状态下复现同一次结果。
+     * 代价是这条撤销条目装下了整个闭包的模板，见 `crate::undo::命令大小`。
+     */
+    pub fn 嵌套模板集(
+        &self, 外层: &预制件标识
+    ) -> BTreeMap<预制件标识, 预制件文档> {
+        let 图 = 预制件依赖图::从目录(self);
+        let mut 结果 = BTreeMap::new();
+        let mut 已访问: BTreeSet<预制件标识> = BTreeSet::new();
+        let mut 队列 = vec![*外层];
+        while let Some(当前) = 队列.pop() {
+            if !已访问.insert(当前) {
+                continue;
+            }
+            if let Some(模板) = self.取(&当前) {
+                结果.insert(当前, 模板.clone());
+            }
+            if let Some(依赖) = 图.依赖(&当前) {
+                队列.extend(依赖.iter().copied());
+            }
+        }
+        结果
     }
 
     /**

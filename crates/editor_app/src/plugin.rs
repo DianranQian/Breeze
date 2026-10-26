@@ -1766,6 +1766,12 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::显示存档槽位(显示) => format!("显示存档槽位({显示})"),
         UiAction::刷新存档槽位 => "刷新存档槽位".to_string(),
         UiAction::刷新场景实例 => "刷新场景实例".to_string(),
+        UiAction::同步预制件实例 { 实例根 } => format!("同步预制件实例({实例根})"),
+        UiAction::同步预制件模板 { 模板 } => format!("同步预制件模板({})", 模板.0),
+        UiAction::重新纳入预制件节点 { 实例根, 地址 } => {
+            format!("重新纳入预制件节点({实例根}, {} 段)", 地址.0.len())
+        }
+        UiAction::刷新预制件目录 => "刷新预制件目录".to_string(),
         UiAction::对齐选中 { 边 } => format!("对齐选中({})", 边.词条键()),
         UiAction::分布选中 { 轴 } => format!("分布选中({})", 轴.词条键()),
         UiAction::添加动画事件 { 类型, .. } => {

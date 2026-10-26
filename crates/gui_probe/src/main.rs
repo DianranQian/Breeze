@@ -930,6 +930,144 @@ fn 判定选中(证据: &serde_json::Value, 期望名称: Option<&str>) -> Resul
     ))
 }
 
+/// 核对预制件面板与实例状态。
+///
+/// # 为什么这三条断言要分开给
+///
+/// `--expect-prefab-rows` 证明面板真的画出了模板行（不是空白/报错态）；
+/// `--expect-prefab-version` 证明同步真的推进了版本；
+/// `--expect-prefab-pending` 证明蓝色箭头确实消失。
+/// 只断言"点击后界面有变化"无法区分「同步成功」与「点到了复制图标」，
+/// 这三条把结果钉在实例记录的事实上。
+///
+/// `--expect-prefab-placement` 再补一条：拖拽实例根之后，
+/// **记录.放置**必须与实体变换一致。它是位置权威 ——
+/// 只比对实体变换的话，"只改了运行时实体、没写回记录"这种缺陷照样能通过。
+fn 判定预制件(
+    证据: &serde_json::Value,
+    期望行数: Option<usize>,
+    期望版本: &[String],
+    期望待同步: &[String],
+    期望放置一致: &[String],
+) -> Result<(), String> {
+    let 实例列表 = 证据
+        .get("prefab_instances")
+        .and_then(|值| 值.as_array())
+        .cloned()
+        .unwrap_or_default();
+    if let Some(数量) = 期望行数 {
+        let 实际 = 证据
+            .get("prefab_rows")
+            .and_then(|值| 值.as_array())
+            .map(|行| 行.len())
+            .ok_or_else(|| "证据里没有 prefab_rows 字段（应用版本过旧？）".to_string())?;
+        if 实际 != 数量 {
+            return Err(format!("期望预制件面板 {数量} 行，实际 {实际} 行"));
+        }
+    }
+    for 项 in 期望版本 {
+        let Some((名称, 版本文本)) = 项.split_once('=') else {
+            return Err(format!(
+                "`--expect-prefab-version` 格式应为 名称=版本：{项}"
+            ));
+        };
+        let 版本: u64 = 版本文本
+            .trim()
+            .parse()
+            .map_err(|_| format!("版本不是数字：{版本文本}"))?;
+        let 实例 = 找实例(&实例列表, 名称)?;
+        let 实际 = 实例.get("version").and_then(|值| 值.as_u64()).unwrap_or(0);
+        if 实际 != 版本 {
+            return Err(format!(
+                "期望实例 `{名称}` 的模板版本为 {版本}，实际 {实际}"
+            ));
+        }
+    }
+    for 项 in 期望待同步 {
+        let Some((名称, 期望)) = 项.split_once('=') else {
+            return Err(format!(
+                "`--expect-prefab-pending` 格式应为 名称=yes|no：{项}"
+            ));
+        };
+        let 期望 = 期望.trim() == "yes";
+        let 实例 = 找实例(&实例列表, 名称)?;
+        let 实际 = 实例
+            .get("pending")
+            .and_then(|值| 值.as_bool())
+            .unwrap_or(false);
+        if 实际 != 期望 {
+            return Err(format!(
+                "期望实例 `{名称}` 待同步为 {}，实际 {}",
+                if 期望 { "yes" } else { "no" },
+                if 实际 { "yes" } else { "no" }
+            ));
+        }
+    }
+    for 名称 in 期望放置一致 {
+        let 实例 = 找实例(&实例列表, 名称)?;
+        let 根 = 实例.get("root").and_then(|值| 值.as_str()).unwrap_or("");
+        let 放置 = 实例
+            .get("placement_translate")
+            .and_then(|值| 值.as_array())
+            .ok_or_else(|| format!("实例 `{名称}` 的证据里没有 placement_translate"))?
+            .iter()
+            .map(|值| 值.as_f64().unwrap_or(f64::NAN))
+            .collect::<Vec<_>>();
+        let 变换 = 证据
+            .get("selection_transform")
+            .ok_or_else(|| "证据里没有 selection_transform（末帧没有主选中）".to_string())?;
+        let 选中标识 = 变换
+            .get("entity")
+            .and_then(|值| 值.as_str())
+            .unwrap_or_default();
+        if 选中标识 != 根 {
+            return Err(format!(
+                "断言的实例 `{名称}` 根为 {根}，但末帧主选中是 {选中标识}"
+            ));
+        }
+        let 实体平移 = 变换
+            .get("translate")
+            .and_then(|值| 值.as_array())
+            .map(|值| {
+                值.iter()
+                    .map(|值| 值.as_f64().unwrap_or(f64::NAN))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        if 放置.len() != 3 || 实体平移.len() != 3 {
+            return Err(format!("实例 `{名称}` 的平移分量不是 3 个"));
+        }
+        for 轴 in 0..3 {
+            if (放置[轴] - 实体平移[轴]).abs() > 0.01 {
+                return Err(format!(
+                    "实例 `{名称}` 的放置与实体变换不一致：\
+                     放置 {放置:?} / 实体 {实体平移:?}（拖拽没有写回放置？）"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 在实例证据里按实例根名称找一条记录。
+fn 找实例<'a>(
+    列表: &'a [serde_json::Value],
+    名称: &str,
+) -> Result<&'a serde_json::Value, String> {
+    列表
+        .iter()
+        .find(|实例| 实例.get("name").and_then(|值| 值.as_str()) == Some(名称))
+        .ok_or_else(|| {
+            format!(
+                "证据里找不到名为 `{名称}` 的预制件实例（当前实例：{:?}）",
+                列表
+                    .iter()
+                    .filter_map(|实例| 实例.get("name").and_then(|值| 值.as_str()))
+                    .collect::<Vec<_>>()
+            )
+        })
+}
+
 /// 拖拽验收的判定结果（退出码与既有约定一致）。
 fn 拖拽(参数: &[String]) -> i32 {
     let mut exe: Option<PathBuf> = None;
@@ -971,6 +1109,14 @@ fn 拖拽(参数: &[String]) -> i32 {
     let mut 期望菜单: Option<String> = None;
     // 点击之后的选中状态断言：给出场景树里的**行名称**。
     let mut 期望选中: Option<String> = None;
+    // 预制件面板行数（证明面板处于"有模板"的正常态）。
+    let mut 期望预制件行数: Option<usize> = None;
+    // 实例模板版本断言（`名称=版本`，可重复）。
+    let mut 期望实例版本: Vec<String> = Vec::new();
+    // 实例待同步断言（`名称=yes|no`，可重复）。
+    let mut 期望实例待同步: Vec<String> = Vec::new();
+    // 实例放置与实体变换一致断言（实例名称，可重复）。
+    let mut 期望实例放置一致: Vec<String> = Vec::new();
     // 逐阶段中间态记录：每个注入阶段追加一条，最后写进报告。
     let mut 阶段记录表: Vec<阶段记录> = Vec::new();
     // ---- 变换工具 / 操纵器相关的断言（本轮新增）----
@@ -1059,6 +1205,24 @@ fn 拖拽(参数: &[String]) -> i32 {
             "--frame3" => 第三帧帧号 = 取值(&mut 下标).and_then(|值| 值.parse().ok()),
             "--expect-menu" => 期望菜单 = 取值(&mut 下标),
             "--expect-selection" => 期望选中 = 取值(&mut 下标),
+            "--expect-prefab-rows" => {
+                期望预制件行数 = 取值(&mut 下标).and_then(|值| 值.trim().parse().ok());
+            }
+            "--expect-prefab-version" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望实例版本.push(值);
+                }
+            }
+            "--expect-prefab-pending" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望实例待同步.push(值);
+                }
+            }
+            "--expect-prefab-placement" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望实例放置一致.push(值);
+                }
+            }
             "--expect-tool" => 期望工具 = 取值(&mut 下标),
             "--expect-gizmo" => 期望悬停 = 取值(&mut 下标),
             "--expect-transform" => {
@@ -1225,7 +1389,38 @@ fn 拖拽(参数: &[String]) -> i32 {
         .get("pixels_per_point")
         .and_then(|值| 值.as_f64())
         .unwrap_or(1.0) as f32;
-    let 原点 = 窗口.客户区原点;
+
+    // 聚焦目标窗口，并在**聚焦之后**重新测量客户区原点。
+    //
+    // * 不聚焦时 `SendInput` 的点击会落到别的窗口上；
+    //   `SetForegroundWindow` 在 Windows 上可能被前台锁拒绝（返回 0），
+    //   故失败时点一下标题栏激活。
+    // * 窗口位置在采集第一帧之后还可能变化（多显示器、DPI 缩放、系统的
+    //   级联定位）。继续用采集时的原点注入，会点到"窗口原来在的地方"，
+    //   表现成"应用没收到指针事件"—— 那是工具的时序缺陷，不是界面缺陷。
+    //   所以原点必须**在注入前**再取一次，而不是沿用几秒前的快照。
+    if !确保前台(&窗口) {
+        等待退出(&mut 子进程, Duration::from_secs(5));
+        return 拖拽失败报告(
+            &输出目录,
+            &名称,
+            "capture_failed",
+            "无法把应用窗口切到前台：继续注入只会点到别的窗口上",
+            3,
+        );
+    }
+    std::thread::sleep(Duration::from_millis(250));
+    let 原点 = window_probe::查找(进程号)
+        .filter(|候选| 候选.句柄 == 窗口.句柄)
+        .map(|候选| 候选.客户区原点)
+        .unwrap_or(窗口.客户区原点);
+    if 原点 != 窗口.客户区原点 {
+        eprintln!(
+            "窗口在采集后移动：客户区原点 {:?} → {:?}，按新原点注入",
+            窗口.客户区原点, 原点
+        );
+    }
+
     // 逻辑客户区坐标 → 屏幕物理坐标
     let 转屏幕 = |逻辑: (f32, f32)| -> (i32, i32) {
         (
@@ -1269,13 +1464,6 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 否则 `--scroll` / `--case3` 这类会话会在窗口左上角（菜单栏）多出一次
     // 真实单击 —— 它既是多余输入，也可能误触菜单把后续步骤搞乱。
     let 需要第一插槽点击 = 从.is_some() || 分割线.is_some() || 用例.is_some();
-
-    // 聚焦目标窗口：不聚焦时 SendInput 的点击会落到别的窗口上。
-    //
-    // `SetForegroundWindow` 在 Windows 上可能被前台锁拒绝（返回 0）。
-    // 这时点一下**标题栏**：它不进入客户区，不会误触 UI，但足以把窗口激活。
-    确保前台(&窗口);
-    std::thread::sleep(Duration::from_millis(250));
 
     let 起点屏幕 = 转屏幕(从逻辑);
     let 终点屏幕 = 转屏幕(到逻辑);
@@ -1828,6 +2016,13 @@ fn 拖拽(参数: &[String]) -> i32 {
     // 右键菜单与选中集是"本帧事实"：只对最后一帧（注入完成之后那一帧）判定。
     let 菜单判定 = 判定菜单(&末证据, 期望菜单.as_deref());
     let 选中判定 = 判定选中(&末证据, 期望选中.as_deref());
+    let 预制件判定 = 判定预制件(
+        &末证据,
+        期望预制件行数,
+        &期望实例版本,
+        &期望实例待同步,
+        &期望实例放置一致,
+    );
     // 变换相关的断言同样只看末帧状态，但"变化/未变化"要比前后两帧。
     //
     // 基准帧必须选**最后一次注入之前**的那一帧：有插槽 2 动作时是第二帧
@@ -1851,6 +2046,7 @@ fn 拖拽(参数: &[String]) -> i32 {
     for (名, 结果) in [
         ("菜单", &菜单判定),
         ("选中", &选中判定),
+        ("预制件", &预制件判定),
         ("工具", &工具判定),
         ("操纵器悬停", &悬停判定),
         ("变换分量", &变换判定),
@@ -1994,6 +2190,7 @@ fn 是场景树用例(名: &str) -> bool {
         || 名.starts_with("row_name:")
         || 名.starts_with("name:")
         || 名.starts_with("row_blank:")
+        || 名.starts_with("sync:")
         || 名 == "scene_blank"
 }
 
@@ -2178,6 +2375,33 @@ fn 状态指纹(证据: &serde_json::Value) -> std::collections::BTreeMap<String
             .map(|值| {
                 值.iter()
                     .filter_map(|项| 项.as_str())
+                    .collect::<Vec<_>>()
+                    .join("|")
+            })
+            .unwrap_or_default(),
+    );
+    // 预制件实例：`名称=版本=待同步`。同步只改实例记录（版本推进、箭头消失），
+    // 不移动任何面板矩形，也不一定改变选中集 —— 不写进指纹的话，
+    // 「同步成功」会被判成"输入没有产生任何变化"。
+    表.insert(
+        "prefab_instances".to_string(),
+        证据
+            .get("prefab_instances")
+            .and_then(|值| 值.as_array())
+            .map(|列表| {
+                列表
+                    .iter()
+                    .map(|实例| {
+                        format!(
+                            "{}={}={}",
+                            实例.get("name").and_then(|值| 值.as_str()).unwrap_or(""),
+                            实例.get("version").and_then(|值| 值.as_u64()).unwrap_or(0),
+                            实例
+                                .get("pending")
+                                .and_then(|值| 值.as_bool())
+                                .unwrap_or(false)
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join("|")
             })
@@ -2943,6 +3167,62 @@ fn 用例坐标(名: &str, 证据: &serde_json::Value) -> Option<((f32, f32), (f
         return Some((点, 点));
     }
 
+    // ---- 预制件面板：`prefab:<名称或标识>` 点该行按钮 ----
+    //
+    // 面板行高随字号、行数随资产变化；只有按应用记录的真实矩形点击，
+    // 才能把「点击没创建实例」与「点到了别的模板」区分开。
+    if let Some(目标) = 名.strip_prefix("prefab:") {
+        let ppp = 证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0);
+        let 行列表 = 证据.get("prefab_rows")?.as_array()?;
+        let 行 = 行列表.iter().find(|行| {
+            行.get("name").and_then(|值| 值.as_str()) == Some(目标)
+                || 行.get("id").and_then(|值| 值.as_str()) == Some(目标)
+        })?;
+        if !行
+            .get("creatable")
+            .and_then(|值| 值.as_bool())
+            .unwrap_or(false)
+        {
+            return None;
+        }
+        let 矩形 = 行.get("row")?;
+        let 取数 = |键: &str| 矩形.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) / ppp;
+        let 点 = (
+            (取数("x") + 取数("w") * 0.5) as f32,
+            (取数("y") + 取数("h") * 0.5) as f32,
+        );
+        return Some((点, 点));
+    }
+
+    // ---- 「待同步」箭头：`sync:<实例名称>` ----
+    //
+    // 箭头只有约 14px 宽，点偏就变成"选中该行"。坐标必须来自
+    // 应用当帧记录的真实矩形，而不是名称右缘加固定偏移。
+    if let Some(名称) = 名.strip_prefix("sync:") {
+        let ppp = 证据
+            .get("pixels_per_point")
+            .and_then(|值| 值.as_f64())
+            .unwrap_or(1.0);
+        let 行列表 = 证据.get("scene_rows")?.as_array()?;
+        let 行 = 行列表.iter().find(|行| {
+            行.get("name").and_then(|值| 值.as_str()) == Some(名称)
+                && 行
+                    .get("prefab_sync")
+                    .map(|值| !值.is_null())
+                    .unwrap_or(false)
+        })?;
+        let 矩形 = 行.get("prefab_sync")?;
+        let 取数 = |键: &str| 矩形.get(键).and_then(|值| 值.as_f64()).unwrap_or(0.0) / ppp;
+        let 点 = (
+            (取数("x") + 取数("w") * 0.5) as f32,
+            (取数("y") + 取数("h") * 0.5) as f32,
+        );
+        return Some((点, 点));
+    }
+
     // ---- 资源浏览器：`asset:<名称或路径>` 点该行的名称标签 ----
     //
     // 坐标同样来自应用当帧记录的真实矩形。资源行会随目录展开、
@@ -3269,28 +3549,63 @@ fn 从证据取ppp(日志: &str) -> Option<f32> {
     Some(1.5)
 }
 
-fn 确保前台(窗口: &窗口信息) {
+/// 确保目标窗口位于前台，返回最终是否成功。
+///
+/// # 三级手段，逐级降级
+///
+/// 1. `SetForegroundWindow`：正常路径。
+/// 2. `AttachThreadInput`：`SetForegroundWindow` 常被 Windows 的前台锁
+///    拒绝（调用进程不持有前台时返回 0）。把本线程挂到当前前台窗口的
+///    输入队列上再请求一次，系统就认为本线程持有前台，拒绝不再发生。
+/// 3. 点标题栏：最后手段。前提是标题栏没有被别的窗口盖住 ——
+///    若被盖住，这一击会把**那个窗口**激活，反而更糟。
+///
+/// # 为什么必须返回结果
+///
+/// `SendInput` 把事件送给前台窗口。激活失败还继续注入，点击会落到
+/// 另一个程序上（可能真的点到别人的界面），而报告只会写"应用没反应"，
+/// 把工具的时序缺陷伪装成界面缺陷。调用方拿到 `false` 应当终止本次注入。
+fn 确保前台(窗口: &窗口信息) -> bool {
     #[cfg(windows)]
     {
+        use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetActiveWindow;
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            GetForegroundWindow, SetForegroundWindow,
+            BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow,
         };
         let Ok(句柄) = usize::from_str_radix(窗口.句柄.trim_start_matches("0x"), 16) else {
-            return;
+            return false;
         };
         let 句柄 = 句柄 as _;
-        // SAFETY: 只传窗口句柄。
-        let 已是前台 = unsafe { GetForegroundWindow() } == 句柄;
-        if 已是前台 {
-            return;
+        if unsafe { GetForegroundWindow() } == 句柄 {
+            return true;
         }
-        // SAFETY: 句柄来自 EnumWindows 的枚举结果。
+        // SAFETY: 句柄来自 EnumWindows 的枚举结果；其余调用只传句柄或线程号。
         unsafe {
             SetForegroundWindow(句柄);
         }
         std::thread::sleep(Duration::from_millis(120));
         if unsafe { GetForegroundWindow() } == 句柄 {
-            return;
+            return true;
+        }
+        let 前台 = unsafe { GetForegroundWindow() };
+        let 前台线程 = unsafe { GetWindowThreadProcessId(前台, std::ptr::null_mut()) };
+        let 本线程 = unsafe { GetCurrentThreadId() };
+        unsafe {
+            if 前台线程 != 0 && 前台线程 != 本线程 {
+                AttachThreadInput(本线程, 前台线程, 1);
+                BringWindowToTop(句柄);
+                SetActiveWindow(句柄);
+                SetForegroundWindow(句柄);
+                AttachThreadInput(本线程, 前台线程, 0);
+            } else {
+                BringWindowToTop(句柄);
+                SetActiveWindow(句柄);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(120));
+        if unsafe { GetForegroundWindow() } == 句柄 {
+            return true;
         }
         // 点标题栏激活：窗口矩形顶边 + 10px，水平取客户区中部。
         let (x, y, w, _) = 窗口.窗口矩形;
@@ -3301,10 +3616,12 @@ fn 确保前台(窗口: &窗口信息) {
         std::thread::sleep(Duration::from_millis(60));
         let _ = input::抬起();
         std::thread::sleep(Duration::from_millis(150));
+        unsafe { GetForegroundWindow() == 句柄 }
     }
     #[cfg(not(windows))]
     {
         let _ = 窗口;
+        true
     }
 }
 

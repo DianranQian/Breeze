@@ -58,6 +58,7 @@ import sys
     "crates/editor_ui/src/menu_bar.rs",
     "crates/editor_ui/src/inspector_panel.rs",
     "crates/editor_ui/src/assets_panel.rs",
+    "crates/editor_ui/src/prefab_panel.rs",
     "crates/editor_ui/src/history_panel.rs",
     "crates/editor_ui/src/hierarchy_panel.rs",
     "crates/editor_ui/src/viewport_panel.rs",
@@ -172,6 +173,14 @@ import sys
     "实例 {根} 引用的是模板 {}，与传入的模板 {} 不一致",
     "模板版本 {} 低于实例 {根} 期望的版本 {}，拒绝用旧模板覆盖新实例",
     "实例根实体 {根} 不存在",
+    # 「重新纳入预制件节点」命令的预检失败原因，与同步命令同批：
+    # 只是把占位符名从 `根` 换成 `实例根`、`地址` 换成 `地址:?`，
+    # 因此文本不同、需要各自登记，等"错误携带键"落地后一起迁移。
+    "实体 {实例根} 不是预制件实例：实例记录不存在",
+    "实例 {实例根} 引用的是模板 {}，与传入的模板 {} 不一致",
+    "实例根实体 {实例根} 不存在",
+    "节点地址 {地址:?} 不在实例 {实例根} 的脱钩集合里，无法重新纳入",
+    "模板当前版本里没有节点 {地址:?}，无法重新纳入（正确动作是彻底删除本地副本）",
     # 瓦片地图面板的掩码表解析错误：与上面同类，属于"错误携带键"的
     # 下一轮改造范围，本轮如实排除。
     "掩码表需要 16 项，当前 {} 项",

@@ -39,6 +39,7 @@ pub mod inspector_panel;
 pub mod menu_bar;
 pub mod node_icons;
 pub mod picking3d;
+pub mod prefab_panel;
 pub mod recovery_panel;
 pub mod runtime_panel;
 pub mod savegame_panel;
@@ -125,6 +126,8 @@ pub fn 绘制(egui上下文: &egui::Context, 上下文: &mut 绘制上下文<'_>
     // 资源行几何同理：资源面板没画（面板被关掉/换了工作区）时，
     // 证据里不能继续声称"这些行还在、还能点"。
     上下文.界面.资源行几何.clear();
+    // 预制件行几何同理：预制件面板被关掉时，证据里不能留下"还能点"的行。
+    上下文.界面.预制件行几何.clear();
     上下文.界面.场景右键菜单 = None;
     上下文.界面.场景空白矩形 = None;
     上下文.界面.场景视口矩形 = None;
@@ -1440,6 +1443,7 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
                         Tab::场景树 => hierarchy_panel::绘制(ui, &mut 上下文),
                         Tab::检查器 => inspector_panel::绘制(ui, &mut 上下文),
                         Tab::资源浏览器 => assets_panel::绘制(ui, &mut 上下文),
+                        Tab::预制件 => prefab_panel::绘制(ui, &mut 上下文),
                         Tab::控制台 => console_panel::绘制(ui, &mut 上下文),
                         Tab::历史 => history_panel::绘制历史(ui, &mut 上下文),
                         Tab::运行时ecs => runtime_panel::绘制(ui, &mut 上下文),

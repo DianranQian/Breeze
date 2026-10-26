@@ -315,6 +315,11 @@ struct 场景行记录 {
     /// 验收把它当右键落点：这一块没有别的控件，右键一定弹**行菜单**。
     /// 名称过长时没有空白区，此时为 `null`。
     blank: Option<矩形记录>,
+    /// 「待同步」蓝色箭头矩形；不是待同步实例时为 `null`。
+    ///
+    /// 它是唯一直通动作的标记（点它直接同步），宽度只有约 14px。
+    /// 没有这条证据，验收无法把「同步没生效」与「点成了选中」区分开。
+    prefab_sync: Option<矩形记录>,
 }
 
 /// 资源浏览器一行的证据。
@@ -336,6 +341,64 @@ struct 资源行记录 {
     selected: bool,
     /// 这一行是不是目录（目录只能点开，不能预览）。
     is_dir: bool,
+}
+
+/// 预制件面板一行的证据。
+///
+/// 面板行由模板目录派生，行高随字号、行数随项目资产变化。没有真实矩形时，
+/// 「点击模板行」这条交互只能猜坐标；点偏之后场景里同样"没有新实例"，
+/// 于是「面板坏了」与「点到了别的行」在证据上无法区分。
+#[derive(Debug, Clone, Serialize)]
+struct 预制件行记录 {
+    /// 模板标识的调试文本（稳定标识）。
+    id: String,
+    /// 模板名称。
+    name: String,
+    /// 模板版本。
+    version: u64,
+    /// 整行按钮矩形（物理像素）。
+    row: 矩形记录,
+    /// 该行是否可以点击创建（没有文件路径的模板被禁用）。
+    creatable: bool,
+}
+
+/// 一个预制件实例的状态证据。
+///
+/// # 为什么要进证据
+///
+/// 「点蓝色箭头同步」不改变面板矩形，也不改变选中集：同步的全部效果
+/// 都落在实例记录（版本推进、待同步消失）上。没有这份记录，验收只能
+/// 断言"点击有反应"，却无法区分「同步成功」与「点到了复制图标」。
+#[derive(Debug, Clone, Serialize)]
+struct 预制件实例记录 {
+    /// 实例根实体标识的调试文本（与 `scene_rows[].id` 同一格式）。
+    root: String,
+    /// 实例根实体的显示名。
+    name: String,
+    /// 模板标识的调试文本。
+    template: String,
+    /// 模板文件的项目相对路径。
+    template_path: String,
+    /// 实例记录里保存的模板版本（同步成功的直接证据）。
+    version: u64,
+    /// 是否落后于模板当前版本。
+    pending: bool,
+    /// 模板文件是否缺失。
+    missing: bool,
+    /// 版本没变但内容被外部修改。
+    fingerprint_mismatch: bool,
+    /// 实例是否有本地覆盖。
+    overrides: bool,
+    /// 脱离模板管理的节点数。
+    detached: usize,
+    /// 实例记录里保存的放置平移（位置权威）。
+    ///
+    /// 拖拽实例根时，实体变换与 `记录.放置` 必须一起改；只断言实体变换
+    /// 无法区分「写回了放置」与「只改了运行时实体」—— 后者正是 P3 之前
+    /// 那个「保存后位置丢失」的缺陷。
+    placement_translate: [f32; 3],
+    /// 「待同步」箭头的矩形；没有该箭头时为 `null`。
+    sync: Option<矩形记录>,
 }
 
 /// 资源预览证据。
@@ -597,6 +660,10 @@ struct 采集证据 {
     asset_rows: Vec<资源行记录>,
     /// 当前资源预览状态。
     asset_preview: 资源预览记录,
+    /// 预制件面板的可见行（含真实行矩形）。
+    prefab_rows: Vec<预制件行记录>,
+    /// 当前场景里的预制件实例及其同步状态。
+    prefab_instances: Vec<预制件实例记录>,
 }
 
 /// 一次界面绘制结束后写证据并请求截图。
@@ -785,6 +852,7 @@ fn 发起一次采集(
             icon: 行.图标.to_string(),
             type_icon: 行.类型图标矩形.map(转矩形),
             blank: 行.行空白矩形.map(转矩形),
+            prefab_sync: 行.同步标记矩形.map(转矩形),
         })
         .collect();
 
@@ -823,6 +891,58 @@ fn 发起一次采集(
         request_generation: 界面.状态.预览请求.代次,
         auditioning: 界面.状态.试听中.clone(),
     };
+
+    // ---- 预制件面板与实例状态 ----
+    let 预制件行: Vec<预制件行记录> = 界面
+        .状态
+        .预制件行几何
+        .iter()
+        .map(|行| 预制件行记录 {
+            id: 行.标识.clone(),
+            name: 行.名称.clone(),
+            version: 行.版本,
+            row: 转矩形(行.行矩形),
+            creatable: 行.可创建,
+        })
+        .collect();
+    let 实例记录列表: Vec<预制件实例记录> = 编辑器
+        .状态
+        .会话
+        .文档
+        .预制件实例表
+        .iter()
+        .map(|(根, 记录)| {
+            let 状态 = 编辑器.状态.预制件状态(根);
+            let 根文本 = format!("{根:?}");
+            let 同步矩形 = 界面
+                .状态
+                .场景行几何
+                .iter()
+                .find(|行| 行.标识 == 根文本)
+                .and_then(|行| 行.同步标记矩形)
+                .map(转矩形);
+            预制件实例记录 {
+                name: 编辑器
+                    .状态
+                    .会话
+                    .文档
+                    .取(*根)
+                    .map(|实体| 实体.名称.clone())
+                    .unwrap_or_default(),
+                root: 根文本,
+                template: format!("{:?}", 记录.模板.标识),
+                template_path: 记录.模板.路径.文本().to_string(),
+                version: 记录.模板.版本,
+                pending: 状态.map(|状态| 状态.待同步).unwrap_or(false),
+                missing: 状态.map(|状态| 状态.模板缺失).unwrap_or(false),
+                fingerprint_mismatch: 状态.map(|状态| 状态.指纹不一致).unwrap_or(false),
+                overrides: 状态.map(|状态| 状态.有覆盖).unwrap_or(false),
+                detached: 记录.脱钩节点.len(),
+                placement_translate: [记录.放置.平移.0, 记录.放置.平移.1, 记录.放置.平移.2],
+                sync: 同步矩形,
+            }
+        })
+        .collect();
 
     // ---- 项目运行状态 ----
     let 运行记录 = 运行记录 {
@@ -953,6 +1073,8 @@ fn 发起一次采集(
         console_log_count: 编辑器.状态.日志列表().len(),
         asset_rows: 资源行,
         asset_preview: 资源预览,
+        prefab_rows: 预制件行,
+        prefab_instances: 实例记录列表,
     };
 
     if let Some(报告路径) = 报告.map(Path::to_path_buf) {

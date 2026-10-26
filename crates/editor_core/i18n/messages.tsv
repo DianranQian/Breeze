@@ -120,6 +120,7 @@ command_batch_set_transform	批量修改变换	Batch Set Transform
 command_create_prefab_instance	创建预制件实例	Create Prefab Instance
 command_move_entity_down	下移实体	Move Entity Down
 command_move_entity_up	上移实体	Move Entity Up
+command_reclaim_prefab_node	重新纳入预制件节点	Reclaim Prefab Node
 command_reparent	调整层级	Reparent
 command_replace_entity	替换实体	Replace Entity
 command_set_property	修改属性	Set Property
@@ -225,10 +226,20 @@ paused	⏸ 已暂停	⏸ Paused
 paused_2	已暂停	Paused
 performance	性能	Performance
 position	位置	Position
+prefab_browser	预制件	Prefabs
+prefab_create_hint	在视口中心创建一个该模板的实例	Create an instance of this template at the viewport center
+prefab_delete_local_copy	彻底删除本地副本	Delete Local Copy Permanently
+prefab_detached_node	脱钩节点：模板已删除该节点，本地副本已脱离模板管理（右键可重新纳入或彻底删除）	Detached node: the template no longer has this node and the local copy is out of template management (right-click to reclaim or delete it)
+prefab_empty_hint	prefabs 目录里还没有模板。把场景保存成预制件后会出现在这里。	No templates in the prefabs directory yet. Saved prefabs will appear here.
 prefab_fingerprint_mismatch	模板文件已被外部修改，可能需要手动同步	The template file was modified externally; a manual sync may be needed
 prefab_has_overrides	实例有本地修改	Instance has local overrides
 prefab_instance	预制件实例	Prefab instance
+prefab_path_missing_hint	该模板没有文件路径，无法创建实例	This template has no file path, so no instance can be created
 prefab_pending_sync	模板有更新，待同步	Template updated; sync pending
+prefab_reclaim_node	重新纳入模板管理	Reclaim into Template
+prefab_refresh_hint	重新扫描 prefabs 目录（在编辑器外修改过模板文件后使用）	Rescan the prefabs directory (use after editing template files outside the editor)
+prefab_sync_instance	同步此实例	Sync This Instance
+prefab_sync_template_instances	同步该模板的全部实例	Sync All Instances of This Template
 prefab_template_missing	模板文件缺失	Template file is missing
 preview	● 预览 {}×{}	● Preview {}×{}
 preview_not_ready	○ 预览未就绪	○ Preview not ready

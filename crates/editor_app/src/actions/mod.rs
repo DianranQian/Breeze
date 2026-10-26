@@ -39,6 +39,7 @@ mod agent;
 mod animation;
 mod build;
 mod edit;
+mod prefab;
 mod project;
 mod resources;
 mod run_debug;
@@ -646,6 +647,12 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         Err(未处理) => 未处理,
     };
 
+    // 预制件域只认领实例同步与重新纳入动作。
+    let 动作 = match prefab::处理预制件动作(动作, 上下文) {
+        Ok(()) => return,
+        Err(未处理) => 未处理,
+    };
+
     // 瓦片域只认领瓦片地图/瓦片集的载入与保存。
     let 动作 = match tilemap::处理瓦片动作(动作, 上下文) {
         Ok(()) => return,
@@ -1093,6 +1100,14 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::对齐选中 { .. }
         | UiAction::分布选中 { .. } => {
             unreachable!("编辑域动作应已由 `处理编辑动作` 处理")
+        }
+
+        // 预制件域已由 `处理预制件动作` 提前处理；保留哨兵以维持穷尽性检查。
+        UiAction::同步预制件实例 { .. }
+        | UiAction::同步预制件模板 { .. }
+        | UiAction::重新纳入预制件节点 { .. }
+        | UiAction::刷新预制件目录 => {
+            unreachable!("预制件域动作应已由 `处理预制件动作` 处理")
         }
 
         // 瓦片域已由 `处理瓦片动作` 提前处理；保留哨兵以维持穷尽性检查。

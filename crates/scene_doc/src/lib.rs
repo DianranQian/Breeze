@@ -21,6 +21,7 @@ pub mod document;
 pub mod error;
 pub mod path;
 pub mod prefab;
+pub mod prefab_nested;
 pub mod property;
 pub mod registry;
 pub mod storage;
@@ -34,6 +35,10 @@ pub use path::{资源唯一标识, 路径错误, 项目相对路径};
 pub use prefab::{
     实体来源, 派生实体标识, 物化实例, 物化统计, 节点地址, 覆盖动作, 覆盖状态, 覆盖表, 覆盖键,
     路径段, 预制件头, 预制件实例记录, 预制件引用, 预制件文档, 预制件标识,
+};
+pub use prefab_nested::{
+    内层记录合并报告, 合并内层记录, 合并站点根, 对齐内层版本, 嵌套告警, 嵌套展开计划, 嵌套节点类别,
+    嵌套节点计划, 提交嵌套展开, 最大嵌套深度, 模板解析器, 规划嵌套展开,
 };
 pub use property::{属性值, 枚举值, 颜色值};
 pub use registry::{属性描述, 属性种类, 注册表错误, 组件注册表, 组件类型};

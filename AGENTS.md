@@ -1,9 +1,9 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-27，P5-4 资源注册表（assets 扫描缓存 / 代次失效 / 刷新动作）
-> 与层级拖拽回顶层，11 个 workspace 成员，
-> `cargo test --workspace` = 1,393 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,398 处）。
+> 当前基线：2026-10-27，P5-5 资源选择器（Inspector 资源字段 → 悬浮选择器 →
+> 只带资源标识回写 → 撤销/脏标记/预览刷新同一通道），11 个 workspace 成员，
+> `cargo test --workspace` = 1,399 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,404 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 
@@ -45,10 +45,10 @@
 - **禁止全库通读**。先声明读取清单，再开始读。
 - 单任务首轮预算：**≤ 6 个文件、≤ 3,000 行**；超预算先说明理由。
 - 定位只允许 `git grep -n <符号>` 或按行号区间读取；不要整文件读取巨型文件：
-  - `crates/editor_app/src/actions/`（模块目录：`mod.rs` 2,390 行 + 13 个域文件，按域定位）
-  - `crates/editor_ui/src/state.rs`（3,315 行，按结构体/枚举定位）
-  - `crates/editor_app/src/plugin.rs`（2,029 行，按函数定位）
-  - `crates/editor_core/i18n/messages.tsv`（1,360 行，按前缀 grep）
+  - `crates/editor_app/src/actions/`（模块目录：`mod.rs` 2,468 行 + 13 个域文件，按域定位）
+  - `crates/editor_ui/src/state.rs`（3,621 行，按结构体/枚举定位）
+  - `crates/editor_app/src/plugin.rs`（2,067 行，按函数定位）
+  - `crates/editor_core/i18n/messages.tsv`（1,376 行，按前缀 grep）
   - `docs/工作日志.md`（4,172 行，除考古外不要读）
 - 超出清单的读取必须记录一行：
   `扩展读取：<文件> —— 原因：<为什么清单不够>`
@@ -75,11 +75,11 @@
 
 | 事实 | 数字 | 含义 |
 | --- | --- | --- |
-| 全库 Rust | 131,392 行（`src/` 112,430 + `tests/` 18,962），11 个成员 | 瓶颈不在总量 |
-| 三个中心文件 | `actions/`(5,429，`mod.rs` 2,391 + 13 个域文件 3,038) + `state.rs`(3,490) + `plugin.rs`(2,032) ≈ 10,951 行 | 几乎每次改动都会经过 |
-| 单一执行器 | `mod.rs` 的 `执行单个动作` 629 行（13 个路由跳转 + 16 条总表分支 + 13 组哨兵），13 个 `&mut` 参数已收进 `动作上下文` | 新增行为 = 先找对应域文件，找不到才加进总表 |
-| 动作变体 | `UiAction` 189 个，其中 172 个（91%）已由域文件认领 | 定义/处理/摘要三处 + 无编译期约束的构造点 |
-| 共享状态 | `界面状态` 89 个 `pub` 字段 | 17 个面板同时 `&mut`，影响面不可知 |
+| 全库 Rust | 135,489 行（`src/` 114,981 + `tests/` 20,508），11 个成员 | 瓶颈不在总量 |
+| 三个中心文件 | `actions/`(5,687，`mod.rs` 2,468 + 13 个域文件 3,219) + `state.rs`(3,621) + `plugin.rs`(2,067) ≈ 11,375 行 | 几乎每次改动都会经过 |
+| 单一执行器 | `mod.rs` 的 `执行单个动作` 633 行（13 个路由跳转 + 16 条总表分支 + 13 组哨兵），13 个 `&mut` 参数已收进 `动作上下文` | 新增行为 = 先找对应域文件，找不到才加进总表 |
+| 动作变体 | `UiAction` 191 个，其中 174 个（91%）已由域文件认领 | 定义/处理/摘要三处 + 无编译期约束的构造点 |
+| 共享状态 | `界面状态` 90 个 `pub` 字段 | 17 个面板同时 `&mut`，影响面不可知 |
 | 数据扇出 | `绘制环境`(14) → `绘制上下文`(21) → 面板 | 新增一个数据源 = 6 个触点 |
 | 面板扇出 | 元数据 1 张表（`docks.rs` 869 行里的 `面板注册表`，17 行）+ 分发 1 处 `match tab` + 预设由注册表派生（`workspaces.rs` 1,824 行） | 手工触点收到 `lib.rs` 那处 match，漏了直接编译报错 |
 
@@ -125,7 +125,7 @@
 | **T2 新增 `UiAction`** | `state.rs`（`pub enum UiAction` 段+动作队列）、`actions/`（`mod.rs` 路由器+目标域子文件）、`plugin.rs`（`动作摘要`）、`crates/editor_app/tests/action_reachability.rs` | 目标域既有处理函数、`crates/editor_app/tests/action_loop.rs` | `editor_core/*`、`scene_doc/*`（除非动作要读写文档） |
 | **T3 新增组件类型** | 目标组件族模块（`scene_bridge`/`components3d`/`physics_components`/`ui_components`/`audio_components`）、`scene_bridge.rs`（trait+注册表+同类 impl 范例）、`inspector_panel.rs`（字段绘制）、`messages.tsv` | 对应投影模块（若可渲染）、同类组件测试 | `actions/mod.rs`（`构造默认组件` 已泛化）、`agent*`、`gui_probe` |
 | **T4 改渲染/预览** | 目标投影模块、`crates/editor_app/src/preview.rs`、`scene_bridge.rs`（投影段）、`state.rs`（相机/视口段）、`viewport_panel.rs` **或** `viewport3d.rs` | `theme.rs`（叠加层配色）、`crates/editor_app/tests/preview_aspect_ratio.rs` | `agent*`、`assets_panel.rs`、`timeline_panel.rs`、`工作日志.md` |
-| **T5 新增文件格式/资产类型** | `editor_core` 新模块 + `lib.rs`、`actions/`（载入/保存动作，放对应域文件）、`plugin.rs`（资源初始化）、`messages.tsv` | `project.rs`（资源列表/导入状态）、`assets_panel.rs` | `preview.rs`、`pie_proto.rs`、`gui_probe` |
+| **T5 新增文件格式/资产类型** | `editor_core` 新模块 + `lib.rs`、`actions/`（载入/保存动作，放对应域文件）、`plugin.rs`（资源初始化）、`messages.tsv` | `project.rs`（资源列表/导入状态）、`assets_panel.rs`、`asset_picker.rs` + `scene_doc/property.rs`（`资源类别` 新枚举值会同时进选择器页签与 Inspector 图标） | `preview.rs`、`pie_proto.rs`、`gui_probe` |
 | **T6 改界面文案** | `messages.tsv`（按前缀 grep）、`tools/gen_messages.py`（扫描目标/应排除）、目标文件 | — | 其余一切 |
 | **T7 修 bug（有报错/栈）** | 报错指向的文件 + 它直接调用的接口文件 + 覆盖它的测试 | 同簇的第二个文件 | 全库；无关 crate |
 
@@ -143,7 +143,7 @@
 | 6 i18n | `tools/gen_messages.py`（全）+ `messages.tsv`（前缀 grep 结果） | ~300 |
 | 7 运行调试 | `run.rs`（三表注释+启动）+ `build.rs` + `editor_core/run_entry.rs` | ~700 |
 | 8 AI Agent | `agent.rs`（数据模型）+ `agent_dsh.rs`（协议）+ `agent_runtime.rs`（进程） | ~1,000 |
-| 9 资产引用 | `scene_doc/document.rs`（属性）+ `asset_refs.rs` + `editor_core/asset_index.rs` | ~700 |
+| 9 资产引用 | `scene_doc/document.rs`（属性）+ `asset_refs.rs` + `editor_core/asset_index.rs` + `editor_core/asset_registry.rs` + `editor_ui/src/asset_picker.rs` | ~900 |
 
 **不要**一次读完 11 个 `agent*` 文件；**不要**在任务不涉及 PIE 时读 `pie_proto.rs`。
 
@@ -208,7 +208,7 @@ git status --short                # 确认没有根目录临时产物
 - 不启动 3D 物理、粒子、寻路、导航网格、动画状态机、命令面板、LSP、多窗口等
   产品能力，除非用户明确排期。
 - 不做“大爆炸”重构；优先 D1–D5 的“只加不改”，D6 之后每步单独可回滚。
-- `actions/` 已按域拆完 13 个域（172/189 个变体有归属）；继续拆就沿用
+- `actions/` 已按域拆完 13 个域（174/191 个变体有归属）；继续拆就沿用
   `Result<(), UiAction>` 路由器 + 分组哨兵的模式，每个域一个 commit，
   恢复成单文件或按层重划都不做。
 - 剩下 16 条总表动作（试听 / 剪贴板 / 资源管理器 / 编辑器内运行 / 脚本 / 项目运行）

@@ -244,6 +244,7 @@ prefab_path_missing_hint	该模板没有文件路径，无法创建实例	This t
 prefab_pending_sync	模板有更新，待同步	Template updated; sync pending
 prefab_reclaim_node	重新纳入模板管理	Reclaim into Template
 prefab_refresh_hint	重新扫描 prefabs 目录（在编辑器外修改过模板文件后使用）	Rescan the prefabs directory (use after editing template files outside the editor)
+prefab_revert_field	恢复	Reset
 prefab_revert_field_hint	恢复该项默认值：删除这一项的覆盖，写回模板里的值	Revert to the template default: drop this override and restore the template value
 prefab_sync_instance	同步此实例	Sync This Instance
 prefab_sync_template_instances	同步该模板的全部实例	Sync All Instances of This Template

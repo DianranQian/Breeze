@@ -803,6 +803,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "prefab_pending_sync", 中文: "模板有更新，待同步", 英文: "Template updated; sync pending" },
     词条 { 键: "prefab_reclaim_node", 中文: "重新纳入模板管理", 英文: "Reclaim into Template" },
     词条 { 键: "prefab_refresh_hint", 中文: "重新扫描 prefabs 目录（在编辑器外修改过模板文件后使用）", 英文: "Rescan the prefabs directory (use after editing template files outside the editor)" },
+    词条 { 键: "prefab_revert_field", 中文: "恢复", 英文: "Reset" },
     词条 { 键: "prefab_revert_field_hint", 中文: "恢复该项默认值：删除这一项的覆盖，写回模板里的值", 英文: "Revert to the template default: drop this override and restore the template value" },
     词条 { 键: "prefab_sync_instance", 中文: "同步此实例", 英文: "Sync This Instance" },
     词条 { 键: "prefab_sync_template_instances", 中文: "同步该模板的全部实例", 英文: "Sync All Instances of This Template" },

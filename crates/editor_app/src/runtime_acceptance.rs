@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::debug_bridge::运行时调试管理器;
 
-/// 启用 GUI 运行时验收的環境变量。
+/// 启用 GUI 运行时验收的环境变量。
 pub const 运行时验收环境变量: &str = "BEVY_STUDIO_RUNTIME_ACCEPTANCE";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

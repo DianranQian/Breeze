@@ -25,6 +25,8 @@ use editor_app::BevyStudio插件;
 const 默认窗口尺寸: (u32, u32) = (1600, 950);
 
 fn main() {
+    // 崩溃一律写报告文件 + stderr，不弹原生窗口（见 `panic_report` 模块文档）。
+    editor_app::panic_report::安装崩溃钩子();
     // 允许用环境变量覆盖窗口尺寸：不同尺寸下的布局验收必须能自动跑，
     // 否则"窗口变窄时状态栏被挤坏"这类问题只能靠人去拉窗口。
     let (宽, 高) = std::env::var(editor_app::capture::窗口尺寸环境变量)

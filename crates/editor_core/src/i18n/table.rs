@@ -689,6 +689,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "log_run_entry_selected", 中文: "运行入口已切换为 {}", 英文: "Run target changed to {}" },
     词条 { 键: "log_run_log_cleared", 中文: "已清空本次运行日志", 英文: "Cleared the run log of this run" },
     词条 { 键: "log_run_log_sent_to_agent", 中文: "已把运行日志附加到 AI 对话上下文", 英文: "Attached the run log to the AI chat context" },
+    词条 { 键: "log_run_scene_empty", 中文: "场景里还没有实体，运行没有开始：先添加一个实体再运行", 英文: "The scene has no entities yet, so the run did not start: add an entity first" },
     词条 { 键: "log_scene_autoload_failed", 中文: "自动载入场景失败：{}", 英文: "Failed to auto-load scene: {}" },
     词条 { 键: "log_scene_autoload_failed_hint", 中文: "已改为打开一个空白场景。请按上面的错误检查该场景文件，或从资源面板手动打开其他场景。", 英文: "Opened a blank scene instead. Check that scene file per the error above, or open another scene from the Assets panel." },
     词条 { 键: "log_scene_created", 中文: "已新建场景 `{}`", 英文: "Created scene `{}`" },

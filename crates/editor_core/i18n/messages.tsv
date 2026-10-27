@@ -280,6 +280,7 @@ run	▶ 运行	▶ Run
 run_2	运行	Run
 run_state_stopped	已停止	Stopped
 run_the_current_scene	运行当前场景	Run the current scene
+log_run_scene_empty	场景里还没有实体，运行没有开始：先添加一个实体再运行	The scene has no entities yet, so the run did not start: add an entity first
 running	▶ 运行中	▶ Running
 running_2	运行中	Running
 runtime_ecs	运行时 ECS	Runtime ECS

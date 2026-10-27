@@ -1,8 +1,9 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-26，`4909148`，11 个 workspace 成员，
-> `cargo test --workspace` = 1,344 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,349 处）。
+> 当前基线：2026-10-27，`05fadf1` + P4-D 工作区（未提交），11 个 workspace 成员，
+> `cargo test --workspace` = 1,352 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,357 处）；
+> 此后只有 `test(i18n)` 提交改过 `tools/gen_messages.py` 与本文档，Rust 树未变。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

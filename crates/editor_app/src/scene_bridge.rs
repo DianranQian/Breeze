@@ -432,6 +432,25 @@ fn 插入已知组件(
         世界.entity_mut(运行时实体).insert(*值);
         return true;
     }
+    // 自定义：3D 相机
+    //
+    // 运行时世界不渲染，但"相机是场景里的一等节点"这件事必须在数据上
+    // 成立：调试器、后续渲染宿主、导出都按组件名找相机。这里把它落成
+    // Bevy 真正认识的 `Camera3d + Camera + Projection` 三件套，而不是
+    // 只放一个编辑器标记 —— 否则将来接上渲染时还要再翻译一次。
+    if let Some(值) = 实例.downcast_ref::<编辑器相机3d>() {
+        世界.entity_mut(运行时实体).insert((
+            Camera3d::default(),
+            Camera::default(),
+            Projection::Perspective(PerspectiveProjection {
+                fov: 值.视野.to_radians(),
+                near: 值.近裁剪,
+                far: 值.远裁剪,
+                ..default()
+            }),
+        ));
+        return true;
+    }
     // 自定义：程序化瓦片地形
     if let Some(值) = 实例.downcast_ref::<瓦片地形属性>() {
         世界.entity_mut(运行时实体).insert(值.clone());
@@ -621,6 +640,41 @@ impl Default for 编辑器相机2d {
     }
 }
 
+/// 三维编辑器相机标记。
+///
+/// # 为什么与 [`编辑器相机2d`] 分开
+///
+/// 两种相机的投影方式不同：2D 只用正交半高，3D 需要垂直视野与裁剪面。
+/// 把它们合并成一个组件、再用"是否 3D"开关切换，字段表里就会出现
+/// 一半字段对当前模式无效的情况 —— 用户在 2D 场景里调"远裁剪面"
+/// 不会有任何效果，只会怀疑参数没生效。
+///
+/// # 它不改预览视口
+///
+/// 编辑器视口的观察相机是 [`editor_ui::state::三维相机`]（轨道相机），
+/// 与场景里的相机节点是**两件事**：前者是编辑时的眼睛，后者是运行时
+/// 游戏的眼睛。这里只把场景相机保存成数据，供运行时世界与将来的
+/// 独立预览使用。
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct 编辑器相机3d {
+    /// 垂直视野（度）。
+    pub 视野: f32,
+    /// 近裁剪面距离。
+    pub 近裁剪: f32,
+    /// 远裁剪面距离。
+    pub 远裁剪: f32,
+}
+
+impl Default for 编辑器相机3d {
+    fn default() -> Self {
+        Self {
+            视野: 60.0,
+            近裁剪: 0.1,
+            远裁剪: 1_000.0,
+        }
+    }
+}
+
 /// 程序化瓦片地形在编辑器文档里的表示。
 ///
 /// # 为什么不是一张烘焙好的 PNG
@@ -672,12 +726,33 @@ impl Default for 瓦片地形属性 {
 }
 
 /// 三维程序化几何体的形状。
+///
+/// # 为什么是"形状 + 尺寸"而不是每个形状一个组件
+///
+/// 立方体、球体、圆柱体、平面在渲染上是同一件事：一个 `Mesh3d` + 一份
+/// `StandardMaterial`，差异只有网格生成参数。拆成四个组件会让 Inspector、
+/// BSN 提取、预制件同步各自多四份重复分支，而用户也会困惑"为什么加一个
+/// 球要去另一个组件里找"。保留一个组件、用枚举区分形状，新增形状只需要
+/// 在 [`几何体形状`] 与预览网格生成处各加一行。
+///
+/// # 尺寸的含义按形状解释
+///
+/// | 形状 | 尺寸 `(x, y, z)` |
+/// | --- | --- |
+/// | 立方体 | 长、高、宽（全长） |
+/// | 球体 | 直径、直径、直径（只取 `x` 作为直径） |
+/// | 圆柱体 | 直径（`x`）、高（`y`）、直径（`z`） |
+/// | 平面 | 长（`x`）、忽略、宽（`z`） |
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum 几何体形状 {
     /// 长方体（地面、围墙、箱体）。
     立方体,
     /// 水平面（法线 +Y，贴花、地面薄片）。
     平面,
+    /// 球体（道具、灯泡、占位角色）。
+    球体,
+    /// 圆柱体（柱子、管道、树干）。
+    圆柱体,
 }
 
 impl 几何体形状 {
@@ -686,14 +761,21 @@ impl 几何体形状 {
         match self {
             Self::立方体 => "Cuboid",
             Self::平面 => "Plane",
+            Self::球体 => "Sphere",
+            Self::圆柱体 => "Cylinder",
         }
     }
 
     /// 变体序号（名字失配时的兜底）。
+    ///
+    /// 新形状只能**追加**在末尾：序号是旧文件里没有名字时的唯一线索，
+    /// 把球体插到平面前面会让旧场景里的平面变成球。
     pub fn 序号(self) -> u32 {
         match self {
             Self::立方体 => 0,
             Self::平面 => 1,
+            Self::球体 => 2,
+            Self::圆柱体 => 3,
         }
     }
 
@@ -702,8 +784,14 @@ impl 几何体形状 {
         match 名 {
             "Cuboid" => Self::立方体,
             "Plane" => Self::平面,
-            _ if 序号 == 1 => Self::平面,
-            _ => Self::立方体,
+            "Sphere" => Self::球体,
+            "Cylinder" => Self::圆柱体,
+            _ => match 序号 {
+                1 => Self::平面,
+                2 => Self::球体,
+                3 => Self::圆柱体,
+                _ => Self::立方体,
+            },
         }
     }
 }
@@ -1113,6 +1201,85 @@ fn 相机字段描述() -> &'static [属性描述] {
     })
 }
 
+/// `编辑器相机3d` 的编辑器适配。
+struct 相机3d组件类型;
+
+impl 组件类型 for 相机3d组件类型 {
+    fn 组件名(&self) -> &'static str {
+        "Camera3d"
+    }
+
+    fn 默认实例(&self) -> Box<dyn std::any::Any> {
+        Box::new(编辑器相机3d::default())
+    }
+
+    fn 字段描述(&self) -> &[属性描述] {
+        相机3d字段描述()
+    }
+
+    fn 导出(
+        &self,
+        实例: &dyn std::any::Any,
+    ) -> Option<std::collections::BTreeMap<String, 属性值>> {
+        let 属性 = 实例.downcast_ref::<编辑器相机3d>()?;
+        let mut 结果 = std::collections::BTreeMap::new();
+        结果.insert("视野".to_string(), 属性值::浮点(属性.视野));
+        结果.insert("近裁剪".to_string(), 属性值::浮点(属性.近裁剪));
+        结果.insert("远裁剪".to_string(), 属性值::浮点(属性.远裁剪));
+        Some(结果)
+    }
+
+    fn 实例化(
+        &self,
+        实例: &mut dyn std::any::Any,
+        数据: &std::collections::BTreeMap<String, 属性值>,
+    ) -> bool {
+        let Some(属性) = 实例.downcast_mut::<编辑器相机3d>() else {
+            return false;
+        };
+        if let Some(值) = 数据.get("视野").and_then(属性值::取浮点) {
+            // 0° 或 180° 的透视投影是退化的：前者什么都看不见，
+            // 后者会把画面拉伸到无穷远。夹到开区间内。
+            属性.视野 = 值.clamp(1.0, 179.0);
+        }
+        if let Some(值) = 数据.get("近裁剪").and_then(属性值::取浮点) {
+            if 值 > 0.0 {
+                属性.近裁剪 = 值;
+            }
+        }
+        if let Some(值) = 数据.get("远裁剪").and_then(属性值::取浮点) {
+            // 远裁剪必须大于近裁剪，否则投影矩阵会退化。
+            if 值 > 属性.近裁剪 {
+                属性.远裁剪 = 值;
+            }
+        }
+        true
+    }
+}
+
+/// 三维相机字段描述。
+fn 相机3d字段描述() -> &'static [属性描述] {
+    use std::sync::OnceLock;
+    static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
+    列表.get_or_init(|| {
+        vec![
+            浮点("视野", "camera3d_field_fov", 60.0, 1.0, 179.0, 1.0)
+                .带提示("camera3d_fov_tooltip"),
+            浮点("近裁剪", "camera3d_field_near", 0.1, 0.001, 100.0, 0.01)
+                .带提示("camera3d_near_tooltip"),
+            浮点(
+                "远裁剪",
+                "camera3d_field_far",
+                1_000.0,
+                1.0,
+                100_000.0,
+                10.0,
+            )
+            .带提示("camera3d_far_tooltip"),
+        ]
+    })
+}
+
 /// 整数属性描述构造辅助。
 fn 整数(
     字段: &str, 显示: &'static str, 默认: i64, 最小: i64, 最大: i64
@@ -1362,6 +1529,8 @@ fn 几何体字段描述() -> &'static [属性描述] {
                     选项: vec![
                         ("Cuboid".to_string(), "Cuboid".to_string(), 0),
                         ("Plane".to_string(), "Plane".to_string(), 1),
+                        ("Sphere".to_string(), "Sphere".to_string(), 2),
+                        ("Cylinder".to_string(), "Cylinder".to_string(), 3),
                     ],
                 },
                 属性值::枚举(scene_doc::property::枚举值::新建("Cuboid", 0)),
@@ -1424,6 +1593,11 @@ static 内置组件构造表: &[组件构造] = &[
     || Box::new(瓦片地形组件类型),
     || Box::new(几何体组件类型),
     // 扩展组件：启动时由 `全部内置组件注册表` 一并注册。
+    //
+    // `Camera3d` 放在三维一组的最前面：它与 `方向光` / `点光` 同属
+    // "让三维场景能被看见"的必要节点，但不属于 2D 基础契约，
+    // 因此不进 `默认组件注册表`（前 6 项）。
+    || Box::new(相机3d组件类型),
     || Box::new(crate::components3d::方向光组件类型),
     || Box::new(crate::components3d::点光组件类型),
     || Box::new(crate::ui_components::界面面板组件类型),
@@ -1501,6 +1675,7 @@ mod 测试 {
                 "Camera2d",
                 "TileTerrain",
                 "Primitive3d",
+                "Camera3d",
                 "方向光",
                 "点光",
                 "UiNode",
@@ -1511,6 +1686,55 @@ mod 测试 {
                 "刚体2d",
             ],
             "注册顺序是集中前的基线，不得改变"
+        );
+    }
+
+    /// 形状的稳定名字与序号必须能互相还原。
+    ///
+    /// 序号是旧文件里名字缺失时的唯一线索：`Plane` 的 1 是历史值，
+    /// 新增形状只能往后排，不能改变既有映射。
+    #[test]
+    fn 几何体形状名字与序号往返一致() {
+        for (形状, 名字, 序号) in [
+            (几何体形状::立方体, "Cuboid", 0),
+            (几何体形状::平面, "Plane", 1),
+            (几何体形状::球体, "Sphere", 2),
+            (几何体形状::圆柱体, "Cylinder", 3),
+        ] {
+            assert_eq!(形状.变体名(), 名字);
+            assert_eq!(形状.序号(), 序号);
+            assert_eq!(几何体形状::由值(名字, 99), 形状);
+        }
+        // 名字失配时按序号恢复，未知序号退化为立方体。
+        assert_eq!(几何体形状::由值("不存在的形状", 1), 几何体形状::平面);
+        assert_eq!(几何体形状::由值("不存在的形状", 42), 几何体形状::立方体);
+    }
+
+    /// `Camera3d` 必须落成 Bevy 认识的相机三件套，而不是只留一个标记。
+    #[test]
+    fn 三维相机在运行时世界里是可用的相机节点() {
+        let mut 文档 = 场景文档::新建("相机");
+        let 标识 = 文档.生成实体("主相机", None);
+        let 注册表 = 全部内置组件注册表();
+        let 类型 = 注册表.查询("Camera3d").expect("Camera3d 必须已注册");
+        let mut 属性 = std::collections::BTreeMap::new();
+        for 描述 in 类型.字段描述() {
+            属性.insert(描述.字段名.clone(), 描述.默认值.clone());
+        }
+        if let Some(实体) = 文档.取可变(标识) {
+            实体.加组件(组件数据::新建("Camera3d", 属性));
+        }
+
+        let mut 世界 = World::new();
+        let (统计, 映射) = 构建世界(&mut 世界, &文档, &注册表);
+        assert_eq!(统计.组件数, 1, "Camera3d 必须被实例化而不是跳过");
+        let 运行时 = 映射.取运行时(标识).expect("映射里应当有相机");
+        assert!(世界.get::<Camera3d>(运行时).is_some(), "缺少 Camera3d");
+        assert!(世界.get::<Camera>(运行时).is_some(), "缺少 Camera");
+        let 投影 = 世界.get::<Projection>(运行时).expect("缺少 Projection");
+        assert!(
+            matches!(投影, Projection::Perspective(_)),
+            "三维相机必须是透视投影"
         );
     }
 

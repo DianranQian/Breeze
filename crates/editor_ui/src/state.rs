@@ -2468,6 +2468,76 @@ pub enum 选择意图 {
     清空,
 }
 
+/// 基础几何体类型：编辑器的"快速创建"按钮各对应一个。
+///
+/// # 为什么界面只表达类型，不表达形状参数
+///
+/// 按钮的语义是"放一个默认大小的立方体"，不是"打开一个形状参数对话框"。
+/// 因此类型本身只回答"放哪种"，尺寸、颜色、组件字段全部由动作层决定 ——
+/// 界面不需要知道 `Primitive3d` 有哪些字段，也不必在加字段时跟着改。
+///
+/// # 为什么默认尺寸放在动作层
+///
+/// 尺寸是世界数据（会写进场景文件），而界面层不该拥有"什么算默认大小"
+/// 这类产品决定。动作层同时能看到当前模式（2D / 3D）与相机焦点，
+/// 是唯一能给出"合理的默认值"的地方。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum 基础图元类型 {
+    /// 立方体。
+    立方体,
+    /// 球体。
+    球体,
+    /// 圆柱体。
+    圆柱体,
+    /// 平面。
+    平面,
+}
+
+impl 基础图元类型 {
+    /// 全部类型（工具栏按这个顺序排按钮）。
+    pub const 全部: [Self; 4] = [Self::立方体, Self::球体, Self::圆柱体, Self::平面];
+
+    /// 按钮文本词条键。
+    pub fn 词条键(self) -> &'static str {
+        match self {
+            Self::立方体 => "primitive_cube",
+            Self::球体 => "primitive_sphere",
+            Self::圆柱体 => "primitive_cylinder",
+            Self::平面 => "primitive_plane",
+        }
+    }
+
+    /// 按钮悬停说明词条键。
+    pub fn 提示词条键(self) -> &'static str {
+        match self {
+            Self::立方体 => "primitive_cube_hint",
+            Self::球体 => "primitive_sphere_hint",
+            Self::圆柱体 => "primitive_cylinder_hint",
+            Self::平面 => "primitive_plane_hint",
+        }
+    }
+
+    /// 新实体默认名称的词条键。
+    pub fn 名称词条键(self) -> &'static str {
+        match self {
+            Self::立方体 => "primitive_cube_name",
+            Self::球体 => "primitive_sphere_name",
+            Self::圆柱体 => "primitive_cylinder_name",
+            Self::平面 => "primitive_plane_name",
+        }
+    }
+
+    /// 固定中文名，用于**不随语言变化**的日志与动作摘要。
+    pub fn 固定名(self) -> &'static str {
+        match self {
+            Self::立方体 => "立方体",
+            Self::球体 => "球体",
+            Self::圆柱体 => "圆柱体",
+            Self::平面 => "平面",
+        }
+    }
+}
+
 /// 界面向编辑器发出的意图。
 ///
 /// 由 `editor_app` 在绘制结束后统一执行。分成四类：
@@ -2633,6 +2703,14 @@ pub enum UiAction {
         资源: 项目相对路径,
         /// 放到的父实体。
         父实体: Option<实体标识>,
+    },
+    /// 快速创建一个基础几何体（立方体 / 球体 / 圆柱体 / 平面）。
+    ///
+    /// 放置点取当前视口的焦点（3D 轨道相机目标 / 2D 视口中心），
+    /// 并自动选中新实体 —— 用户点完按钮就能直接在 Inspector 里改参数。
+    创建基础图元 {
+        /// 要创建的类型。
+        类型: 基础图元类型,
     },
     /// 把实体拖到新父级下（大纲视图的层级拖动）。
     ///

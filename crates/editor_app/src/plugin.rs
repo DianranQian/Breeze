@@ -1789,6 +1789,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::从资源创建实体 { 资源, .. } => {
             format!("从资源创建实体({})", 资源.文本())
         }
+        UiAction::创建基础图元 { 类型 } => format!("创建基础图元({})", 类型.固定名()),
         UiAction::更改实体父级 { 新父实体, .. } => match 新父实体 {
             Some(父) => format!("更改实体父级({父})"),
             None => "更改实体父级(顶层)".to_string(),

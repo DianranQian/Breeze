@@ -47,6 +47,12 @@ by_size	按大小	By Size
 by_type	按类型	By Type
 camera_field_ortho_half_height	正交半高	Ortho Half Height
 camera_ortho_half_height_tooltip	正交投影可见区域的垂直半高（世界单位）	Vertical half-height of the visible area of the orthographic projection (world units)
+camera3d_field_fov	视野	Field of View
+camera3d_field_near	近裁剪	Near Clip
+camera3d_field_far	远裁剪	Far Clip
+camera3d_fov_tooltip	垂直视场角（度）；越大看到的范围越广，边缘透视越强	Vertical field of view in degrees; larger values see more with stronger perspective
+camera3d_near_tooltip	最近可见距离；太大会把贴近镜头的物体裁掉	Closest visible distance; too large clips objects close to the camera
+camera3d_far_tooltip	最远可见距离；太小会让远处景物消失	Farthest visible distance; too small hides distant geometry
 cancel	取消	Cancel
 save	保存	Save
 project_description	项目说明	Description
@@ -771,6 +777,21 @@ primitive_field_double_sided	双面	Double Sided
 primitive_field_double_sided_tooltip	关闭背面剔除，薄墙从两面都可见	Disables back-face culling so thin walls are visible from both sides
 primitive_field_material	材质	Material
 primitive_field_material_tooltip	指向 assets 下的 .material.ron 材质文档；粗糙度、金属度与自发光取自该材质	Points to a .material.ron document under assets; roughness, metallic and emissive come from it
+quick_create	快速创建	Quick Create
+primitive_cube	立方体	Cube
+primitive_sphere	球体	Sphere
+primitive_cylinder	圆柱体	Cylinder
+primitive_plane	平面	Plane
+primitive_cube_hint	在视口焦点处放置 1 米见方的立方体	Place a 1 m cube at the viewport focus
+primitive_sphere_hint	在视口焦点处放置直径 1 米的球体	Place a 1 m diameter sphere at the viewport focus
+primitive_cylinder_hint	在视口焦点处放置直径 1 米、高 2 米的圆柱体	Place a 2 m tall, 1 m diameter cylinder at the viewport focus
+primitive_plane_hint	在视口焦点处放置 10×10 米的水平面	Place a 10×10 m horizontal plane at the viewport focus
+primitive_cube_name	立方体	Cube
+primitive_sphere_name	球体	Sphere
+primitive_cylinder_name	圆柱体	Cylinder
+primitive_plane_name	平面	Plane
+default_main_camera_name	主相机	Main Camera
+default_directional_light_name	平行光	Directional Light
 mode_label	模式	Mode
 workspace_label	工作区	Workspace
 preview_scene	预览	Preview
@@ -1286,6 +1307,8 @@ recovery_title	恢复自动保存	Recover Autosave
 recovery_unnamed	（未命名场景）	(Unnamed scene)
 log_recovery_restored	已恢复自动保存内容：{}	Restored autosave content: {}
 log_recovery_discarded	已丢弃恢复点：{}	Discarded recovery point: {}
+log_primitive_created	已创建基础图元 {}	Created primitive {}
+log_default_scene_ready	已自动加入默认场景环境：{}	Added default scene environment: {}
 runtime_debug_data_incompatible	协议不兼容	Incompatible protocol
 runtime_debug_data_last	最近快照（已过期，不是实时）	Last snapshot (stale, not live)
 runtime_debug_data_live	实时	Live

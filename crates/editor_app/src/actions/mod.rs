@@ -33,7 +33,7 @@ use crate::plugin::{
     EditorStateHolder, UiStateHolder, 文件对话框结果, 文件对话框请求, 文件对话框通道, 绘制一帧,
     绘制环境, 缩略图缓存, 诊断资源,
 };
-use crate::scene_bridge::{运行时宿主, 运行状态};
+use crate::scene_bridge::{几何体形状, 运行时宿主, 运行状态};
 
 mod agent;
 mod animation;
@@ -1118,6 +1118,7 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::提交变换 { .. }
         | UiAction::取消变换 { .. }
         | UiAction::从资源创建实体 { .. }
+        | UiAction::创建基础图元 { .. }
         | UiAction::更改实体父级 { .. }
         | UiAction::刷新场景实例
         | UiAction::对齐选中 { .. }

@@ -22,6 +22,7 @@
 //! | --- | --- | --- |
 //! | `Sprite` | 2D 精灵/贴图 | [`节点类型::精灵`] |
 //! | `Camera2d` | 2D 摄像机 | [`节点类型::摄像机`] |
+//! | `Camera3d` | 3D 摄像机 | [`节点类型::摄像机`] |
 //! | `TileTerrain` | 瓦片地形 | [`节点类型::地形`] |
 //! | `Primitive3d` | 三维网格/几何体/模型 | [`节点类型::三维网格`] |
 //!
@@ -57,7 +58,7 @@ use scene_doc::document::场景实体;
 /// 一律归入 [`节点类型::普通实体`] 或 [`节点类型::容器`]，**不会**有第五种结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum 节点类型 {
-    /// 挂了 `Camera2d`。
+    /// 挂了 `Camera2d` 或 `Camera3d`。
     摄像机,
     /// 挂了 `TileTerrain`。
     地形,
@@ -79,7 +80,7 @@ impl 节点类型 {
     ///
     /// 判定顺序即优先级，见模块文档。
     pub fn 判定(实体: &场景实体, 有子实体: bool) -> Self {
-        if 实体.有组件("Camera2d") {
+        if 实体.有组件("Camera2d") || 实体.有组件("Camera3d") {
             return Self::摄像机;
         }
         if 实体.有组件("TileTerrain") {
@@ -229,6 +230,10 @@ mod 测试 {
     fn 已注册组件各自映射到专用图标() {
         assert_eq!(
             节点类型::判定(&带组件("相机", "Camera2d"), false),
+            节点类型::摄像机
+        );
+        assert_eq!(
+            节点类型::判定(&带组件("主相机", "Camera3d"), false),
             节点类型::摄像机
         );
         assert_eq!(

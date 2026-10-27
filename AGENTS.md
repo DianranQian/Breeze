@@ -1,9 +1,9 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-27，P5-1 父子层级（共享遍历 / `ChildOf` 传播 / 世界变换快照），
+> 当前基线：2026-10-27，P5-2 世界位移换算（世界逆矩阵快照 / 拖拽与对齐写回父级局部空间），
 > 11 个 workspace 成员，
-> `cargo test --workspace` = 1,359 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,364 处）。
+> `cargo test --workspace` = 1,366 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,371 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

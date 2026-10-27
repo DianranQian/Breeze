@@ -72,6 +72,7 @@ import sys
     "crates/editor_ui/src/docks.rs",
     "crates/editor_ui/src/state.rs",
     "crates/editor_core/src/command.rs",
+    "crates/editor_core/src/material.rs",
     "crates/editor_app/src/scene_bridge.rs",
 ]
 
@@ -149,6 +150,13 @@ import sys
     "实体标识::新建",
     "{}_副本",
     "{期望}{序号}",
+    # `#[serde(default = "…")]` 里的**函数路径**：RON 解码时按名字找构造函数，
+    # 它既不是文件里的字段名，也不会显示给用户；翻译成英文只会让材质文档读不出来。
+    "默认材质格式版本",
+    "默认着色颜色",
+    "默认粗糙度",
+    "默认金属度",
+    "默认自发光",
     # ---- ⑤ 非界面文案的技术说明 ----
     "RON（场景与项目清单的序列化格式）",
     "egui 0.36 + egui_dock 0.21（界面与可停靠布局）",

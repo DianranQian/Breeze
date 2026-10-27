@@ -257,6 +257,35 @@ mod 测试 {
     }
 
     #[test]
+    fn 材质文件的复合后缀被识别成材质类别() {
+        let (_目录, mut 项目) = 造项目();
+        项目.建目录("assets/materials").expect("材质目录");
+        std::fs::write(
+            项目.根目录().join("assets/materials/石板.material.ron"),
+            "(名称: \"石板\")",
+        )
+        .expect("写材质");
+
+        let mut 表 = 资源注册表::default();
+        let 报告 = 表.刷新(&mut 项目);
+
+        assert_eq!(
+            报告.条目数, 4,
+            "材质文件也在 assets/ 下，注册表不该额外排除它"
+        );
+        assert_eq!(
+            找(&表, "assets/materials/石板.material.ron").类别,
+            资源类别::材质,
+            "只看最后一段扩展名会把 `.material.ron` 归成「其他」，材质页签永远空"
+        );
+        assert_eq!(
+            项目.材质列表(),
+            vec![路径("assets/materials/石板.material.ron")],
+            "材质列表与注册表必须共用同一套类别判定"
+        );
+    }
+
+    #[test]
     fn 修改文件后刷新推进代次并更新内容() {
         let (_目录, mut 项目) = 造项目();
         let mut 表 = 资源注册表::default();

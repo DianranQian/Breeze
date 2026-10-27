@@ -41,6 +41,7 @@ pub mod diagnostics;
 pub mod i18n;
 pub mod instance;
 pub mod log_source;
+pub mod material;
 pub mod package;
 pub mod prefab_catalog;
 pub mod prefab_graph;

@@ -47,6 +47,9 @@ pub mod package;
 pub mod prefab_catalog;
 pub mod prefab_graph;
 pub mod project;
+// 文件树只做"目录 → 节点树"的纯扫描，不碰界面：过滤规则可以用临时目录
+// 直接验证，见模块头部的覆盖范围说明。
+pub mod project_tree;
 pub mod recovery;
 pub mod run_entry;
 pub mod runtime_debug;

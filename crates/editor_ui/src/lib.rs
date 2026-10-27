@@ -43,6 +43,7 @@ pub mod menu_bar;
 pub mod node_icons;
 pub mod picking3d;
 pub mod prefab_panel;
+pub mod project_tree_panel;
 pub mod recovery_panel;
 pub mod runtime_panel;
 pub mod savegame_panel;
@@ -1466,6 +1467,7 @@ impl egui_dock::TabViewer for 面板查看器<'_, '_> {
                     ui.set_min_width(ui.available_width());
                     match tab {
                         Tab::场景树 => hierarchy_panel::绘制(ui, &mut 上下文),
+                        Tab::项目文件树 => project_tree_panel::绘制(ui, &mut 上下文),
                         Tab::检查器 => inspector_panel::绘制(ui, &mut 上下文),
                         Tab::资源浏览器 => assets_panel::绘制(ui, &mut 上下文),
                         Tab::预制件 => prefab_panel::绘制(ui, &mut 上下文),

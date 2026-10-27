@@ -167,7 +167,12 @@ impl 内置工作区 {
 /// `crate::docks::补全标签组` 追加到这里（见该函数的说明）。
 fn 场景预设() -> egui_dock::DockState<Tab> {
     let 右列: &[Tab] = &[Tab::检查器, Tab::历史, Tab::时间轴];
-    let 左列: &[Tab] = &[Tab::场景树, Tab::资源浏览器, Tab::运行时ecs];
+    let 左列: &[Tab] = &[
+        Tab::场景树,
+        Tab::项目文件树,
+        Tab::资源浏览器,
+        Tab::运行时ecs,
+    ];
     let 底部 = 补全标签组(
         &[
             Tab::控制台,
@@ -206,6 +211,7 @@ fn 资源预设() -> egui_dock::DockState<Tab> {
     let 左列成员 = 补全标签组(
         &[
             Tab::场景树,
+            Tab::项目文件树,
             Tab::构建,
             Tab::运行,
             Tab::运行时ecs,
@@ -236,7 +242,7 @@ fn 资源预设() -> egui_dock::DockState<Tab> {
 /// 兜底栏是**底部**：正因为它占 45% 高度，多几个标签也还看得见。
 fn 调试预设() -> egui_dock::DockState<Tab> {
     let 右列成员: &[Tab] = &[Tab::性能, Tab::历史, Tab::检查器, Tab::时间轴];
-    let 左列成员: &[Tab] = &[Tab::场景树];
+    let 左列成员: &[Tab] = &[Tab::场景树, Tab::项目文件树];
     let 底部成员 = 补全标签组(
         &[
             Tab::控制台,
@@ -1187,7 +1193,7 @@ mod 测试 {
                         Tab::脚本,
                         Tab::瓦片地图,
                     ],
-                    &[Tab::场景树],
+                    &[Tab::场景树, Tab::项目文件树],
                 ],
             ),
             (
@@ -1204,7 +1210,12 @@ mod 测试 {
                         Tab::瓦片地图,
                         Tab::预制件,
                     ],
-                    &[Tab::场景树, Tab::资源浏览器, Tab::运行时ecs],
+                    &[
+                        Tab::场景树,
+                        Tab::项目文件树,
+                        Tab::资源浏览器,
+                        Tab::运行时ecs,
+                    ],
                 ],
             ),
             (
@@ -1215,6 +1226,7 @@ mod 测试 {
                     &[Tab::检查器, Tab::历史, Tab::时间轴, Tab::性能],
                     &[
                         Tab::场景树,
+                        Tab::项目文件树,
                         Tab::构建,
                         Tab::运行,
                         Tab::运行时ecs,
@@ -1239,7 +1251,7 @@ mod 测试 {
                         Tab::瓦片地图,
                         Tab::预制件,
                     ],
-                    &[Tab::场景树],
+                    &[Tab::场景树, Tab::项目文件树],
                 ],
             ),
         ];

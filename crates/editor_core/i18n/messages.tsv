@@ -301,6 +301,13 @@ save_scene_as	场景另存为…	Save Scene As…
 saved	✓ 已保存	✓ Saved
 scene	场景	Scene
 scene_tree	场景树	Scene Tree
+project_tree	项目文件树	Project Files
+project_tree_refresh	刷新文件树	Refresh Files
+project_tree_refresh_hint	重新扫描项目目录（源码在外部被改动后使用）	Rescan the project folders (after the sources were changed outside the editor)
+project_tree_file_count	共 {} 个文件	{} files
+project_tree_dir_count	{} 个	{}
+project_tree_no_project	尚未打开项目：打开或新建项目后，这里会列出源码文件	No project is open: open or create one to list the source files
+project_tree_empty	项目里没有 src/ 目录，也没有 Cargo.toml / README.md 等核心文件	The project has no src/ folder and no core files such as Cargo.toml or README.md
 search	搜索	Search
 search_assets	搜索资源	Search assets
 search_log	搜索日志	Search log
@@ -641,6 +648,9 @@ script_no_project	尚未打开项目，无法读写代码文件	Open a project f
 script_open_failed	打开代码文件失败：{}	Failed to open code file: {}
 script_save_failed	保存代码文件失败：{}	Failed to save code file: {}
 script_unsaved_outside_project	代码已保存，但不在当前项目目录内，无法加入资源列表	Code saved, but it is outside the project and cannot be listed
+script_loading	正在读取…	Loading…
+script_discarded	已放弃「{}」里未保存的修改	Discarded unsaved changes in "{}"
+log_project_tree_refreshed	已刷新项目文件树（{} 个文件）	Project file tree refreshed ({} files)
 log_script_opened	已打开代码文件「{}」	Opened code file "{}"
 log_script_saved	已保存代码文件「{}」	Saved code file "{}"
 log_mode_switched	已切换到 {} 模式	Switched to {} mode

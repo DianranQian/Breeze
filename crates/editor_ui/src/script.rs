@@ -8,21 +8,38 @@
 //! | --- | --- |
 //! | `syntect` + `egui` 自定义 layouter | 多一棵依赖树（onig 可选）+ 主题映射层 |
 //! | 第三方 egui 代码编辑器 crate | 版本与 egui 0.36 不一定对齐，风险不可控 |
-//! | **egui `TextEdit::layouter` + 自制词法** | 零新依赖，约 200 行，够用 |
+//! | **egui `TextEdit::layouter` + 自制词法** | 零新依赖，约 300 行，够用 |
 //!
-//! 编辑器只需要"看得懂的 Rust 着色"：关键字、字符串、注释、数字、类型名。
-//! 真正的语义分析、补全、LSP 属于后续能力，本模块**不声称**具备。
+//! 编辑器只需要"看得懂的 Rust 着色"：关键字、字符串、注释、数字、类型名、
+//! 宏与属性。真正的语义分析、补全、LSP 属于后续能力，本模块**不声称**具备。
 //!
-//! # 为什么高亮是"每行"而不是"整篇"
+//! # 跨行词法：状态顺着行往下传
 //!
-//! `TextEdit` 的 layouter 会按可见区域逐行调用。按行做词法在跨行状态下
-//! 会不准（块注释、多行字符串），因此这里显式只支持**行内**语法元素，
-//! 并接受块注释/多行字符串会被当成普通文本 —— 这是有意的取舍：
-//! 用 200 行换来零依赖与稳定对齐，而不是半吊子 LSP。
+//! layouter 每次拿到的是**整篇**文本，因此可以在一次调用里逐行推进一个
+//! [`词法状态`]：块注释（可嵌套）、原始字符串 `r#"…"#` 跨行时，下一行
+//! 开头就处在同样的状态里。早期版本只做行内词法，跨行块注释会被后面
+//! 的关键字重新着色 —— 用户看到的是"注释里一半是语法色"，比不着色更糟。
+//!
+//! 仍未覆盖的：属性内部含 `]` / `"` 的病态写法（如 `#[doc = "]"]`），
+//! 以及字符字面量里的转义边界 —— 两者都不影响常见代码的着色。
+//!
+//! # 行号栏：painted gutter，而不是并排的一列 Label
+//!
+//! 早期实现把行号放在 `ScrollArea` **外面**的一列 `Label` 里，于是代码
+//! 滚动时行号不动 —— 行号与代码必然错位。现在行号由同一个
+//! `TextEditOutput` 的 `galley_pos` 反推：每个行号画在它对应那一行的
+//! 纵坐标上，滚动多少就跟多少；横向滚动时行号槽固定在左侧不跟着跑。
+//! 只画可见行，长文件也不会因为"几千个 Label"拖慢一帧。
+//!
+//! # 横向滚动为什么要先撑宽子 `Ui`
+//!
+//! `ScrollArea` 给内容区的最大宽度等于视口宽，而 `TextEdit` 会把自身宽度
+//! 夹到可用宽度 —— 直接放进去永远没有可横向滚动的余量。这里按上一帧量到的
+//! galley 宽度撑开一个更宽的子 `Ui`，滚动条才有东西可滚（差一帧，肉眼不可见）。
 
 use std::ops::Range;
 
-use egui::{Color32, FontId, RichText, TextFormat, TextStyle, Ui};
+use egui::{Color32, FontId, RichText, TextFormat, Ui};
 
 use crate::i18n::语言;
 use crate::icons::图标;
@@ -70,6 +87,8 @@ pub enum 词元角色 {
     类型,
     /// 宏（`foo!`）。
     宏,
+    /// 属性段（`#[…]` / `#![…]`）。
+    属性,
 }
 
 /// 一行里的一段词元：字节范围 + 角色。
@@ -82,16 +101,42 @@ const RUST关键字: &[&str] = &[
     "unsafe", "use", "where", "while", "yield",
 ];
 
-/// 把一行 Rust 代码切成词元。
+/// 跨行词法状态：块注释嵌套层数与未闭合的原始字符串。
+///
+/// layouter 按行推进这个状态；行与行之间唯一的联系就是它，因此它必须
+/// 能被廉价地复制、比较，且默认值等价于"处在普通代码里"。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct 词法状态 {
+    /// 当前嵌套的块注释层数。Rust 的块注释可以嵌套，所以计数而不是布尔。
+    块注释深度: usize,
+    /// 未闭合原始字符串的引号后井号数（`r#"…"#` 里是 `1`）。
+    原始字符串井号: Option<usize>,
+}
+
+impl 词法状态 {
+    /// 行首状态：普通代码。
+    pub fn 新() -> Self {
+        Self::default()
+    }
+
+    /// 这一行结束时是否仍处在多行元素里（块注释或原始字符串）。
+    pub fn 跨行中(&self) -> bool {
+        self.块注释深度 > 0 || self.原始字符串井号.is_some()
+    }
+}
+
+/// 把一行 Rust 代码切成词元，并推进跨行状态。
 ///
 /// # 覆盖范围（如实说明）
 ///
 /// * `//` 行注释（含 `///` 文档注释）；
-/// * `"…"` / `'…'` 字面量（含简单转义）；
-/// * 数字（含小数与下划线）；
+/// * `/* … */` 块注释，支持嵌套，且可以跨行（状态经 [`词法状态`] 传递）；
+/// * `"…"` / `'…'` 字面量与 `r"…"` / `r#"…"#` 原始字符串（可跨行）；
+/// * 数字（含小数与下划线，不吃掉 `..` 范围运算符）；
 /// * 关键字、大写开头的类型名、`ident!` 形式的宏；
-/// * **不处理**块注释 `/* */` 的跨行状态与多行字符串：它们会被当作普通文本。
-pub fn 切词(行: &str) -> Vec<词元> {
+/// * `#[…]` / `#![…]` 属性段（按方括号配对；跨行属性只着色首行，常见
+///   写法都是单行）。
+pub fn 切词带状态(行: &str, 状态: &mut 词法状态) -> Vec<词元> {
     let 字节 = 行.as_bytes();
     let 长度 = 字节.len();
     let mut 结果: Vec<词元> = Vec::new();
@@ -105,6 +150,39 @@ pub fn 切词(行: &str) -> Vec<词元> {
     };
 
     while i < 长度 {
+        // ---- 续接上一种跨行元素 ----
+        if 状态.块注释深度 > 0 {
+            if 字节[i] == b'/' && i + 1 < 长度 && 字节[i + 1] == b'*' {
+                状态.块注释深度 += 1;
+                i += 2;
+            } else if 字节[i] == b'*' && i + 1 < 长度 && 字节[i + 1] == b'/' {
+                状态.块注释深度 -= 1;
+                i += 2;
+                if 状态.块注释深度 == 0 {
+                    收尾(&mut 结果, 起, i, 词元角色::注释);
+                    起 = i;
+                }
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+        if let Some(井号数) = 状态.原始字符串井号 {
+            if 字节[i] == b'"'
+                && i + 1 + 井号数 <= 长度
+                && 字节[i + 1..i + 1 + 井号数].iter().all(|值| *值 == b'#')
+            {
+                i += 1 + 井号数;
+                收尾(&mut 结果, 起, i, 词元角色::字符串);
+                起 = i;
+                状态.原始字符串井号 = None;
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+
+        // ---- 普通代码 ----
         let 字节值 = 字节[i];
 
         // 行注释：到行尾全部是注释。
@@ -112,6 +190,51 @@ pub fn 切词(行: &str) -> Vec<词元> {
             收尾(&mut 结果, 起, i, 词元角色::普通);
             结果.push((i..长度, 词元角色::注释));
             return 结果;
+        }
+
+        // 块注释开始：从这里起整段是注释，直到配对闭合（可以跨行）。
+        if 字节值 == b'/' && i + 1 < 长度 && 字节[i + 1] == b'*' {
+            收尾(&mut 结果, 起, i, 词元角色::普通);
+            起 = i;
+            状态.块注释深度 = 1;
+            i += 2;
+            continue;
+        }
+
+        // 属性：`#[…]` / `#![…]`，整段一个角色。
+        if 字节值 == b'#'
+            && i + 1 < 长度
+            && (字节[i + 1] == b'[' || (字节[i + 1] == b'!' && i + 2 < 长度 && 字节[i + 2] == b'['))
+        {
+            收尾(&mut 结果, 起, i, 词元角色::普通);
+            let 始 = i;
+            i += if 字节[i + 1] == b'!' { 3 } else { 2 };
+            let mut 深度 = 1usize;
+            while i < 长度 {
+                if 字节[i] == b'[' {
+                    深度 += 1;
+                } else if 字节[i] == b']' {
+                    深度 -= 1;
+                    i += 1;
+                    if 深度 == 0 {
+                        break;
+                    }
+                    continue;
+                }
+                i += 1;
+            }
+            结果.push((始..i.min(长度), 词元角色::属性));
+            起 = i.min(长度);
+            continue;
+        }
+
+        // 原始字符串开始：`r"…"` / `r#"…"#`（`r#foo` 是原始标识符，不算）。
+        if let Some((井号数, 引号后)) = 原始字符串开头(字节, i) {
+            收尾(&mut 结果, 起, i, 词元角色::普通);
+            起 = i;
+            状态.原始字符串井号 = Some(井号数);
+            i = 引号后;
+            continue;
         }
 
         // 字符串 / 字符字面量。
@@ -180,8 +303,48 @@ pub fn 切词(行: &str) -> Vec<词元> {
 
         i += 1;
     }
-    收尾(&mut 结果, 起, 长度, 词元角色::普通);
+    let 尾角色 = if 状态.块注释深度 > 0 {
+        词元角色::注释
+    } else if 状态.原始字符串井号.is_some() {
+        词元角色::字符串
+    } else {
+        词元角色::普通
+    };
+    收尾(&mut 结果, 起, 长度, 尾角色);
     结果
+}
+
+/// 把单独一行切成词元（不跨行：每次从普通代码状态开始）。
+///
+/// 跨行元素在这里会被截断成"到行尾为止" —— 单行工具（例如查找高亮）
+/// 需要的就是这个语义；整篇着色请用 [`切词带状态`] 自己推进状态。
+pub fn 切词(行: &str) -> Vec<词元> {
+    let mut 状态 = 词法状态::新();
+    切词带状态(行, &mut 状态)
+}
+
+/// 识别原始字符串的开头，返回 `(井号数, 开头引号之后的下标)`。
+///
+/// 必须排除"前面紧挨着标识符字符"的情况：`bar"…"` 里的 `r` 不是前缀，
+/// 真正的前缀必须处在标识符边界上。
+fn 原始字符串开头(字节: &[u8], 起: usize) -> Option<(usize, usize)> {
+    if 起 > 0 && 是标识符续(字节[起 - 1]) {
+        return None;
+    }
+    if 字节.get(起) != Some(&b'r') {
+        return None;
+    }
+    let mut i = 起 + 1;
+    let mut 井号数 = 0;
+    while 字节.get(i) == Some(&b'#') {
+        井号数 += 1;
+        i += 1;
+    }
+    if 字节.get(i) == Some(&b'"') {
+        Some((井号数, i + 1))
+    } else {
+        None
+    }
 }
 
 fn 是标识符起(字节: u8) -> bool {
@@ -202,6 +365,7 @@ fn 角色颜色(角色: 词元角色, 配色: &编辑器配色) -> Color32 {
         词元角色::数字 => 配色.信息,
         词元角色::类型 => 配色.链接,
         词元角色::宏 => 配色.警告,
+        词元角色::属性 => 配色.警告,
     }
 }
 
@@ -275,6 +439,15 @@ pub struct 脚本状态 {
     pub 提示: Option<String>,
     /// 请求滚动到某一行（0 基）。
     pub 滚动到行: Option<usize>,
+    /// 正在后台读取的路径。
+    ///
+    /// 由 [`脚本状态::请求打开`] 置位、由后台回执清空。它存在的意义只是
+    /// "让界面能显示正在读取" —— 读盘本身不在主线程上，见 `code_loader`。
+    pub 加载中: Option<scene_doc::path::项目相对路径>,
+    /// 已声明但尚未交给后台线程的读取意图。
+    pub 待读取: Option<scene_doc::path::项目相对路径>,
+    /// 读取代次：每次请求递增，界面只接受与当前代次相同的回执。
+    pub 加载代次: u64,
 }
 
 impl 脚本状态 {
@@ -284,6 +457,24 @@ impl 脚本状态 {
         self.命中行.clear();
         self.当前命中 = 0;
         self.滚动到行 = Some(0);
+        self.加载中 = None;
+        self.待读取 = None;
+    }
+
+    /// 声明"要打开这个文件"的意图，把读盘交给后台线程。
+    ///
+    /// 这里**不**清空旧文档：读盘成功前用户仍能看到并继续编辑旧文件，
+    /// 失败时也不会突然变空白。代次递增与意图成对出现，保证回执能被
+    /// 正确认领或丢弃。
+    pub fn 请求打开(&mut self, 路径: scene_doc::path::项目相对路径) {
+        self.加载代次 = self.加载代次.wrapping_add(1);
+        self.加载中 = Some(路径.clone());
+        self.待读取 = Some(路径);
+    }
+
+    /// 是否有文件正在读取。
+    pub fn 正在读取(&self) -> bool {
+        self.加载中.is_some()
     }
 
     /// 标记已保存。
@@ -465,6 +656,15 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 );
             }
         }
+        // 后台读盘期间给一个可见的"正在读取"，否则双击后界面看起来没反应。
+        if let Some(路径) = 上下文.界面.脚本.加载中.as_ref() {
+            ui.add(egui::Spinner::new().size(12.0));
+            ui.label(
+                RichText::new(format!("{} {}", 语言.取("script_loading"), 路径.文本()))
+                    .small()
+                    .color(配色.次要文字),
+            );
+        }
         if 有修改 {
             ui.label(
                 RichText::new(语言.取("script_unsaved"))
@@ -526,17 +726,26 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 
     let 语言类型 = 文档.语言;
     let 高亮配色 = 配色;
-    let 字号 = 上下文.外观.基础字号;
+    // 代码字号：低于 13 时等宽字形会挤在一起，行号也难认。
+    let 字号 = 上下文.外观.基础字号.max(13.0);
+    let 字体 = FontId::monospace(字号);
+    let 行高 =
+        ui.fonts_mut(|字体库| 字体库.row_height(&字体)) + ui.spacing().extra_text_line_spacing;
     let 查找词 = 上下文.界面.脚本.查找.clone();
     let mut 文本 = 文档.文本.clone();
+    let 行数 = 文本.split('\n').count().max(1);
+    let 滚动目标 = 上下文.界面.脚本.滚动到行.take();
+    // 内容宽度跨帧记忆：`TextEdit` 的宽度被可用宽度夹住，撑宽子 `Ui`
+    // 需要上一帧量到的 galley 宽度，否则第一帧永远是视口宽。
+    let 内容宽键 = egui::Id::new("script_code_content_width");
 
     let mut 布局任务 = |ui: &Ui, 缓冲: &dyn egui::TextBuffer, _宽度: f32| {
-        let 字体 = FontId::monospace(字号);
         let mut 作业 = egui::text::LayoutJob::default();
-        let 文本 = 缓冲.as_str();
-        for 行 in 文本.split('\n') {
+        // 整篇一次推进词法状态：块注释、原始字符串因此可以跨行。
+        let mut 状态 = 词法状态::新();
+        for 行 in 缓冲.as_str().split('\n') {
             let 词元 = if 语言类型.支持着色() {
-                切词(行)
+                切词带状态(行, &mut 状态)
             } else {
                 vec![(0..行.len(), 词元角色::普通)]
             };
@@ -567,30 +776,47 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         ui.painter().layout_job(作业)
     };
 
-    // 行号栏 + 编辑区并排。
-    let 行数 = 文本.lines().count().max(1);
     ui.horizontal_top(|ui| {
-        // 行号：用不可交互的等宽文本列。
-        ui.vertical(|ui| {
-            ui.spacing_mut().item_spacing.y = 0.0;
-            for 行 in 1..=行数 {
-                ui.label(
-                    RichText::new(format!("{行:>4}"))
-                        .monospace()
-                        .size(字号)
-                        .color(配色.禁用文字),
-                );
-            }
+        ui.spacing_mut().item_spacing.x = 0.0;
+
+        // ---- 行号槽：先占位，滚动之后再往里画 ----
+        let 位数 = 行数.to_string().len().max(2);
+        let 数字宽 = ui.fonts_mut(|字体库| {
+            字体库
+                .layout_no_wrap("0".repeat(位数), 字体.clone(), 配色.禁用文字)
+                .size()
+                .x
         });
-        ui.separator();
-        egui::ScrollArea::both()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
+        let 槽宽 = 数字宽 + 12.0;
+        let 槽 = ui
+            .allocate_exact_size(
+                egui::vec2(槽宽, ui.available_height()),
+                egui::Sense::hover(),
+            )
+            .0;
+
+        let 可用宽 = ui.available_width().max(1.0);
+        let 上一帧宽 = ui
+            .data(|数据| 数据.get_temp::<f32>(内容宽键))
+            .unwrap_or(0.0);
+        let 内容宽 = 上一帧宽.max(可用宽);
+
+        let mut 滚动 = egui::ScrollArea::both()
+            .id_salt("script_code_scroll")
+            .auto_shrink([false, false]);
+        if let Some(行) = 滚动目标 {
+            // 目标行放到视口上部约三分之一处，而不是贴顶。
+            let 偏移 = (行.min(行数.saturating_sub(1)) as f32) * 行高 - 槽.height() * 0.3;
+            滚动 = 滚动.vertical_scroll_offset(偏移.max(0.0));
+        }
+
+        let 滚动输出 = 滚动.show(ui, |ui| {
+            let 子尺寸 = egui::vec2(内容宽, (行数 as f32 * 行高).max(ui.available_height()));
+            ui.allocate_ui_with_layout(子尺寸, egui::Layout::top_down(egui::Align::Min), |ui| {
                 let 编辑器 = egui::TextEdit::multiline(&mut 文本)
-                    .font(TextStyle::Monospace)
-                    .desired_width(f32::INFINITY)
-                    .desired_rows(30)
                     .code_editor()
+                    .font(字体.clone())
+                    .desired_rows(30)
                     .layouter(&mut 布局任务);
                 let 输出 = 编辑器.show(ui);
                 if let Some(范围) = 输出.cursor_range {
@@ -599,7 +825,35 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     let 前缀: String = 文本.chars().take(字符下标).collect();
                     文档.光标行 = Some(前缀.matches('\n').count() + 1);
                 }
-            });
+                输出
+            })
+            .inner
+        });
+        let 输出 = 滚动输出.inner;
+        let 内容宽实测 = 输出.galley.rect.width().max(可用宽);
+        ui.data_mut(|数据| 数据.insert_temp(内容宽键, 内容宽实测));
+
+        // ---- 行号：跟着代码的 galley 走，只画可见行 ----
+        let 可画 = 槽.intersect(ui.clip_rect());
+        if 可画.is_positive() {
+            let 画布 = ui.painter().with_clip_rect(可画);
+            // 不透明底：横向滚动时代码会从槽右侧滑过，透底会串字。
+            画布.rect_filled(槽, 0.0, 配色.面板背景);
+            for 行 in 可见行区间(槽.y_range(), 输出.galley_pos.y, 行高, 行数) {
+                let 纵 = 输出.galley_pos.y + 行 as f32 * 行高;
+                画布.text(
+                    egui::pos2(槽.right() - 6.0, 纵),
+                    egui::Align2::RIGHT_TOP,
+                    format!("{:>位数$}", 行 + 1),
+                    字体.clone(),
+                    配色.禁用文字,
+                );
+            }
+            画布.line_segment(
+                [槽.right_top(), 槽.right_bottom()],
+                egui::Stroke::new(1.0, 配色.分割线),
+            );
+        }
     });
 
     if 文本 != 文档.文本 {
@@ -608,12 +862,25 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             上下文.界面.脚本.重新查找();
         }
     }
+}
 
-    // 滚动请求：把命中行带进视野（简化实现：滚到顶部附近）。
-    if let Some(行) = 上下文.界面.脚本.滚动到行.take() {
-        let _ = 行;
-        ui.ctx().request_repaint();
+/// 行号槽里应当画出的行下标区间（半开）。
+///
+/// 代码首行的屏幕纵坐标由 `TextEditOutput::galley_pos` 给出，滚动之后它
+/// 会跟着变，因此"哪些行可见"必须每帧重新算：只画可见行，长文件才不会
+/// 因为几千个行号而拖慢一帧。
+fn 可见行区间(
+    槽: egui::Rangef,
+    首行顶: f32,
+    行高: f32,
+    行数: usize,
+) -> std::ops::Range<usize> {
+    if 行数 == 0 || 行高 <= 0.0 || !首行顶.is_finite() {
+        return 0..0;
     }
+    let 首 = (((槽.min - 首行顶) / 行高).floor().max(0.0) as usize).min(行数);
+    let 末 = (((槽.max - 首行顶) / 行高).ceil().max(0.0) as usize).min(行数);
+    首..末.max(首)
 }
 
 #[cfg(test)]
@@ -753,5 +1020,120 @@ mod 测试 {
         assert_eq!(脚本语言::按扩展名("txt"), 脚本语言::纯文本);
         assert!(脚本语言::Rust.支持着色());
         assert!(!脚本语言::纯文本.支持着色());
+    }
+
+    #[test]
+    fn 块注释跨行仍然是注释() {
+        let mut 状态 = 词法状态::新();
+        let 第一行 = "let 甲 = 1; /* 注释开始";
+        let 词元 = 切词带状态(第一行, &mut 状态);
+        assert_eq!(词元.last().expect("应当有词元").1, 词元角色::注释);
+        assert!(状态.跨行中());
+
+        let 词元 = 切词带状态("这一整行都在注释里", &mut 状态);
+        assert!(
+            词元.iter().all(|(_, 角色)| *角色 == 词元角色::注释),
+            "跨行块注释的第二行必须整行是注释"
+        );
+        assert!(状态.跨行中());
+
+        let 第三行 = "结束 */ let 乙 = 2;";
+        let 词元 = 切词带状态(第三行, &mut 状态);
+        assert!(!状态.跨行中());
+        assert!(
+            词元
+                .iter()
+                .any(|(范围, 角色)| *角色 == 词元角色::关键字 && &第三行[范围.clone()] == "let"),
+            "注释结束后的代码要恢复正常着色"
+        );
+    }
+
+    #[test]
+    fn 块注释可以嵌套() {
+        let mut 状态 = 词法状态::新();
+        切词带状态("/* 外层 /* 内层 */ 仍在外层", &mut 状态);
+        assert!(状态.跨行中(), "嵌套块注释应当在第一行结束时仍未闭合");
+        切词带状态("外层结束 */", &mut 状态);
+        assert!(!状态.跨行中());
+    }
+
+    #[test]
+    fn 原始字符串跨行() {
+        let mut 状态 = 词法状态::新();
+        let 第一行 = r####"let 文本 = r#"第一段"####;
+        let 词元 = 切词带状态(第一行, &mut 状态);
+        assert_eq!(词元.last().expect("应当有词元").1, 词元角色::字符串);
+        assert!(状态.跨行中());
+
+        let 第二行 = r####"第二段"#; let 数 = 1;"####;
+        let 词元 = 切词带状态(第二行, &mut 状态);
+        assert!(!状态.跨行中());
+        assert!(
+            词元
+                .iter()
+                .any(|(范围, 角色)| *角色 == 词元角色::关键字 && &第二行[范围.clone()] == "let"),
+            "原始字符串闭合后的代码要恢复正常着色"
+        );
+    }
+
+    #[test]
+    fn 原始标识符不是原始字符串() {
+        let 行 = "let r#类型 = 1;";
+        let 词元 = 切词(行);
+        assert!(
+            词元.iter().all(|(_, 角色)| *角色 != 词元角色::字符串),
+            "`r#标识符` 是原始标识符，不是字符串"
+        );
+    }
+
+    #[test]
+    fn 属性段整体按属性着色() {
+        let 行 = "#[derive(Debug, Clone)]";
+        let 词元 = 切词(行);
+        assert_eq!(词元.len(), 1);
+        assert_eq!(词元[0].1, 词元角色::属性);
+        assert_eq!(词元[0].0, 0..行.len());
+
+        let 行 = "#![allow(dead_code)]";
+        let 词元 = 切词(行);
+        assert_eq!(词元.last().expect("应当有词元").1, 词元角色::属性);
+    }
+
+    #[test]
+    fn 可见行区间跟着滚动走() {
+        // 视口 0..100、行高 10、首行顶 0：可见 10 行。
+        assert_eq!(
+            可见行区间(egui::Rangef::new(0.0, 100.0), 0.0, 10.0, 30),
+            0..10
+        );
+        // 滚下去 50：可见行从第 5 行开始。
+        assert_eq!(
+            可见行区间(egui::Rangef::new(0.0, 100.0), -50.0, 10.0, 30),
+            5..15
+        );
+        // 文档只有 3 行：不越界。
+        assert_eq!(
+            可见行区间(egui::Rangef::new(0.0, 100.0), -50.0, 10.0, 3),
+            3..3
+        );
+        // 退化输入不 panic。
+        assert_eq!(
+            可见行区间(egui::Rangef::new(0.0, 100.0), 0.0, 0.0, 10),
+            0..0
+        );
+    }
+
+    #[test]
+    fn 打开文件会清掉读取意图而请求打开会置位() {
+        let mut 状态 = 脚本状态::default();
+        let 路径 = scene_doc::path::项目相对路径::解析("src/main.rs").expect("合法路径");
+        状态.请求打开(路径.clone());
+        assert!(状态.正在读取());
+        assert_eq!(状态.加载代次, 1);
+        assert_eq!(状态.待读取.as_ref(), Some(&路径));
+
+        状态.打开(脚本文档::新建(Some(路径), "fn main() {}".to_string()));
+        assert!(!状态.正在读取(), "装载完成后不应再显示正在读取");
+        assert!(状态.待读取.is_none());
     }
 }

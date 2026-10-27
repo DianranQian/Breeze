@@ -432,6 +432,8 @@ impl Plugin for BevyStudio插件 {
             // 音频试听：把「试听」请求变成真实播放。
             .init_resource::<crate::audio_preview::试听状态>()
             .init_resource::<文件对话框通道>()
+            // 代码读取：主线程只声明意图，读盘交给后台线程，回执按代次认领。
+            .init_resource::<crate::code_loader::代码读取通道>()
             // ---- 配置与布局持久化 ----
             //
             // 启动时读一次；布局写盘由 `actions::保存窗口布局` 定期完成。
@@ -526,6 +528,18 @@ impl Plugin for BevyStudio插件 {
                 crate::recovery_autosave::自动保存
                     .after(actions::执行动作队列)
                     .after(crate::capture::采集收尾),
+            )
+            // 代码读取：动作只留下"待读取"意图，这里当帧就交给后台线程，
+            // 再收下回执。两件事都必须在动作执行之后，否则当帧新增的意图
+            // 会拖到下一帧才发出（连续双击时表现为每步多一帧延迟）。
+            .add_systems(
+                Update,
+                (
+                    crate::code_loader::调度代码读取,
+                    crate::code_loader::轮询代码读取,
+                )
+                    .chain()
+                    .after(actions::执行动作队列),
             )
             .add_systems(
                 Update,
@@ -2015,6 +2029,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         // ---- 资源导入 ----
         UiAction::重新导入资源 => "重新导入资源".to_string(),
         UiAction::刷新资源注册表 => "刷新资源注册表".to_string(),
+        UiAction::刷新项目文件树 => "刷新项目文件树".to_string(),
         UiAction::检查资源依赖 => "检查资源依赖".to_string(),
         UiAction::打开材质编辑器(路径) => format!("打开材质编辑器({路径})"),
         UiAction::保存材质编辑器 { 路径, .. } => format!("保存材质编辑器({路径})"),

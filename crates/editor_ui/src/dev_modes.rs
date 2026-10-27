@@ -261,7 +261,7 @@ fn 三维预设() -> egui_dock::DockState<Tab> {
             Tab::脚本,
         ],
     );
-    let [_视口, _场景树] = 主.split_left(上方, 0.18, vec![Tab::场景树]);
+    let [_视口, _左列] = 主.split_left(上方, 0.18, vec![Tab::场景树, Tab::项目文件树]);
     布局
 }
 
@@ -286,7 +286,11 @@ fn 脚本预设() -> egui_dock::DockState<Tab> {
         0.72,
         vec![Tab::控制台, Tab::构建, Tab::运行时ecs, Tab::性能],
     );
-    let [_脚本, _左列] = 主.split_left(上方, 0.20, vec![Tab::资源浏览器, Tab::场景树, Tab::视口]);
+    let [_脚本, _左列] = 主.split_left(
+        上方,
+        0.20,
+        vec![Tab::项目文件树, Tab::资源浏览器, Tab::场景树, Tab::视口],
+    );
     布局
 }
 

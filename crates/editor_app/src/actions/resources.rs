@@ -325,6 +325,19 @@ pub(super) fn 处理资源动作(
             Ok(())
         }
 
+        UiAction::刷新项目文件树 => {
+            let Some(项目) = 编辑器.项目.as_ref() else {
+                编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());
+                return Ok(());
+            };
+            let 文件数 = 界面状态.重扫文件树(Some(项目));
+            编辑器.结构化信息(
+                "log_project_tree_refreshed",
+                vec![日志参数::数值(文件数 as i64)],
+            );
+            Ok(())
+        }
+
         UiAction::检查资源依赖 => {
             let Some(项目) = 编辑器.项目.as_ref() else {
                 编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());

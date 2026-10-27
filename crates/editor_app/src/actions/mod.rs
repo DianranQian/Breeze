@@ -444,6 +444,7 @@ pub fn 执行动作队列(
     mut 物理: ResMut<crate::physics_runtime::物理运行时状态>,
     mut 诊断: ResMut<crate::diagnostics::诊断中心>,
     mut 调试资源: Option<ResMut<crate::debug_bridge::运行时调试管理器>>,
+    世界变换资源: Option<Res<crate::preview::预览世界变换快照>>,
 ) {
     // 测试环境可能没有注册调试管理器；创建一个局部空管理器让动作分派
     // 保持统一（生产环境一定存在，由插件 `init_resource`）。
@@ -453,6 +454,16 @@ pub fn 执行动作队列(
         None => {
             本地调试 = crate::debug_bridge::运行时调试管理器::default();
             &mut 本地调试
+        }
+    };
+    // 同理：动作测试直接跑本系统时没有预览快照，用空表；
+    // 顶层实体在 `计算实体框` 里会退回本地变换。
+    let 本地世界变换;
+    let 世界变换: &editor_ui::state::世界变换表 = match 世界变换资源.as_deref() {
+        Some(资源) => &资源.0,
+        None => {
+            本地世界变换 = editor_ui::state::世界变换表::new();
+            &本地世界变换
         }
     };
     let 动作列表 = 界面.动作.取出();
@@ -483,6 +494,7 @@ pub fn 执行动作队列(
             导入: &mut *导入,
             诊断: &mut *诊断,
             调试: &mut *调试,
+            世界变换,
         };
         for 动作 in 动作列表 {
             执行单个动作(动作, &mut 上下文);
@@ -621,6 +633,8 @@ struct 动作上下文<'a> {
     导入: &'a mut crate::plugin::导入快照资源,
     诊断: &'a mut crate::diagnostics::诊断中心,
     调试: &'a mut crate::debug_bridge::运行时调试管理器,
+    /// 预览世界变换快照（文档实体 → `GlobalTransform`）。
+    世界变换: &'a editor_ui::state::世界变换表,
 }
 
 /// 执行一条动作。
@@ -2083,6 +2097,7 @@ pub fn 绘制编辑器界面(
     调试: Res<crate::debug_bridge::运行时调试管理器>,
     mut 数据源: 绘制数据源,
     mut 布局待保存: ResMut<布局待保存>,
+    世界变换: Res<crate::preview::预览世界变换快照>,
 ) {
     let Ok(上下文) = 上下文.ctx_mut() else {
         return;
@@ -2120,6 +2135,7 @@ pub fn 绘制编辑器界面(
             调试历史: 调试.历史(),
             统一诊断: &诊断快照.快照,
             配置目录: &配置目录,
+            世界变换: &世界变换.0,
         },
         状态,
         动作,
@@ -2312,7 +2328,11 @@ enum 对齐请求 {
 ///
 /// 只产生**一条** `批量设变换` 命令：用户按一次 Ctrl+Z 应当回到整批操作
 /// 之前，而不是逐个退回。
-fn 对齐或分布选中(编辑器: &mut 编辑器状态, 请求: 对齐请求) {
+fn 对齐或分布选中(
+    编辑器: &mut 编辑器状态,
+    世界变换: &editor_ui::state::世界变换表,
+    请求: 对齐请求,
+) {
     let 选中 = 编辑器.选择.全部();
     if 选中.len() < 2 {
         编辑器.警告("对齐/分布需要至少选中两个实体".to_string());
@@ -2323,7 +2343,8 @@ fn 对齐或分布选中(编辑器: &mut 编辑器状态, 请求: 对齐请求) 
     let mut 盒子 = Vec::with_capacity(选中.len());
     let mut 标识列表 = Vec::with_capacity(选中.len());
     for 标识 in &选中 {
-        let Some(框) = editor_ui::viewport_panel::计算实体框(&编辑器.会话.文档, *标识)
+        let Some(框) =
+            editor_ui::viewport_panel::计算实体框(&编辑器.会话.文档, *标识, 世界变换)
         else {
             continue;
         };

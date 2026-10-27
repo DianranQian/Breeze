@@ -52,9 +52,10 @@ use crate::tile_terrain::{地形参数, 地形缓存};
 
 /// 预览实体标记。
 ///
-/// 所有由场景文档投影出来的渲染实体都带这个组件。
-/// 它的作用不是"方便清理"，而是让"哪些实体来自文档"这件事可查询、
-/// 可测试 —— 例如断言"预览实体数量 == 文档里有变换的实体数量"。
+/// 每个文档实体对应一个带此标记的**层级节点**：节点只承载文档变换与
+/// 父子关系，精灵/四边形/网格等视觉实体作为它的子实体存在。
+/// 这样"哪些实体来自文档"仍然可查询、可测试，
+/// 而世界变换只有 `GlobalTransform` 传播这一条来源。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct 预览实体;
 
@@ -180,6 +181,40 @@ pub struct 预览同步状态 {
     pub 预览实体数: usize,
 }
 
+/// 预览世界变换快照：文档实体 → 预览节点当前的 `GlobalTransform`。
+///
+/// 界面层读不到 Bevy 世界，又绝不能把本地变换当世界变换用；
+/// 这里在 `TransformSystems::Propagate` 之后把传播结果抄成纯数据，每帧覆盖。
+/// 键是文档实体标识而不是 ECS `Entity`：预览重建会换掉底层实体，
+/// 但文档标识不变，快照因此在重建的那一帧仍然可用。
+#[derive(Resource, Default, Debug, Clone)]
+pub struct 预览世界变换快照(pub std::collections::BTreeMap<实体标识, 变换数据>);
+
+/// 把预览节点的 `GlobalTransform` 抄成界面可读的快照。
+///
+/// 必须在变换传播之后运行；否则读到的是上一帧的位置，
+/// 拖动或改层级后视口包围框会慢一帧。
+pub fn 同步预览世界变换(
+    已有: Query<(&预览来源, &GlobalTransform), With<预览实体>>,
+    mut 快照: ResMut<预览世界变换快照>,
+) {
+    let 表 = &mut 快照.0;
+    表.clear();
+    for (来源, 全局) in &已有 {
+        let 平移 = 全局.translation();
+        let 旋转 = 全局.rotation();
+        let 缩放 = 全局.scale();
+        表.insert(
+            来源.0,
+            变换数据 {
+                平移: (平移.x, 平移.y, 平移.z),
+                旋转: (旋转.x, 旋转.y, 旋转.z, 旋转.w),
+                缩放: (缩放.x, 缩放.y, 缩放.z),
+            },
+        );
+    }
+}
+
 /// 纹理缓存：资源路径 → 已加载的图片句柄。
 ///
 /// 只属于渲染，不进场景文档（句柄与帧绑定，存进文件没有意义）。
@@ -218,6 +253,18 @@ impl 贴图缓存 {
 /// 否则会出现"编辑器里看着在左边、跑起来在右边"这种最令人困惑的 bug。
 pub fn 变换转预览(变换: 变换数据) -> Transform {
     crate::scene_bridge::变换数据转_bevy(变换)
+}
+
+/// 2D 叠放步长：把文档遍历序号折算成精灵局部 z 的微小偏移。
+///
+/// 正交相机下 z 不改变屏幕位置，只决定精灵的绘制先后。步长远小于任何
+/// 可见几何（1000 个实体累计 0.1 世界单位），因此"文档 z 相同时，
+/// 场景树里靠后的画在上面"成为确定事实，而不是依赖排序实现的偶然行为。
+pub const 二维叠放步长: f32 = 0.0001;
+
+/// 文档遍历序号 → 2D 精灵的局部 z。
+pub fn 二维叠放偏移(序号: u32) -> f32 {
+    序号 as f32 * 二维叠放步长
 }
 
 /// 从 Sprite 组件的属性里取出视觉参数。
@@ -343,7 +390,7 @@ pub struct 预览渲染项 {
 pub fn 投影预览项(文档: &场景文档) -> Vec<预览渲染项> {
     let mut 结果 = Vec::new();
 
-    for (标识, _深度) in 文档.深度优先遍历() {
+    for 标识 in 文档.文档遍历() {
         let Some(实体) = 文档.取(标识) else {
             continue;
         };
@@ -415,7 +462,7 @@ pub struct 几何渲染项 {
 /// 从 `TileTerrain` 组件投影地形渲染项。
 pub fn 投影地形项(文档: &场景文档) -> Vec<地形渲染项> {
     let mut 结果 = Vec::new();
-    for (标识, _深度) in 文档.深度优先遍历() {
+    for 标识 in 文档.文档遍历() {
         let Some(实体) = 文档.取(标识) else {
             continue;
         };
@@ -443,7 +490,7 @@ pub fn 投影地形项(文档: &场景文档) -> Vec<地形渲染项> {
 /// 从 `Primitive3d` 组件投影几何渲染项。
 pub fn 投影几何项(文档: &场景文档) -> Vec<几何渲染项> {
     let mut 结果 = Vec::new();
-    for (标识, _深度) in 文档.深度优先遍历() {
+    for 标识 in 文档.文档遍历() {
         let Some(实体) = 文档.取(标识) else {
             continue;
         };
@@ -780,6 +827,50 @@ pub fn 同步预览相机(
     }
 }
 
+/// 为文档里的每个实体建立预览层级节点，并按文档父子关系接线。
+///
+/// # 为什么每个实体都要一个节点
+///
+/// 一个文档实体可能同时产生精灵与三维四边形：二者渲染层不同、局部缩放
+/// 也不同，不能挂在同一个实体上。若让视觉实体直接互为父子，就必须按
+/// "同一渲染层"挑父节点，而父实体没有对应视觉时世界变换会直接丢失。
+///
+/// 节点只承载文档变换，视觉实体挂在它下面、局部变换只表达自身尺寸差异。
+/// 父子传播因此始终由 `GlobalTransform` 一处完成，不需要任何手写矩阵累加。
+///
+/// 隐藏实体的节点也保留：父实体被隐藏时，子实体仍要落在正确的世界位置。
+///
+/// 返回 文档实体 → 预览节点。顺序与 [`场景文档::文档遍历`] 一致。
+pub fn 构建预览层级(
+    命令: &mut Commands,
+    文档: &场景文档,
+) -> std::collections::HashMap<实体标识, Entity> {
+    let 顺序 = 文档.文档遍历();
+    let mut 节点表 = std::collections::HashMap::with_capacity(顺序.len());
+    for 标识 in &顺序 {
+        let 变换 = 文档
+            .取(*标识)
+            .and_then(|实体| 实体.变换)
+            .map(变换转预览)
+            .unwrap_or_default();
+        let 节点 = 命令.spawn((预览实体, 预览来源(*标识), 变换)).id();
+        节点表.insert(*标识, 节点);
+    }
+    // 第二趟才能接线：父节点必须已经存在。文档顺序本身是父先于子，
+    // 但用第二趟表达"父必须已建"这条约束，不依赖遍历实现细节。
+    for 标识 in &顺序 {
+        let Some(父) = 文档.取(*标识).and_then(|实体| 实体.父实体) else {
+            continue;
+        };
+        let (Some(子节点), Some(父节点)) = (节点表.get(标识), 节点表.get(&父))
+        else {
+            continue;
+        };
+        命令.entity(*子节点).insert(ChildOf(*父节点));
+    }
+    节点表
+}
+
 /// 文档 → 预览实体的增量同步。
 ///
 /// # 为什么用修订号而不是每帧全量重比
@@ -807,7 +898,7 @@ pub fn 同步预览实体(
     mut 命令: Commands,
     编辑器: Res<EditorStateHolder>,
     mut 同步状态: ResMut<预览同步状态>,
-    已有: Query<(Entity, &预览来源), With<预览实体>>,
+    已有: Query<(Entity, Option<&ChildOf>), With<预览实体>>,
     mut 贴图缓存: ResMut<贴图缓存>,
     mut 地形缓存: ResMut<地形缓存>,
     三维资源: Res<三维预览资源>,
@@ -821,9 +912,12 @@ pub fn 同步预览实体(
         return;
     }
 
-    // 先清掉旧的预览实体。
-    for (实体, _) in &已有 {
-        命令.entity(实体).despawn();
+    // 先清掉旧的预览实体。只摘根节点：`despawn` 会连同子树一起回收，
+    // 再对已经被连带删除的子节点调用一次会打出一串"实体不存在"的警告。
+    for (实体, 父) in &已有 {
+        if 父.is_none() {
+            命令.entity(实体).despawn();
+        }
     }
 
     let 文档 = &编辑器.状态.会话.文档;
@@ -838,8 +932,16 @@ pub fn 同步预览实体(
     let 地形项 = 投影地形项(文档);
     let 几何项 = 投影几何项(文档);
 
+    // 层级节点先建：视觉实体全部挂在节点下面，
+    // 世界变换只由 `TransformPlugin` 的 `GlobalTransform` 传播产生。
+    let 节点表 = 构建预览层级(&mut 命令, 文档);
+    let 叠放序号 = 文档.叠放序号表();
+
     for 项 in &待渲染 {
-        // 模型实体：交给 Bevy 的 glTF 场景加载器，位置/旋转/缩放沿用文档变换。
+        let Some(节点) = 节点表.get(&项.来源).copied() else {
+            continue;
+        };
+        // 模型实体：交给 Bevy 的 glTF 场景加载器，父节点承载文档变换。
         if let Some(模型路径) = 项.视觉.模型路径.as_deref()
             && let Some(根) = 项目根.as_deref()
         {
@@ -851,13 +953,14 @@ pub fn 同步预览实体(
             let 场景 = 资源服务器.load::<bevy::world_serialization::WorldAsset>(
                 bevy::asset::AssetPath::from_path_buf(绝对).with_label("Scene0"),
             );
-            命令.spawn((
-                预览实体,
-                预览来源(项.来源),
-                bevy::world_serialization::WorldAssetRoot(场景),
-                项.变换,
-                RenderLayers::layer(三维渲染层),
-            ));
+            命令
+                .spawn((
+                    预览来源(项.来源),
+                    bevy::world_serialization::WorldAssetRoot(场景),
+                    Transform::default(),
+                    RenderLayers::layer(三维渲染层),
+                ))
+                .insert(ChildOf(节点));
             continue;
         }
 
@@ -868,27 +971,38 @@ pub fn 同步预览实体(
             &mut 图片资源,
         );
 
-        命令.spawn((
-            预览实体,
-            预览来源(项.来源),
-            Sprite {
-                image: 图片.clone(),
-                color: 颜色转_bevy(项.视觉.颜色),
-                flip_x: 项.视觉.水平翻转,
-                flip_y: 项.视觉.垂直翻转,
-                custom_size: Some(Vec2::new(项.显示尺寸.0, 项.显示尺寸.1)),
-                ..default()
-            },
-            项.变换,
-            RenderLayers::layer(预览渲染层),
-        ));
+        // 二维精灵只表达尺寸与贴图：位置/旋转/缩放来自父节点。
+        // 局部 z 带上文档遍历序号，让同 z 时的叠放顺序等于场景树顺序。
+        命令
+            .spawn((
+                预览来源(项.来源),
+                Sprite {
+                    image: 图片.clone(),
+                    color: 颜色转_bevy(项.视觉.颜色),
+                    flip_x: 项.视觉.水平翻转,
+                    flip_y: 项.视觉.垂直翻转,
+                    custom_size: Some(Vec2::new(项.显示尺寸.0, 项.显示尺寸.1)),
+                    ..default()
+                },
+                Transform::from_translation(Vec3::new(
+                    0.0,
+                    0.0,
+                    叠放序号
+                        .get(&项.来源)
+                        .copied()
+                        .map(二维叠放偏移)
+                        .unwrap_or(0.0),
+                )),
+                RenderLayers::layer(预览渲染层),
+            ))
+            .insert(ChildOf(节点));
 
         // ---- 三维对应物 ----
         //
         // 精灵在 3D 相机下不可见（Bevy 的精灵是 2D 管线），因此每个实体
         // 额外生成一个"贴了同一张图的四边形"，放在独立渲染层上由 Camera3d 渲染。
-        // 它复用实体的完整三维变换（平移/旋转/缩放），所以 3D 视图里的
-        // 位置就是文档里的真实坐标 —— 不是另算一份。
+        // 它也挂在同一个节点下，只把显示尺寸乘进局部缩放，
+        // 3D 视图里的世界位置因此与 2D 视图完全一致 —— 不是另算一份。
         let mut 材质 = StandardMaterial {
             base_color: 颜色转_bevy(项.视觉.颜色),
             unlit: true,
@@ -903,17 +1017,15 @@ pub fn 同步预览实体(
             材质.base_color_texture = Some(图片.clone());
         }
         let 材质句柄 = 材质表.add(材质);
-        let mut 三维变换 = 项.变换;
-        三维变换.scale.x *= 项.显示尺寸.0;
-        三维变换.scale.y *= 项.显示尺寸.1;
-        命令.spawn((
-            预览实体,
-            预览来源(项.来源),
-            Mesh3d(三维资源.四边形.clone()),
-            MeshMaterial3d(材质句柄),
-            三维变换,
-            RenderLayers::layer(三维渲染层),
-        ));
+        命令
+            .spawn((
+                预览来源(项.来源),
+                Mesh3d(三维资源.四边形.clone()),
+                MeshMaterial3d(材质句柄),
+                Transform::from_scale(Vec3::new(项.显示尺寸.0, 项.显示尺寸.1, 1.0)),
+                RenderLayers::layer(三维渲染层),
+            ))
+            .insert(ChildOf(节点));
     }
 
     // ---- 程序化瓦片地形 ----
@@ -925,19 +1037,31 @@ pub fn 同步预览实体(
         for 项 in &地形项 {
             使用键.push(地形缓存::键(根, &项.参数));
             let 图片 = 地形缓存.取或烘焙(根, &项.参数, &mut 图片资源);
+            let Some(节点) = 节点表.get(&项.来源).copied() else {
+                continue;
+            };
 
             // 二维视口：整张地形当作一个精灵，尺寸就是文档里的显示尺寸。
-            命令.spawn((
-                预览实体,
-                预览来源(项.来源),
-                Sprite {
-                    image: 图片.clone(),
-                    custom_size: Some(Vec2::new(项.显示尺寸.0, 项.显示尺寸.1)),
-                    ..default()
-                },
-                项.变换,
-                RenderLayers::layer(预览渲染层),
-            ));
+            命令
+                .spawn((
+                    预览来源(项.来源),
+                    Sprite {
+                        image: 图片.clone(),
+                        custom_size: Some(Vec2::new(项.显示尺寸.0, 项.显示尺寸.1)),
+                        ..default()
+                    },
+                    Transform::from_translation(Vec3::new(
+                        0.0,
+                        0.0,
+                        叠放序号
+                            .get(&项.来源)
+                            .copied()
+                            .map(二维叠放偏移)
+                            .unwrap_or(0.0),
+                    )),
+                    RenderLayers::layer(预览渲染层),
+                ))
+                .insert(ChildOf(节点));
 
             // 三维视口：同一张纹理的四边形（2D 场景在 3D 模式下仍然是平面）。
             let 材质 = StandardMaterial {
@@ -948,17 +1072,15 @@ pub fn 同步预览实体(
                 ..default()
             };
             let 材质句柄 = 材质表.add(材质);
-            let mut 三维变换 = 项.变换;
-            三维变换.scale.x *= 项.显示尺寸.0;
-            三维变换.scale.y *= 项.显示尺寸.1;
-            命令.spawn((
-                预览实体,
-                预览来源(项.来源),
-                Mesh3d(三维资源.四边形.clone()),
-                MeshMaterial3d(材质句柄),
-                三维变换,
-                RenderLayers::layer(三维渲染层),
-            ));
+            命令
+                .spawn((
+                    预览来源(项.来源),
+                    Mesh3d(三维资源.四边形.clone()),
+                    MeshMaterial3d(材质句柄),
+                    Transform::from_scale(Vec3::new(项.显示尺寸.0, 项.显示尺寸.1, 1.0)),
+                    RenderLayers::layer(三维渲染层),
+                ))
+                .insert(ChildOf(节点));
         }
         // 删掉/改路径的地形不能把 25MB 纹理永久留在 `Assets<Image>` 里。
         地形缓存.清理(&使用键, &mut 图片资源);
@@ -972,6 +1094,9 @@ pub fn 同步预览实体(
     // 材质是受光的 `StandardMaterial`，UV 按 `贴图重复` 缩放。
     // 3D 示例的地面与四面墙就是由这一条路径渲染出来的。
     for 项 in &几何项 {
+        let Some(节点) = 节点表.get(&项.来源).copied() else {
+            continue;
+        };
         let 图片 = 解析贴图句柄(
             项.贴图路径.as_deref(),
             项目根.as_deref(),
@@ -980,18 +1105,27 @@ pub fn 同步预览实体(
         );
 
         // 二维视口里的代替表示：地面看顶视图、墙看正视图。
-        命令.spawn((
-            预览实体,
-            预览来源(项.来源),
-            Sprite {
-                image: 图片.clone(),
-                color: 颜色转_bevy(项.颜色),
-                custom_size: Some(Vec2::new(项.二维尺寸.0, 项.二维尺寸.1)),
-                ..default()
-            },
-            项.变换,
-            RenderLayers::layer(预览渲染层),
-        ));
+        命令
+            .spawn((
+                预览来源(项.来源),
+                Sprite {
+                    image: 图片.clone(),
+                    color: 颜色转_bevy(项.颜色),
+                    custom_size: Some(Vec2::new(项.二维尺寸.0, 项.二维尺寸.1)),
+                    ..default()
+                },
+                Transform::from_translation(Vec3::new(
+                    0.0,
+                    0.0,
+                    叠放序号
+                        .get(&项.来源)
+                        .copied()
+                        .map(二维叠放偏移)
+                        .unwrap_or(0.0),
+                )),
+                RenderLayers::layer(预览渲染层),
+            ))
+            .insert(ChildOf(节点));
 
         let 网格句柄 = match 项.形状 {
             几何体形状::立方体 => {
@@ -1018,14 +1152,15 @@ pub fn 同步预览实体(
         }
         let 材质句柄 = 材质表.add(材质);
 
-        命令.spawn((
-            预览实体,
-            预览来源(项.来源),
-            Mesh3d(网格句柄),
-            MeshMaterial3d(材质句柄),
-            项.变换,
-            RenderLayers::layer(三维渲染层),
-        ));
+        命令
+            .spawn((
+                预览来源(项.来源),
+                Mesh3d(网格句柄),
+                MeshMaterial3d(材质句柄),
+                Transform::default(),
+                RenderLayers::layer(三维渲染层),
+            ))
+            .insert(ChildOf(节点));
     }
 
     同步状态.已同步修订 = Some(修订);
@@ -1535,7 +1670,7 @@ mod 测试 {
         assert_eq!(项[0].来源, 可见);
     }
 
-    /// 投影顺序必须与深度优先遍历一致，便于与场景树对照排查。
+    /// 投影顺序必须与规范化遍历一致，便于与场景树对照排查。
     #[test]
     fn 投影顺序与场景树一致() {
         let mut 文档 = 场景文档::新建("顺序");
@@ -1548,12 +1683,47 @@ mod 测试 {
         }
 
         let 来源: Vec<实体标识> = 投影预览项(&文档).iter().map(|项| 项.来源).collect();
-        let 树顺序: Vec<实体标识> = 文档
-            .深度优先遍历()
-            .into_iter()
-            .map(|(标识, _)| 标识)
-            .collect();
-        assert_eq!(来源, 树顺序);
+        assert_eq!(来源, 文档.文档遍历());
+    }
+
+    /// 2D 叠放必须等于文档遍历顺序：父在前、兄弟按 `次序`，与生成顺序无关。
+    #[test]
+    fn 二维叠放顺序与次序投影一致() {
+        let mut 文档 = 场景文档::新建("叠放");
+        let 甲 = 文档.生成实体("甲", None);
+        let 乙 = 文档.生成实体("乙", None);
+        let 丙 = 文档.生成实体("丙", None);
+        let 子的 = 文档.生成实体("乙的子", Some(乙));
+        // 交换乙/丙的次序：叠放必须跟着 `次序` 走，而不是生成顺序。
+        for (标识, 次序) in [(乙, 2), (丙, 1)] {
+            if let Some(实体) = 文档.取可变(标识) {
+                实体.次序 = 次序;
+            }
+        }
+        for 标识 in [甲, 乙, 丙, 子的] {
+            if let Some(实体) = 文档.取可变(标识) {
+                实体.加组件(组件数据::新建("Sprite", Default::default()));
+            }
+        }
+
+        let 遍历 = 文档.文档遍历();
+        assert_eq!(遍历, vec![甲, 丙, 乙, 子的], "父在前、兄弟按 `次序`");
+
+        let 序号 = 文档.叠放序号表();
+        let 偏移: Vec<f32> = 遍历.iter().map(|标识| 二维叠放偏移(序号[标识])).collect();
+        for 窗口 in 偏移.windows(2) {
+            assert!(
+                窗口[0] < 窗口[1],
+                "叠放偏移必须随遍历序号严格递增：{偏移:?}"
+            );
+        }
+        assert!(
+            *偏移.last().unwrap() < 0.001,
+            "叠放偏移不应造成可见位移：{偏移:?}"
+        );
+
+        let 投影: Vec<实体标识> = 投影预览项(&文档).iter().map(|项| 项.来源).collect();
+        assert_eq!(投影, 遍历, "投影顺序必须与叠放顺序同源");
     }
 
     /// 投影项必须携带文档里的真实变换与尺寸，不能是默认值。

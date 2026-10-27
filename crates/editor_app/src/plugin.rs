@@ -33,6 +33,7 @@ use editor_core::state::编辑器状态;
 use editor_ui::{
     state::UiAction, 动作队列, 界面状态, 绘制上下文, 视口渲染结果, 运行时诊断
 };
+use scene_doc::document::{变换数据, 实体标识};
 
 use crate::scene_bridge::{运行时宿主, 运行状态, 默认组件注册表};
 use crate::{
@@ -448,6 +449,7 @@ impl Plugin for BevyStudio插件 {
             // 必须在界面绘制之前创建相机与渲染目标并完成纹理注册，
             // 否则首帧视口会退化成只有网格。
             .init_resource::<preview::预览相机状态>()
+            .init_resource::<preview::预览世界变换快照>()
             .add_systems(
                 Startup,
                 (
@@ -597,6 +599,16 @@ impl Plugin for BevyStudio插件 {
                         .chain(),
                 )
                     .chain(),
+            )
+            // ---- PostUpdate：把传播后的世界变换抄成界面可读快照 ----
+            //
+            // 必须排在 `TransformSystems::Propagate` 之后、egui 收尾之前：
+            // 前者保证快照是本帧位置，后者保证界面绘制时快照已经就绪。
+            .add_systems(
+                PostUpdate,
+                preview::同步预览世界变换
+                    .after(bevy::transform::TransformSystems::Propagate)
+                    .before(bevy_egui::EguiPostUpdateSet::EndPass),
             )
             // ---- EguiPrimaryContextPass：把数据画出来 ----
             //
@@ -1636,6 +1648,11 @@ pub struct 绘制环境<'平台> {
     pub 导入状态: &'平台 std::collections::BTreeMap<String, editor_core::project::导入状态>,
     /// 编辑器配置目录（帮助窗口显示路径、提供"打开配置目录"）。
     pub 配置目录: &'平台 std::path::Path,
+    /// 预览世界变换快照（文档实体 → `GlobalTransform`）。
+    ///
+    /// 视口包围框与操纵器用世界坐标；它们是界面层，读不到 Bevy 世界，
+    /// 因此由 `preview::同步预览世界变换` 在变换传播后抄成纯数据传入。
+    pub 世界变换: &'平台 BTreeMap<实体标识, 变换数据>,
 }
 
 /// 便捷函数：构造一次绘制所需的上下文并调用界面绘制。
@@ -1680,6 +1697,7 @@ pub fn 绘制一帧(
         统一诊断: 环境.统一诊断,
         导入状态: 环境.导入状态,
         配置目录: 环境.配置目录,
+        世界变换: 环境.世界变换,
     };
     editor_ui::绘制(上下文, &mut 绘制);
 }

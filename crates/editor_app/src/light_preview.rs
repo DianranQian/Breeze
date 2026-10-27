@@ -150,7 +150,7 @@ pub fn 解析灯光(实体: &scene_doc::document::场景实体) -> Option<灯光
 /// 这样每次重建得到的结果顺序一致，便于截图比对。
 pub fn 投影灯光项(文档: &场景文档) -> Vec<(实体标识, 灯光参数, 变换数据)> {
     let mut 结果 = Vec::new();
-    for (标识, _深度) in 文档.深度优先遍历() {
+    for 标识 in 文档.文档遍历() {
         let Some(实体) = 文档.取(标识) else {
             continue;
         };

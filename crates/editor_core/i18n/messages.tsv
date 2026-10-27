@@ -82,6 +82,16 @@ log_dependency_missing	{} 引用了不存在的资源 {}	{} references a missing
 log_dependency_summary	依赖检查：发现 {} 处缺失的资源引用	Dependency check: {} missing asset references
 log_audit_prefab	实例一致性审计：{}	Prefab consistency audit: {}
 log_audit_summary	实例一致性审计：发现 {} 条待处理的问题	Prefab consistency audit: {} issue(s) to review
+log_audit_prefab_template_missing	实例 {} 引用的预制件 {} 不存在（模板可能被删除或改名）	Instance {} references prefab {}, which does not exist (the template may have been deleted or renamed)
+log_audit_prefab_version_rollback	实例 {} 期望预制件版本 {}，但文件里是更旧的 {}；请找回正确版本	Instance {} expects prefab version {}, but the file contains the older {}; restore the correct version
+log_audit_prefab_fingerprint_changed	预制件 {} 的版本仍为 {}，但内容指纹已变化：文件可能被外部修改，实例 {} 需要手动同步	Prefab {} is still version {}, but its content fingerprint changed: the file may have been edited externally, so instance {} must be synced manually
+log_audit_prefab_orphan_record	实例记录 {} 的键在实体树里已无对应实体（模板 {}）：这条记录不会被展开，也不会随实体删除被清理	The key of instance record {} no longer matches any entity (template {}): this record will never be expanded, and it will not be cleaned up when entities are deleted
+log_audit_prefab_override_address	实例 {} 的覆盖（节点 {} · 组件 {}）在模板 {} 里已无对应节点：保存后该覆盖不会生效	The override on instance {} (node {} · component {}) no longer matches any node in template {}: it will not take effect after saving
+log_audit_prefab_deleted_node	实例 {} 记录的已删节点 {} 在模板 {} 里不存在：这条删除记录没有作用对象，可以忽略或清理	Instance {} records deleted node {}, which no longer exists in template {}: the deletion has no target and can be ignored or cleaned up
+log_audit_prefab_detached_node	实例 {} 记录的脱钩节点 {} 又出现在模板 {} 里：同步时会按脱钩跳过它，模板里这个节点不会生效；确认要保留本地版本就忽略这条	Instance {} records detached node {}, which is back in template {}: syncing will skip it as detached, so the template node will not appear; ignore this if the local version should stay
+log_audit_node_root	根	root
+log_audit_node_path	第 {} 层 · 末段 {}	depth {} · tail {}
+log_audit_asset_missing	场景引用的资源 {} 不存在（共 {} 处引用）：可能已被删除或改名，运行时会回退到默认外观	Resource {} referenced by the scene does not exist ({} reference(s)): it may have been deleted or renamed, and the runtime will fall back to the default appearance
 keyboard_shortcuts	快捷键	Keyboard Shortcuts
 shortcuts_intro	这些是当前已实现的快捷键。带 Ctrl 的项在 macOS 上对应 Command 键。	These shortcuts are currently implemented. Ctrl means Command on macOS.
 shortcut_cancel_selection	取消选择（变换工具且未拖拽时保持不动）	Clear selection (kept while a transform drag is in progress)

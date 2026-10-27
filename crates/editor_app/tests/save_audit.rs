@@ -29,10 +29,11 @@ use editor_app::scene_bridge::运行时宿主;
 use editor_core::project::项目描述;
 use editor_core::state::{场景会话, 日志内容, 日志级别, 编辑器状态};
 use editor_ui::state::UiAction;
-use scene_doc::document::{场景文档, 实体标识};
+use scene_doc::document::{场景文档, 实体标识, 组件数据};
 use scene_doc::path::项目相对路径;
 use scene_doc::prefab::{节点地址, 覆盖键, 预制件实例记录, 预制件文档};
-use scene_doc::property::属性值;
+use scene_doc::property::{属性值, 资源引用值};
+use std::collections::BTreeMap;
 
 /// 场景在项目的固定落点：审计挂在"已关联文件"的保存路径上。
 const 场景路径文本: &str = "scenes/关卡.scene.ron";
@@ -297,4 +298,82 @@ fn 另存为同样先审计再落盘() {
             .is_file(),
         "副本必须真的落盘"
     );
+}
+
+/// 往场景里加一个引用 `贴图` 的精灵，并把该资源文件写进项目磁盘。
+///
+/// 返回资源的绝对路径，方便调用方模拟"文件被删除"。
+fn 加带贴图的精灵(应用: &mut App, 贴图: &项目相对路径) -> std::path::PathBuf {
+    let 绝对 = 编辑器(应用)
+        .项目
+        .as_ref()
+        .expect("夹具应当打开了项目")
+        .绝对路径(贴图);
+    std::fs::write(&绝对, b"png").expect("写资源文件");
+
+    let mut 持有 = 应用.world_mut().resource_mut::<EditorStateHolder>();
+    let 实体 = 持有.状态.新建实体("精灵", None).expect("新实体");
+    let mut 属性 = BTreeMap::new();
+    属性.insert(
+        "texture".to_string(),
+        属性值::资源(资源引用值::按路径(贴图.clone())),
+    );
+    持有.状态.添加组件(实体, 组件数据::新建("Sprite", 属性));
+    绝对
+}
+
+/**
+ * 资源被删掉、场景还引用着：保存前报出来，但引用与文件都不许被"顺手修"。
+ *
+ * 这是跨文件那一层的核心断言：审计读的是**磁盘当前状态**，
+ * 而修复权在用户手里（放回文件、或改引用）。因此这里同时检查
+ * "报了一条"和"落盘内容里那条引用还在"。
+ */
+#[test]
+fn 资源被删后保存会报跨文件缺失但照常落盘() {
+    let (mut 应用, 目录, _模板, _模板路径, _, _实例根) = 建应用("资源缺失");
+    let 贴图 = 取路径("assets/敌人.png");
+    let 绝对 = 加带贴图的精灵(&mut 应用, &贴图);
+    std::fs::remove_file(&绝对).expect("删掉资源文件");
+
+    执行(&mut 应用, UiAction::保存场景);
+
+    assert_eq!(
+        日志条数(&应用, "log_audit_asset_missing"),
+        1,
+        "场景引用的资源不存在时必须报一条"
+    );
+    assert_eq!(日志条数(&应用, "log_audit_summary"), 1);
+    assert_eq!(
+        汇总数(&应用).as_deref(),
+        Some("1"),
+        "缺失资源要计入同一条汇总"
+    );
+
+    let 落盘 = 读回场景(&目录, "资源缺失");
+    let 还引用着 = 落盘.实体表.values().any(|实体| {
+        实体.组件.iter().any(|组件| {
+            组件
+                .属性
+                .values()
+                .any(|值| matches!(值, 属性值::资源(引用) if 引用.路径 == 贴图))
+        })
+    });
+    assert!(
+        还引用着,
+        "审计只报告：引用必须原样写回文件，由用户决定是补回资源还是改引用"
+    );
+}
+
+/// 资源存在时跨文件检查必须沉默 —— 否则每次保存都会刷一条假警报。
+#[test]
+fn 资源存在时跨文件检查保持沉默() {
+    let (mut 应用, _目录, _模板, _模板路径, _, _实例根) = 建应用("资源齐全");
+    let 贴图 = 取路径("assets/敌人.png");
+    加带贴图的精灵(&mut 应用, &贴图);
+
+    执行(&mut 应用, UiAction::保存场景);
+
+    assert_eq!(日志条数(&应用, "log_audit_asset_missing"), 0);
+    assert_eq!(日志条数(&应用, "log_audit_summary"), 0);
 }

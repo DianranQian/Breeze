@@ -613,6 +613,8 @@ pub static 词表: &[词条] = &[
     词条 { 键: "log_asset_registry_refreshed", 中文: "资源注册表已刷新：{} 个条目（代次 {}，新增 {}，移除 {}，变更 {}）", 英文: "Asset registry refreshed: {} entries (generation {}, {} added, {} removed, {} changed)" },
     词条 { 键: "log_asset_rename_done", 中文: "已重命名资源 {} → {}（{}）", 英文: "Renamed asset {} → {} ({})" },
     词条 { 键: "log_asset_rename_no_refs", 中文: "没有场景引用该资源，本次只改了文件名", 英文: "No scene referenced this asset; only the file name changed" },
+    词条 { 键: "log_audit_prefab", 中文: "实例一致性审计：{}", 英文: "Prefab consistency audit: {}" },
+    词条 { 键: "log_audit_summary", 中文: "实例一致性审计：发现 {} 条待处理的问题", 英文: "Prefab consistency audit: {} issue(s) to review" },
     词条 { 键: "log_audition_started", 中文: "试听：{}", 英文: "Auditioning {}" },
     词条 { 键: "log_audition_stopped", 中文: "已停止试听", 英文: "Stopped auditioning" },
     词条 { 键: "log_build_failed", 中文: "构建失败：{}", 英文: "Build failed: {}" },

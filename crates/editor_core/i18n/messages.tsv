@@ -80,6 +80,8 @@ log_asset_registry_refreshed	资源注册表已刷新：{} 个条目（代次 {}
 log_dependency_ok	依赖检查通过：所有资源引用都能找到	Dependency check passed: every asset reference resolves
 log_dependency_missing	{} 引用了不存在的资源 {}	{} references a missing asset {}
 log_dependency_summary	依赖检查：发现 {} 处缺失的资源引用	Dependency check: {} missing asset references
+log_audit_prefab	实例一致性审计：{}	Prefab consistency audit: {}
+log_audit_summary	实例一致性审计：发现 {} 条待处理的问题	Prefab consistency audit: {} issue(s) to review
 keyboard_shortcuts	快捷键	Keyboard Shortcuts
 shortcuts_intro	这些是当前已实现的快捷键。带 Ctrl 的项在 macOS 上对应 Command 键。	These shortcuts are currently implemented. Ctrl means Command on macOS.
 shortcut_cancel_selection	取消选择（变换工具且未拖拽时保持不动）	Clear selection (kept while a transform drag is in progress)

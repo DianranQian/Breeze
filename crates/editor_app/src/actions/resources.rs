@@ -290,6 +290,32 @@ pub(super) fn 处理资源动作(
             Ok(())
         }
 
+        UiAction::刷新资源注册表 => {
+            let Some(项目) = 编辑器.项目.as_mut() else {
+                编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());
+                return Ok(());
+            };
+            // 先把磁盘上新出现的文件补进 UID 表，注册表才能给出稳定标识。
+            // 同步失败不阻止刷新：标识只是辅助找回，条目本身仍然有效。
+            if let Err(错误) = 项目.同步资源标识() {
+                编辑器.警告(format!("资源标识表同步失败：{错误}"));
+            }
+            let Some(报告) = 编辑器.刷新资源注册表() else {
+                return Ok(());
+            };
+            编辑器.结构化信息(
+                "log_asset_registry_refreshed",
+                vec![
+                    日志参数::数值(报告.条目数 as i64),
+                    日志参数::数值(报告.代次 as i64),
+                    日志参数::数值(报告.新增 as i64),
+                    日志参数::数值(报告.移除 as i64),
+                    日志参数::数值(报告.变更 as i64),
+                ],
+            );
+            Ok(())
+        }
+
         UiAction::检查资源依赖 => {
             let Some(项目) = 编辑器.项目.as_ref() else {
                 编辑器.警告(界面状态.语言.取("build_no_project_hint").to_string());

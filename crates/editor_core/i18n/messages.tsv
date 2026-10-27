@@ -72,10 +72,11 @@ import_state_tooltip	导入状态：{}	Import status: {}
 import_pending_count	{} 个资源待导入	{} assets pending import
 import_pending_hint	这些资源是新加的或内容已变化。点「刷新」重新导入。	These assets are new or changed. Press Refresh to import them again.
 import_all_uptodate	全部资源已导入	All assets imported
-import_assets_hint	扫描 assets/ 并更新导入缓存（imports.ron）	Scan assets/ and update the import cache (imports.ron)
+import_assets_hint	扫描 assets/，更新导入缓存与资源列表（imports.ron）	Scan assets/ and update the import cache and asset list (imports.ron)
 check_asset_dependencies	检查依赖	Check Dependencies
 check_asset_dependencies_hint	扫描全部场景，报告引用了但磁盘上不存在的资源	Scan every scene and report references whose files are missing
 log_import_finished	导入完成：{}（本次处理 {} 个）	Import finished: {} ({} processed)
+log_asset_registry_refreshed	资源注册表已刷新：{} 个条目（代次 {}，新增 {}，移除 {}，变更 {}）	Asset registry refreshed: {} entries (generation {}, {} added, {} removed, {} changed)
 log_dependency_ok	依赖检查通过：所有资源引用都能找到	Dependency check passed: every asset reference resolves
 log_dependency_missing	{} 引用了不存在的资源 {}	{} references a missing asset {}
 log_dependency_summary	依赖检查：发现 {} 处缺失的资源引用	Dependency check: {} missing asset references

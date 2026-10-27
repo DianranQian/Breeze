@@ -2002,6 +2002,7 @@ pub fn 动作摘要(动作: &UiAction) -> String {
 
         // ---- 资源导入 ----
         UiAction::重新导入资源 => "重新导入资源".to_string(),
+        UiAction::刷新资源注册表 => "刷新资源注册表".to_string(),
         UiAction::检查资源依赖 => "检查资源依赖".to_string(),
 
         // ---- 帮助与设置 ----

@@ -1063,6 +1063,7 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::打开引用位置 { .. }
         | UiAction::关闭查找引用
         | UiAction::重新导入资源
+        | UiAction::刷新资源注册表
         | UiAction::检查资源依赖 => {
             unreachable!("资源域动作应已由 `处理资源动作` 处理")
         }

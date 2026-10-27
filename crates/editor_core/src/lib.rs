@@ -29,6 +29,7 @@ pub mod arrange;
 // 在文件边界上就分得清；见模块头部说明。
 pub mod architecture_reserved;
 pub mod asset_index;
+pub mod asset_registry;
 pub mod asset_uid;
 pub mod build;
 pub mod cargo_metadata;
@@ -61,6 +62,7 @@ pub use animation::{
 };
 pub use arrange::{分布轴, 对齐盒, 对齐边, 计算分布, 计算对齐};
 pub use asset_index::{项目引用, 项目资源索引};
+pub use asset_registry::{注册条目, 资源刷新报告, 资源注册表};
 pub use asset_uid::{标识格式版本, 标识表相对路径, 资源标识表};
 pub use build::{
     代码位置, 构建快照, 构建报告, 构建状态, 构建诊断, 构建配置, 构建配置类型, 编译事件,

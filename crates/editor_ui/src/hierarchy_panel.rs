@@ -399,6 +399,12 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
 /// 自己用"行数 × 行高"推剩余空间会在主题改字号时算错。光标位置是 egui
 /// 自己的布局结果，直接取它就是准的。行列表占满视口时这里返回的高度为 0，
 /// 于是不会注册感应区 —— 那种情况下页面上确实没有空白可点。
+///
+/// # 空白区也是拖放目标
+///
+/// 拖到某一行表示"挂到该行下"，拖到空白区表示"移回顶层"，两者合起来
+/// 覆盖了文档里全部合法的父级（`Some` / `None`）。释放时只推动作，
+/// 世界变换的反解与防环都在动作层，界面不重复实现。
 fn 绘制空白区域(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 剩余 = ui.available_rect_before_wrap();
     if 剩余.width() < 最小空白区宽度() || 剩余.height() < 最小空白区宽度() {
@@ -406,6 +412,23 @@ fn 绘制空白区域(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     }
     let 响应 = ui.interact(剩余, egui::Id::new("场景树空白区域"), egui::Sense::click());
     上下文.界面.场景空白矩形 = Some(剩余);
+
+    let 拖拽源 = egui::DragAndDrop::payload::<实体标识>(ui.ctx());
+    if 拖拽源.is_some() && ui.rect_contains_pointer(剩余) {
+        ui.painter().rect_stroke(
+            剩余,
+            0.0,
+            egui::Stroke::new(2.0, 上下文.配色.强调),
+            egui::StrokeKind::Inside,
+        );
+    }
+    if let Some(源) = 响应.dnd_release_payload::<实体标识>() {
+        上下文.动作.推(UiAction::更改实体父级 {
+            实体: *源,
+            新父实体: None,
+        });
+    }
+
     响应.context_menu(|ui| 绘制空白右键菜单(ui, 上下文));
 }
 

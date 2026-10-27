@@ -1,6 +1,15 @@
-//! 资源域动作（重命名 / 删除 / 引用查找 / 导入检查）。
+//! 资源域动作（重命名 / 删除 / 引用查找 / 导入检查 / 材质编辑器）。
 //!
 //! 从 `actions/mod.rs` 拆出；分派入口仍是 `super::执行单个动作`。
+//!
+//! # 材质编辑器的读盘与写盘为什么落在这一份文件
+//!
+//! `material_editor.rs` 只改 `界面状态.材质编辑` 里的草稿，进出磁盘都排到这里：
+//! 项目相对路径校验、`项目.保存材质`、以及**保存后推进注册表代次**必须在同一处
+//! 发生。预览渲染的材质缓存以「路径 + 代次 + 实体侧输入」为键（见
+//! `crate::preview`），代次不推进就等于改了材质文件而视口不动，那是最容易被
+//! 误判成"编辑器没反应"的缺陷；把它和写盘写在同一个分支里，就不会出现
+//! "写了文件但忘了刷新"的那条路径。
 
 use super::*;
 
@@ -337,6 +346,94 @@ pub(super) fn 处理资源动作(
                 编辑器.结构化警告(
                     "log_dependency_summary",
                     vec![日志参数::用户数据(缺失.len().to_string())],
+                );
+            }
+            Ok(())
+        }
+
+        UiAction::打开材质编辑器(路径文本) => {
+            let Ok(路径) = scene_doc::path::项目相对路径::解析(&路径文本) else {
+                编辑器.结构化警告(
+                    "log_material_editor_bad_path",
+                    vec![日志参数::用户数据(路径文本)],
+                );
+                return Ok(());
+            };
+            if let Some(会话) = 界面状态.材质编辑.as_ref()
+                && 会话.脏
+                && 会话.路径 != 路径文本
+            {
+                编辑器.结构化警告(
+                    "log_material_editor_busy",
+                    vec![日志参数::用户数据(会话.路径.clone())],
+                );
+                return Ok(());
+            }
+            let Some(项目) = 编辑器.项目.as_ref() else {
+                编辑器.结构化警告("log_material_editor_no_project", Vec::new());
+                return Ok(());
+            };
+            match 项目.读取材质(&路径) {
+                Ok(材质) => {
+                    界面状态.材质编辑 = Some(editor_ui::state::材质编辑会话::从材质(
+                        路径文本.clone(),
+                        &材质,
+                    ));
+                    编辑器.结构化信息(
+                        "log_material_editor_opened",
+                        vec![日志参数::用户数据(路径文本)],
+                    );
+                }
+                Err(错误) => {
+                    编辑器.结构化错误(
+                        "log_material_editor_read_failed",
+                        vec![日志参数::诊断(错误.to_string())],
+                    );
+                }
+            }
+            Ok(())
+        }
+
+        UiAction::保存材质编辑器 { 路径, 材质 } => {
+            let Ok(相对) = scene_doc::path::项目相对路径::解析(&路径) else {
+                编辑器.结构化警告(
+                    "log_material_editor_bad_path",
+                    vec![日志参数::用户数据(路径)],
+                );
+                return Ok(());
+            };
+            let Some(项目) = 编辑器.项目.as_mut() else {
+                编辑器.结构化警告("log_material_editor_no_project", Vec::new());
+                return Ok(());
+            };
+            if let Err(错误) = 项目.保存材质(&相对, &材质) {
+                编辑器.结构化错误(
+                    "log_material_editor_write_failed",
+                    vec![日志参数::诊断(错误.to_string())],
+                );
+                return Ok(());
+            }
+            let Some(报告) = 编辑器.刷新资源注册表() else {
+                return Ok(());
+            };
+            if let Some(会话) = 界面状态.材质编辑.as_mut() {
+                会话.脏 = false;
+                会话.待确认丢弃 = false;
+            }
+            编辑器.结构化信息(
+                "log_material_editor_saved",
+                vec![日志参数::用户数据(路径), 日志参数::数值(报告.代次 as i64)],
+            );
+            Ok(())
+        }
+
+        UiAction::关闭材质编辑器 => {
+            if let Some(会话) = 界面状态.材质编辑.take()
+                && 会话.脏
+            {
+                编辑器.结构化警告(
+                    "log_material_editor_discarded",
+                    vec![日志参数::用户数据(会话.路径)],
                 );
             }
             Ok(())

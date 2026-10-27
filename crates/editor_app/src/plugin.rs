@@ -2010,6 +2010,9 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::重新导入资源 => "重新导入资源".to_string(),
         UiAction::刷新资源注册表 => "刷新资源注册表".to_string(),
         UiAction::检查资源依赖 => "检查资源依赖".to_string(),
+        UiAction::打开材质编辑器(路径) => format!("打开材质编辑器({路径})"),
+        UiAction::保存材质编辑器 { 路径, .. } => format!("保存材质编辑器({路径})"),
+        UiAction::关闭材质编辑器 => "关闭材质编辑器".to_string(),
 
         // ---- 帮助与设置 ----
         UiAction::显示帮助(显示) => format!("显示帮助({显示})"),

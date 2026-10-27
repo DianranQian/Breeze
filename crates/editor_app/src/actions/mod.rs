@@ -1064,7 +1064,10 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::关闭查找引用
         | UiAction::重新导入资源
         | UiAction::刷新资源注册表
-        | UiAction::检查资源依赖 => {
+        | UiAction::检查资源依赖
+        | UiAction::打开材质编辑器(_)
+        | UiAction::保存材质编辑器 { .. }
+        | UiAction::关闭材质编辑器 => {
             unreachable!("资源域动作应已由 `处理资源动作` 处理")
         }
 

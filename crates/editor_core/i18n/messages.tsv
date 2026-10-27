@@ -386,6 +386,34 @@ asset_picker_title	资源选择器	Asset Picker
 asset_picker_view_list	列表	List
 asset_picker_view_grid	网格	Grid
 material_untitled	未命名材质	Untitled Material
+material_editor_title	材质编辑器 · {}	Material Editor · {}
+material_field_name	名称	Name
+material_field_name_tooltip	这份材质的显示名，不参与渲染	Display name of this material; not used by rendering
+material_field_tint	着色颜色	Tint
+material_field_tint_tooltip	与贴图相乘的基础色；不用贴图时它就是最终颜色，所以默认是白	Base color multiplied with the texture; without one it is the final color, hence white by default
+material_field_texture	贴图	Texture
+material_field_texture_tooltip	引用一张项目内的图片；留空表示不用贴图	References a project image; empty means no texture
+material_field_roughness	粗糙度	Roughness
+material_field_roughness_tooltip	0 是完美镜面，1 是完全漫反射	0 is a perfect mirror, 1 is fully diffuse
+material_field_metallic	金属度	Metallic
+material_field_metallic_tooltip	金属度改变反射颜色并压掉漫反射	Metalness tints reflections and suppresses diffuse
+material_field_emissive	自发光	Emissive
+material_field_emissive_tooltip	全黑表示不发光；亮度由渲染层统一放大，这里只给颜色	Black means no emission; brightness is scaled by the renderer, only a color lives here
+material_field_double_sided	双面	Double-Sided
+material_field_double_sided_tooltip	开启会关掉背面剔除，绘制开销翻倍	Enabling turns off back-face culling and doubles draw cost
+material_edit	编辑	Edit
+material_edit_hint	在材质编辑器里打开这份 .material.ron	Open this .material.ron in the material editor
+material_discard_confirm	确认丢弃这份未保存的材质改动？	Discard these unsaved material changes?
+material_discard	丢弃	Discard
+material_editor_texture_note	贴图槽还不能在这里挑：点「清除」可以去掉，选中新贴图请编辑文件路径	This slot cannot browse yet: use Clear to drop it, or edit the path in the file to pick one
+log_material_editor_opened	已打开材质：{}	Material opened: {}
+log_material_editor_saved	已保存材质：{}（注册表代次 {}）	Material saved: {} (registry generation {})
+log_material_editor_discarded	已放弃未保存的材质改动：{}	Unsaved material changes discarded: {}
+log_material_editor_no_project	没有打开项目，无法编辑材质	No project is open, so the material cannot be edited
+log_material_editor_read_failed	读取材质失败：{}	Failed to read material: {}
+log_material_editor_write_failed	保存材质失败：{}	Failed to save material: {}
+log_material_editor_bad_path	材质路径不合法：{}	Invalid material path: {}
+log_material_editor_busy	材质编辑器里有未保存的改动（{}）：先保存或关闭，再打开另一份	Unsaved material changes in the editor ({}): save or close it before opening another one
 runtime_not_running_hint	游戏未在运行。\n点击工具栏的「运行」按钮启动当前场景，这里会显示运行时世界的实体与组件统计。	The game is not running.\nClick Run in the toolbar to start the current scene; runtime entity and component statistics will appear here.
 runtime_world_isolation_note	说明：运行时世界与编辑器文档是两份独立数据。运行时对实体和组件的改动不会写回场景文件。	Note: the runtime world and the editor document are separate data. Runtime changes to entities and components are not written back to the scene file.
 runtime_panel_scope_note	本面板展示的是游戏运行时的 ECS 统计，不是编辑器文档的统计。编辑器文档里的实体数量见「场景树」面板。	This panel shows ECS statistics of the running game, not of the editor document. See the Scene Tree panel for editor document entity counts.

@@ -38,6 +38,7 @@ pub mod hierarchy_panel;
 pub mod history_panel;
 pub mod icons;
 pub mod inspector_panel;
+pub mod material_editor;
 pub mod menu_bar;
 pub mod node_icons;
 pub mod picking3d;
@@ -1409,6 +1410,8 @@ impl 面板查看器<'_, '_> {
             self.上下文.外观.图标尺寸,
             self.上下文.动作,
         );
+        // 材质编辑器：草稿住在界面状态里，保存/关闭只排动作，落盘交给动作层。
+        material_editor::绘制(egui上下文, &mut self.上下文);
     }
 }
 

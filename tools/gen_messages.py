@@ -59,6 +59,7 @@ import sys
     "crates/editor_ui/src/inspector_panel.rs",
     "crates/editor_ui/src/asset_picker.rs",
     "crates/editor_ui/src/assets_panel.rs",
+    "crates/editor_ui/src/material_editor.rs",
     "crates/editor_ui/src/prefab_panel.rs",
     "crates/editor_ui/src/history_panel.rs",
     "crates/editor_ui/src/hierarchy_panel.rs",

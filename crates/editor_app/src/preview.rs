@@ -181,36 +181,65 @@ pub struct 预览同步状态 {
     pub 预览实体数: usize,
 }
 
-/// 预览世界变换快照：文档实体 → 预览节点当前的 `GlobalTransform`。
+/// 预览世界变换快照：文档实体 → 预览节点当前的世界变换。
 ///
 /// 界面层读不到 Bevy 世界，又绝不能把本地变换当世界变换用；
 /// 这里在 `TransformSystems::Propagate` 之后把传播结果抄成纯数据，每帧覆盖。
 /// 键是文档实体标识而不是 ECS `Entity`：预览重建会换掉底层实体，
 /// 但文档标识不变，快照因此在重建的那一帧仍然可用。
+///
+/// 除分解后的平移/旋转/缩放外，还保存**世界变换的逆线性部分**：
+/// 拖动与对齐算出的增量在世界空间，写入文档前必须用父级逆矩阵换算，
+/// 否则父级带旋转/缩放时子实体会偏到错误位置。
 #[derive(Resource, Default, Debug, Clone)]
-pub struct 预览世界变换快照(pub std::collections::BTreeMap<实体标识, 变换数据>);
+pub struct 预览世界变换快照 {
+    /// 供界面绘制包围框、操纵器使用的分解结果。
+    pub 变换: std::collections::BTreeMap<实体标识, 变换数据>,
+    /// 供世界位移换算使用的逆线性矩阵（行主序，键是实体自身）。
+    pub 逆矩阵: editor_ui::world_space::世界逆矩阵表,
+}
 
 /// 把预览节点的 `GlobalTransform` 抄成界面可读的快照。
 ///
 /// 必须在变换传播之后运行；否则读到的是上一帧的位置，
 /// 拖动或改层级后视口包围框会慢一帧。
+///
+/// 逆矩阵由 `GlobalTransform::affine().inverse()` 给出，不手写矩阵累加；
+/// 退化变换（任一轴缩放为 0）没有逆，直接跳过该实体，换算时退回世界增量。
 pub fn 同步预览世界变换(
     已有: Query<(&预览来源, &GlobalTransform), With<预览实体>>,
     mut 快照: ResMut<预览世界变换快照>,
 ) {
-    let 表 = &mut 快照.0;
-    表.clear();
+    let 快照 = &mut *快照;
+    let 变换表 = &mut 快照.变换;
+    let 矩阵表 = &mut 快照.逆矩阵;
+    变换表.clear();
+    矩阵表.clear();
     for (来源, 全局) in &已有 {
         let 平移 = 全局.translation();
         let 旋转 = 全局.rotation();
         let 缩放 = 全局.scale();
-        表.insert(
+        变换表.insert(
             来源.0,
             变换数据 {
                 平移: (平移.x, 平移.y, 平移.z),
                 旋转: (旋转.x, 旋转.y, 旋转.z, 旋转.w),
                 缩放: (缩放.x, 缩放.y, 缩放.z),
             },
+        );
+
+        let 逆 = 全局.affine().inverse();
+        if !逆.is_finite() {
+            continue;
+        }
+        let 线性 = 逆.matrix3;
+        矩阵表.insert(
+            来源.0,
+            [
+                [线性.x_axis.x, 线性.y_axis.x, 线性.z_axis.x],
+                [线性.x_axis.y, 线性.y_axis.y, 线性.z_axis.y],
+                [线性.x_axis.z, 线性.y_axis.z, 线性.z_axis.z],
+            ],
         );
     }
 }

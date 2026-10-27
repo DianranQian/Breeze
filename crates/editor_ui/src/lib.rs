@@ -55,6 +55,7 @@ pub mod visual_spec;
 pub mod workbench_panel;
 pub mod workspace_bar;
 pub mod workspaces;
+pub mod world_space;
 
 // 多语言入口定义在 `editor_core`（它需要给命令显示名做本地化），
 // 这里把模块整个再导出，于是界面代码仍可写 `crate::i18n::语言`。
@@ -1268,6 +1269,7 @@ impl 面板查看器<'_, '_> {
             导入状态: self.上下文.导入状态,
             配置目录: self.上下文.配置目录,
             世界变换: self.上下文.世界变换,
+            世界逆矩阵: self.上下文.世界逆矩阵,
         }
     }
 

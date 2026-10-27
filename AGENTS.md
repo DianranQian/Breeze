@@ -1,9 +1,10 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-27，P5-5 资源选择器（Inspector 资源字段 → 悬浮选择器 →
-> 只带资源标识回写 → 撤销/脏标记/预览刷新同一通道），11 个 workspace 成员，
-> `cargo test --workspace` = 1,399 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,404 处）。
+> 当前基线：2026-10-27，P5-6 缩略图网格视图与材质资产（选择器列表/网格双视图 →
+> 卡片几何登记 → `.material.ron` 读写 → 注册表按复合后缀识别材质），
+> 11 个 workspace 成员，
+> `cargo test --workspace` = 1,412 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,417 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 
@@ -143,7 +144,7 @@
 | 6 i18n | `tools/gen_messages.py`（全）+ `messages.tsv`（前缀 grep 结果） | ~300 |
 | 7 运行调试 | `run.rs`（三表注释+启动）+ `build.rs` + `editor_core/run_entry.rs` | ~700 |
 | 8 AI Agent | `agent.rs`（数据模型）+ `agent_dsh.rs`（协议）+ `agent_runtime.rs`（进程） | ~1,000 |
-| 9 资产引用 | `scene_doc/document.rs`（属性）+ `asset_refs.rs` + `editor_core/asset_index.rs` + `editor_core/asset_registry.rs` + `editor_ui/src/asset_picker.rs` | ~900 |
+| 9 资产引用 | `scene_doc/document.rs`（属性）+ `asset_refs.rs` + `editor_core/asset_index.rs` + `editor_core/asset_registry.rs` + `editor_core/material.rs` + `editor_ui/src/asset_picker.rs` | ~1,200 |
 
 **不要**一次读完 11 个 `agent*` 文件；**不要**在任务不涉及 PIE 时读 `pie_proto.rs`。
 

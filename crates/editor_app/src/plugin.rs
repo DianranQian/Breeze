@@ -1763,6 +1763,10 @@ pub fn 动作摘要(动作: &UiAction) -> String {
         UiAction::从资源创建实体 { 资源, .. } => {
             format!("从资源创建实体({})", 资源.文本())
         }
+        UiAction::更改实体父级 { 新父实体, .. } => match 新父实体 {
+            Some(父) => format!("更改实体父级({父})"),
+            None => "更改实体父级(顶层)".to_string(),
+        },
         UiAction::请求重命名资源(路径) => {
             format!("请求重命名资源({})", 路径.文本())
         }

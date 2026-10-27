@@ -1114,6 +1114,7 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::提交变换 { .. }
         | UiAction::取消变换 { .. }
         | UiAction::从资源创建实体 { .. }
+        | UiAction::更改实体父级 { .. }
         | UiAction::刷新场景实例
         | UiAction::对齐选中 { .. }
         | UiAction::分布选中 { .. } => {

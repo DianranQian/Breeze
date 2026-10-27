@@ -562,6 +562,21 @@ fn 绘制行右键菜单(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: 
 }
 
 /// 绘制一行。
+///
+/// # 层级拖动
+///
+/// 名称标签是拖拽源（`Sense::click_and_drag`）：开始拖动时把实体标识写进
+/// egui 的 drag-and-drop 载荷。整行 `Frame` 的响应只用于**放置目标**：
+/// `contains_pointer` 判断指针是否在本行上方，`dnd_release_payload` 在松手
+/// 那一帧取走载荷。`Frame` 响应本来就是 `Sense::hover`，不会抢走子控件的
+/// 主键点击，因此这里不需要再叠一层感应区。
+///
+/// 放到本行表示让被拖实体成为本行的子实体。非法目标（自己、自己的后代）
+/// 用错误色描边提示；真正的拒绝仍由命令层的 `设为子实体` 完成 —— 界面
+/// 高亮只是提前告知，不是第二套校验。
+///
+/// 世界位置如何保持不在这里处理：界面只推 [`UiAction::更改实体父级`]，
+/// 反解本地变换由动作层用预览世界变换快照完成。
 fn 绘制行(
     ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 行: &显示行, 主选中: Option<实体标识>
 ) {
@@ -713,7 +728,8 @@ fn 绘制行(
                     上下文.配色.文字
                 });
 
-                let 标签 = ui.add(egui::Label::new(名称文本).sense(Sense::click()));
+                let 标签 = ui.add(egui::Label::new(名称文本).sense(Sense::click_and_drag()));
+                标签.dnd_set_drag_payload(行.标识);
                 最后控件右缘 = 标签.rect.max.x;
 
                 if let Some(状态) = 行.预制件 {
@@ -825,6 +841,26 @@ fn 绘制行(
         ui.painter().rect_filled(条, 0.0, 上下文.配色.强调);
     }
 
+    let 拖拽源 = egui::DragAndDrop::payload::<实体标识>(ui.ctx());
+    let 指针在本行 = 拖拽源.is_some() && ui.rect_contains_pointer(行矩形响应.rect);
+    let 目标合法 = match 拖拽源.as_deref() {
+        Some(源) => *源 != 行.标识 && !上下文.编辑器.会话.文档.是后代(*源, 行.标识),
+        None => false,
+    };
+    if 指针在本行 {
+        let 色 = if 目标合法 {
+            上下文.配色.强调
+        } else {
+            上下文.配色.错误
+        };
+        ui.painter().rect_stroke(
+            行矩形响应.rect,
+            0.0,
+            egui::Stroke::new(2.0, 色),
+            egui::StrokeKind::Inside,
+        );
+    }
+
     if 响应.clicked() {
         推送选择(上下文, ui, 行.标识);
     }
@@ -837,6 +873,15 @@ fn 绘制行(
     // 名称标签本身就是可点的控件（`Sense::click()`），右键天然可达，
     // 因此这里不需要额外感应区。
     响应.context_menu(|ui| 绘制行右键菜单(ui, 上下文, 行));
+
+    if let Some(源) = 行矩形响应.dnd_release_payload::<实体标识>()
+        && *源 != 行.标识
+    {
+        上下文.动作.推(UiAction::更改实体父级 {
+            实体: *源,
+            新父实体: Some(行.标识),
+        });
+    }
 
     // ---- 行内空白区：只覆盖"名称右边缘 → 状态开关左边缘"这条带子 ----
     //

@@ -441,6 +441,7 @@ pub static 词表: &[词条] = &[
     词条 { 键: "command_move_entity_up", 中文: "上移实体", 英文: "Move Entity Up" },
     词条 { 键: "command_reclaim_prefab_node", 中文: "重新纳入预制件节点", 英文: "Reclaim Prefab Node" },
     词条 { 键: "command_reparent", 中文: "调整层级", 英文: "Reparent" },
+    词条 { 键: "command_reparent_keep_world", 中文: "拖动改变层级", 英文: "Reparent (Keep World Position)" },
     词条 { 键: "command_replace_entity", 中文: "替换实体", 英文: "Replace Entity" },
     词条 { 键: "command_revert_prefab_field", 中文: "恢复该项默认值", 英文: "Revert Field to Default" },
     词条 { 键: "command_set_property", 中文: "修改属性", 英文: "Set Property" },

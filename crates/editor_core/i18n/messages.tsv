@@ -122,6 +122,7 @@ command_move_entity_down	下移实体	Move Entity Down
 command_move_entity_up	上移实体	Move Entity Up
 command_reclaim_prefab_node	重新纳入预制件节点	Reclaim Prefab Node
 command_reparent	调整层级	Reparent
+command_reparent_keep_world	拖动改变层级	Reparent (Keep World Position)
 command_replace_entity	替换实体	Replace Entity
 command_revert_prefab_field	恢复该项默认值	Revert Field to Default
 command_set_property	修改属性	Set Property

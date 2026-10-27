@@ -57,6 +57,7 @@ import sys
 扫描目标 = [
     "crates/editor_ui/src/menu_bar.rs",
     "crates/editor_ui/src/inspector_panel.rs",
+    "crates/editor_ui/src/asset_picker.rs",
     "crates/editor_ui/src/assets_panel.rs",
     "crates/editor_ui/src/prefab_panel.rs",
     "crates/editor_ui/src/history_panel.rs",

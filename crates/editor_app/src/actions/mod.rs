@@ -21,7 +21,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use editor_core::command::编辑器命令;
 use editor_core::state::{日志参数, 日志级别, 编辑器状态};
-use editor_ui::state::{UiAction, 工作区对话框, 选择意图};
+use editor_ui::state::{UiAction, 工作区对话框, 资源选择器状态, 选择意图};
 use editor_ui::界面状态;
 use scene_doc::property::{属性值, 资源引用值};
 
@@ -1102,6 +1102,7 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::撤销
         | UiAction::重做
         | UiAction::修改属性(_)
+        | UiAction::设置资源引用 { .. }
         | UiAction::添加组件 { .. }
         | UiAction::删除组件 { .. }
         | UiAction::删除实体(_)
@@ -1212,6 +1213,7 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
 
         // 界面域已由 `处理界面动作` 提前处理；保留哨兵以维持穷尽性检查。
         UiAction::聚焦面板(_)
+        | UiAction::打开资源选择器 { .. }
         | UiAction::恢复默认布局
         | UiAction::切换工作区(_)
         | UiAction::打开工作区对话框 { .. }

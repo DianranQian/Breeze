@@ -18,6 +18,7 @@ pub mod agent_repair;
 pub mod agent_review;
 pub mod agent_store;
 pub mod arrange_bar;
+pub mod asset_picker;
 pub mod asset_preview;
 pub mod asset_refs_panel;
 pub mod assets_panel;
@@ -1355,6 +1356,17 @@ impl 面板查看器<'_, '_> {
         // 查找引用：资源被哪些场景/实体/字段引用，并可直接定位。
         if let Some(动作) = asset_refs_panel::绘制(egui上下文, self.上下文.界面, 配色, 语言)
         {
+            self.上下文.动作.推(动作);
+        }
+        // 资源选择器：Inspector 的资源字段点「选择」后从这里挑文件。
+        if let Some(动作) = asset_picker::绘制(
+            egui上下文,
+            self.上下文.编辑器,
+            self.上下文.界面,
+            self.上下文.缩略图,
+            配色,
+            语言,
+        ) {
             self.上下文.动作.推(动作);
         }
         // 恢复自动保存：启动时发现的恢复点，只有用户点"恢复"才读内容。

@@ -406,6 +406,12 @@ material_field_tint	着色颜色	Tint
 material_field_tint_tooltip	与贴图相乘的基础色；不用贴图时它就是最终颜色，所以默认是白	Base color multiplied with the texture; without one it is the final color, hence white by default
 material_field_texture	贴图	Texture
 material_field_texture_tooltip	引用一张项目内的图片；留空表示不用贴图	References a project image; empty means no texture
+material_field_normal_map	法线贴图	Normal Map
+material_field_normal_map_tooltip	切线空间法线贴图：RGB 表示法线方向，让平面看出凹凸；网格需要带切线	Tangent-space normal map: RGB encodes the normal direction so flat surfaces look bumpy; the mesh needs tangents
+material_field_metallic_roughness	金属粗糙度贴图	Metal-Roughness Map
+material_field_metallic_roughness_tooltip	按 glTF 约定：G 通道是粗糙度、B 通道是金属度；填了它仍会乘上面的粗糙度与金属度	glTF convention: the G channel is roughness and the B channel is metallic; it still multiplies the roughness and metallic values above
+material_field_occlusion	遮蔽贴图	Occlusion Map
+material_field_occlusion_tooltip	R 通道作为遮蔽，压暗缝隙与夹角；只影响受光表面	The R channel is used as occlusion to darken crevices and corners; it only affects lit surfaces
 material_field_roughness	粗糙度	Roughness
 material_field_roughness_tooltip	0 是完美镜面，1 是完全漫反射	0 is a perfect mirror, 1 is fully diffuse
 material_field_metallic	金属度	Metallic
@@ -418,11 +424,14 @@ material_edit	编辑	Edit
 material_edit_hint	在材质编辑器里打开这份 .material.ron	Open this .material.ron in the material editor
 material_discard_confirm	确认丢弃这份未保存的材质改动？	Discard these unsaved material changes?
 material_discard	丢弃	Discard
-material_editor_texture_note	贴图槽还不能在这里挑：点「清除」可以去掉，选中新贴图请编辑文件路径	This slot cannot browse yet: use Clear to drop it, or edit the path in the file to pick one
+material_editor_texture_note	贴图槽可以直接点「选择…」挑项目内的图片；留空表示这个通道不启用	Pick project images with Browse…; leave a slot empty to disable that channel
 log_material_editor_opened	已打开材质：{}	Material opened: {}
 log_material_editor_saved	已保存材质：{}（注册表代次 {}）	Material saved: {} (registry generation {})
 log_material_editor_discarded	已放弃未保存的材质改动：{}	Unsaved material changes discarded: {}
 log_material_editor_no_project	没有打开项目，无法编辑材质	No project is open, so the material cannot be edited
+log_material_editor_no_draft	材质编辑器已关闭，选择结果没有写入	The material editor is closed, so the pick was not applied
+log_material_editor_stale_target	资源选择器指向的材质 {} 与当前草稿 {} 不一致，选择结果没有写入	The picker targets material {}, which differs from the open draft {}; the pick was not applied
+log_material_editor_unknown_asset	资源标识 {} 不在资源注册表中，材质槽未改动	Asset {} is not in the resource registry, so the material slot was left unchanged
 log_material_editor_read_failed	读取材质失败：{}	Failed to read material: {}
 log_material_editor_write_failed	保存材质失败：{}	Failed to save material: {}
 log_material_editor_bad_path	材质路径不合法：{}	Invalid material path: {}

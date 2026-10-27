@@ -11,8 +11,8 @@
 >
 > **当前仓库事实（2026-10-28，`41ec013` + P5-7 工作区）**：11 个 workspace 成员、
 > 1,445 个 `#[test]`，`cargo test --workspace` = 1,440 passed / 0 failed / 8 ignored。
-> 本轮重新审计并上调的条目：C6 / C8 / C9（预制件实例与一致性审计）、G6（材质投影与
-> 材质编辑器闭环）。其余条目仍以 `7b2fa5b` 审计为准；数量与基线以 `AGENTS.md`
+> 本轮重新审计并上调的条目：C6 / C8 / C9（预制件实例与一致性审计）、G6（材质投影、
+> 多通道贴图与材质编辑器闭环）。其余条目仍以 `7b2fa5b` 审计为准；数量与基线以 `AGENTS.md`
 > 顶部为维护入口。
 
 ## 0. 成熟度模型
@@ -120,7 +120,7 @@
 | G3 | 天空/雾/后处理 | M1 | 暂缓 | — | 需自定义渲染插件 |
 | G4 | LOD / 实例化 / 批处理 | M2 | Bevy 适配 | Bevy 原生能力 | 无编辑器入口 |
 | G5 | 地形（3D）与植被散布 | M1 | 暂缓 | — | — |
-| G6 | 标准材质与纹理通道编辑 | M4 | 核心原生格式 + Bevy 适配 | `.material.ron` 读写（名称/着色颜色/贴图引用/粗糙度/金属度/自发光/双面）+ 注册表按复合后缀识别材质 + 选择器网格视图可选；**闭环**：双击材质资产（`assets_panel.rs:672`）或 Inspector 字段旁「编辑」（`inspector_panel.rs:1125`）→ `UiAction::打开材质编辑器` → `material_editor.rs` 浮层复用 Inspector 字段控件 → 保存推进注册表代次；渲染侧 `preview::材质转标准材质` 逐字段投影 + `材质缓存`（路径 + 代次为键，代次不动不重编）；证据：`preview.rs` 17 单元、`tests/material_editor.rs` 7 集成 | 无 GUI 实机截图；纹理只有着色贴图通道（法线/金属粗糙/AO 未拆）；着色器图属 G7 |
+| G6 | 标准材质与纹理通道编辑 | M4 | 核心原生格式 + Bevy 适配 | `.material.ron` 读写（名称/着色颜色/四张贴图槽：基础色、法线、金属粗糙度、遮蔽/粗糙度/金属度/自发光/双面）+ 注册表按复合后缀识别材质 + 选择器网格视图可选；**闭环**：双击材质资产（`assets_panel.rs:672`）或 Inspector 字段旁「编辑」（`inspector_panel.rs:1125`）→ `UiAction::打开材质编辑器` → `material_editor.rs` 浮层复用 Inspector 字段控件，四个贴图槽可直接打开资源选择器（选取只改草稿）→ 保存推进注册表代次；渲染侧 `preview::材质转标准材质` 逐字段投影（含 `normal_map_texture` / `metallic_roughness_texture` / `occlusion_texture`）+ `材质缓存`（路径 + 代次为键，代次不动不重编）；证据：`preview.rs` 单元、`tests/material_projection.rs` 13 集成、`tests/material_editor.rs` 9 集成 | 无 GUI 实机截图；着色器图属 G7 |
 | G7 | 材质/着色器可视化图 | M1 | 暂缓 | — | 仅代码模式可看文本 |
 | G8 | Shader 编译诊断 | M2 | Bevy 适配 | 构建诊断可捕获编译错误 | 无着色器专用面板 |
 | G9 | 渲染统计 / GPU 调试 | M2 | Bevy 适配 | 仅 FPS/帧耗时 | 无 draw call / GPU pass 数据 |

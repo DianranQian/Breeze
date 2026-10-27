@@ -1074,7 +1074,8 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         | UiAction::检查资源依赖
         | UiAction::打开材质编辑器(_)
         | UiAction::保存材质编辑器 { .. }
-        | UiAction::关闭材质编辑器 => {
+        | UiAction::关闭材质编辑器
+        | UiAction::设置材质资源引用 { .. } => {
             unreachable!("资源域动作应已由 `处理资源动作` 处理")
         }
 
@@ -1224,6 +1225,7 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         // 界面域已由 `处理界面动作` 提前处理；保留哨兵以维持穷尽性检查。
         UiAction::聚焦面板(_)
         | UiAction::打开资源选择器 { .. }
+        | UiAction::打开材质资源选择器 { .. }
         | UiAction::恢复默认布局
         | UiAction::切换工作区(_)
         | UiAction::打开工作区对话框 { .. }

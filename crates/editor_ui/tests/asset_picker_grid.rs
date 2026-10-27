@@ -25,7 +25,7 @@ use editor_core::state::编辑器状态;
 use editor_ui::asset_picker;
 use editor_ui::i18n::语言;
 use editor_ui::state::{
-    UiAction, 界面状态, 资源选择器状态, 选择器卡片几何, 选择器视图
+    UiAction, 界面状态, 资源落点, 资源选择器状态, 选择器卡片几何, 选择器视图
 };
 use editor_ui::theme::编辑器配色;
 use scene_doc::document::实体标识;
@@ -84,8 +84,10 @@ fn 建编辑器(用例: &str) -> (tempfile::TempDir, 编辑器状态, Uuid) {
 /// 给材质字段打开选择器；`视图` 决定列表还是网格。
 fn 打开选择器(界面: &mut 界面状态, 视图: 选择器视图) {
     界面.资源选择器 = Some(资源选择器状态 {
-        实体: 实体标识(Uuid::from_u128(42)),
-        组件: "Mesh3d".to_string(),
+        落点: 资源落点::组件字段 {
+            实体: 实体标识(Uuid::from_u128(42)),
+            组件: "Mesh3d".to_string(),
+        },
         属性: "材质".to_string(),
         类别: 资源类别::材质,
         搜索: String::new(),

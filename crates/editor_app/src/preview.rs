@@ -44,7 +44,7 @@ use bevy::render::render_resource::{
 };
 use bevy_egui::{EguiTextureHandle, EguiUserTextures};
 use scene_doc::document::{变换数据, 场景文档, 实体标识};
-use scene_doc::property::{属性值, 颜色值};
+use scene_doc::property::{属性值, 资源引用值, 颜色值};
 
 use crate::plugin::EditorStateHolder;
 use crate::scene_bridge::几何体形状;
@@ -294,6 +294,29 @@ impl 贴图缓存 {
 /// [`材质资源`]: editor_core::material::材质资源
 pub const 自发光亮度系数: f32 = 2_000.0;
 
+/// 一份材质投影要用的四张贴图句柄。
+///
+/// # 为什么收成一个结构体
+///
+/// 基础色以外的三张图都是可选的，语义上同属"材质自带的贴图"。继续往
+/// [`材质转标准材质`] 后面排参数，它就会变成九个参数、其中六个是
+/// `Option` 与 `bool`，调用点写错顺序编译器也拦不住；收成结构体后每个字段名
+/// 自己说明它是哪一张图，测试也只需改一处构造。
+///
+/// `基础色` 用 [`Handle::default`] 表示"没挂图"：与 [`解析贴图句柄`] 的既有
+/// 降级口径一致，无效句柄在投影阶段被过滤掉，不留下 1×1 占位图。
+#[derive(Debug, Clone, Default)]
+pub struct 材质贴图句柄 {
+    /// 基础色（albedo）贴图。
+    pub 基础色: Handle<Image>,
+    /// 切线空间法线贴图。
+    pub 法线: Option<Handle<Image>>,
+    /// 金属粗糙度贴图（G 通道 = 粗糙度，B 通道 = 金属度）。
+    pub 金属粗糙度: Option<Handle<Image>>,
+    /// 环境光遮蔽贴图（R 通道）。
+    pub 遮蔽: Option<Handle<Image>>,
+}
+
 /// 把一份材质文档投影成 Bevy 的 `StandardMaterial`。
 ///
 /// # 字段归属：材质管表面，实体管渲染模式
@@ -301,10 +324,16 @@ pub const 自发光亮度系数: f32 = 2_000.0;
 /// | 来源 | 字段 |
 /// | --- | --- |
 /// | 材质 | `着色颜色` → `base_color`、`粗糙度` → `perceptual_roughness`、
-///   `金属度` → `metallic`、`自发光` → `emissive`（乘 [`自发光亮度系数`]） |
+///   `金属度` → `metallic`、`自发光` → `emissive`（乘 [`自发光亮度系数`]）、
+///   `法线贴图` / `金属粗糙度贴图` / `遮蔽贴图` → `normal_map_texture` /
+///   `metallic_roughness_texture` / `occlusion_texture` |
 /// | 材质或实体 | `base_color_texture`（材质带贴图用材质的，否则用实体的）、
 ///   背面剔除（任一侧要求双面就不剔除） |
 /// | 实体 | `受光` → `unlit`、`alpha_mode`、`uv_transform`、网格本身 |
+///
+/// 金属粗糙度贴图与 `metallic` / `perceptual_roughness` 是**相乘**关系
+/// （Bevy 与 glTF 都如此）：贴图给空间变化，标量给整体偏移，两者一起用不是
+/// 二选一，因此这里不做"有贴图就忽略标量"的取舍。
 ///
 /// 材质**不碰**渲染模式：三维精灵四边形一直是 `unlit + Blend`，
 /// 因为它必须与 2D 视图长得一样（见 [`同步预览实体`] 的"材质只换表面，不换渲染模式"）；
@@ -317,7 +346,7 @@ pub const 自发光亮度系数: f32 = 2_000.0;
 /// [`材质资源`]: editor_core::material::材质资源
 pub fn 材质转标准材质(
     材质: &editor_core::material::材质资源,
-    贴图: Handle<Image>,
+    贴图: 材质贴图句柄,
     受光: bool,
     双面: bool,
     混合: bool,
@@ -326,11 +355,14 @@ pub fn 材质转标准材质(
     let 自发光 = LinearRgba::from(颜色转_bevy(材质.自发光));
     StandardMaterial {
         base_color: 颜色转_bevy(材质.着色颜色),
-        base_color_texture: if 贴图.is_strong() {
-            Some(贴图)
+        base_color_texture: if 贴图.基础色.is_strong() {
+            Some(贴图.基础色)
         } else {
             None
         },
+        normal_map_texture: 贴图.法线,
+        metallic_roughness_texture: 贴图.金属粗糙度,
+        occlusion_texture: 贴图.遮蔽,
         metallic: 材质.金属度,
         perceptual_roughness: 材质.粗糙度,
         emissive: LinearRgba {
@@ -393,9 +425,9 @@ pub struct 材质缓存 {
 impl 材质缓存 {
     /// 一次转换的缓存键。
     ///
-    /// 参数顺序与 [`材质转标准材质`] 一致，只是把"材质自带的那张贴图"省掉了：
-    /// 材质引用哪张图是 `材质路径 + 代次` 的函数，代次一变就会落到新键上，
-    /// 因此不需要为它在键里另开一栏。
+    /// 参数顺序与 [`材质转标准材质`] 一致，只是把"材质自带的那几张图"省掉了：
+    /// 四个贴图槽引用哪张图都是 `材质路径 + 代次` 的函数，代次一变就会落到
+    /// 新键上，因此不需要为它们在键里另开一栏。
     ///
     /// UV 重复是 `f32`，进键时取**位模式**而不是 `{:?}`：调试格式会把同一个值
     /// 打成不同的短字符串，那正好制造出"两个相同的值算出两个键"的缓存击穿。
@@ -1721,6 +1753,23 @@ fn 解析贴图句柄(
     句柄.unwrap_or_default()
 }
 
+/// 解析可选的多通道贴图；没引用或读不出来都返回 `None`。
+///
+/// 与基础色不同，这里**不留** 1×1 占位图：[`解析贴图句柄`] 失败时返回
+/// [`Handle::default`]，把它当法线贴图会让表面朝一个固定方向偏，当金属粗糙度
+/// 贴图会把整块表面变成全粗糙金属 —— 比"这个通道没启用"更糟。降级成不挂该
+/// 通道，画面回到没有多通道贴图时的样子。
+fn 解析可选贴图(
+    引用: Option<&资源引用值>,
+    根: &std::path::Path,
+    缓存: &mut 贴图缓存,
+    图片资源: &mut Assets<Image>,
+) -> Option<Handle<Image>> {
+    let 路径 = 引用?.路径.文本();
+    let 句柄 = 解析贴图句柄(Some(路径), Some(根), 缓存, 图片资源);
+    (句柄 != Handle::default()).then_some(句柄)
+}
+
 /// 解析材质引用 → 转换好的 `StandardMaterial` 句柄，带代次缓存。
 ///
 /// # 降级契约
@@ -1736,9 +1785,13 @@ fn 解析贴图句柄(
 ///
 /// # 材质自己的贴图走同一条贴图通道
 ///
-/// 材质带贴图时盖掉实体的 `贴图` 字段，没带时沿用实体的。两种都经过
+/// 材质带贴图时盖掉实体的 `贴图` 字段，没带时沿用实体的；法线 / 金属粗糙度 /
+/// 遮蔽三张图只认材质自己的（实体没有对应字段可沿用）。四张图都经过
 /// [`解析贴图句柄`]，所以材质与实体共用同一份图片缓存 ——
 /// 同一张 PNG 挂在二十个实体上仍然只解码一次。
+///
+/// 三张多通道贴图走 [`解析可选贴图`]：读不出来时该通道不挂，而不是塞一张
+/// 1×1 占位图进去（理由见那个函数）。
 #[allow(clippy::too_many_arguments)]
 fn 解析材质句柄(
     材质路径: Option<&str>,
@@ -1785,13 +1838,19 @@ fn 解析材质句柄(
         }
     };
 
+    let 根 = 项目.根目录();
     let 自带贴图 = 材质.贴图.as_ref().map(|引用| 引用.路径.文本().to_string());
-    let 贴图 = 解析贴图句柄(
-        自带贴图.as_deref().or(实体贴图路径),
-        Some(项目.根目录()),
-        贴图缓存,
-        图片资源,
-    );
+    let 贴图 = 材质贴图句柄 {
+        基础色: 解析贴图句柄(
+            自带贴图.as_deref().or(实体贴图路径),
+            Some(根),
+            贴图缓存,
+            图片资源,
+        ),
+        法线: 解析可选贴图(材质.法线贴图.as_ref(), 根, 贴图缓存, 图片资源),
+        金属粗糙度: 解析可选贴图(材质.金属粗糙度贴图.as_ref(), 根, 贴图缓存, 图片资源),
+        遮蔽: 解析可选贴图(材质.遮蔽贴图.as_ref(), 根, 贴图缓存, 图片资源),
+    };
     let 句柄 = 材质表.add(材质转标准材质(
         &材质,
         贴图,

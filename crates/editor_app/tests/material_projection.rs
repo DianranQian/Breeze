@@ -26,8 +26,8 @@ use bevy::prelude::*;
 use bevy::render::render_resource::Face;
 use editor_app::plugin::EditorStateHolder;
 use editor_app::preview::{
-    三维预览资源, 同步预览实体, 投影几何项, 投影预览项, 材质缓存, 材质转标准材质, 自发光亮度系数,
-    贴图缓存, 预览同步状态, 预览来源,
+    三维预览资源, 同步预览实体, 投影几何项, 投影预览项, 材质缓存, 材质贴图句柄, 材质转标准材质,
+    自发光亮度系数, 贴图缓存, 预览同步状态, 预览来源,
 };
 use editor_app::tile_terrain::地形缓存;
 use editor_core::material::材质资源;
@@ -50,6 +50,9 @@ fn 材质样本() -> 材质资源 {
         名称: "石板路".to_string(),
         着色颜色: 颜色值::srgb(0.2, 0.4, 0.6, 1.0),
         贴图: None,
+        法线贴图: None,
+        金属粗糙度贴图: None,
+        遮蔽贴图: None,
         粗糙度: 0.25,
         金属度: 0.8,
         自发光: 颜色值::srgb(0.5, 0.0, 0.0, 1.0),
@@ -151,7 +154,7 @@ fn 材质资源带贴图(贴图: &str) -> 材质资源 {
 fn 材质字段逐项投影到标准材质() {
     let 结果 = 材质转标准材质(
         &材质样本(),
-        Handle::default(),
+        材质贴图句柄::default(),
         true,
         false,
         false,
@@ -172,6 +175,12 @@ fn 材质字段逐项投影到标准材质() {
     assert!(
         结果.base_color_texture.is_none(),
         "材质与实体都没有贴图时不挂 1×1 占位图：纯色方块才是可辨认的降级"
+    );
+    assert!(
+        结果.normal_map_texture.is_none()
+            && 结果.metallic_roughness_texture.is_none()
+            && 结果.occlusion_texture.is_none(),
+        "没有多通道贴图时三个槽都必须是空的，否则渲染器会去采样一张占位图"
     );
     assert!(!结果.unlit, "受光的实体挂上材质后仍然受光");
     assert_eq!(
@@ -206,14 +215,21 @@ fn 全黑自发光不产生任何亮度() {
         自发光: 颜色值::srgb(0.0, 0.0, 0.0, 1.0),
         ..材质样本()
     };
-    let 结果 = 材质转标准材质(&不发光, Handle::default(), true, false, false, None);
+    let 结果 = 材质转标准材质(&不发光, 材质贴图句柄::default(), true, false, false, None);
     assert_eq!(
         (结果.emissive.red, 结果.emissive.green, 结果.emissive.blue),
         (0.0, 0.0, 0.0),
         "自发光是 0 nit 才对，否则每个默认材质都会在黑暗里发光"
     );
 
-    let 发光 = 材质转标准材质(&材质样本(), Handle::default(), true, false, false, None);
+    let 发光 = 材质转标准材质(
+        &材质样本(),
+        材质贴图句柄::default(),
+        true,
+        false,
+        false,
+        None,
+    );
     assert!(
         发光.emissive.red > 自发光亮度系数 * 0.1,
         "自发光颜色要乘亮度系数后才进 HDR 域，实际 {}",
@@ -227,7 +243,14 @@ fn 全黑自发光不产生任何亮度() {
 /// 哪天材质把精灵改成受光，两个视图就会不一致，那是最难查的一类 bug。
 #[test]
 fn 精灵四边形上材质只改表面不改渲染模式() {
-    let 结果 = 材质转标准材质(&材质样本(), Handle::default(), false, true, true, None);
+    let 结果 = 材质转标准材质(
+        &材质样本(),
+        材质贴图句柄::default(),
+        false,
+        true,
+        true,
+        None,
+    );
     assert!(结果.unlit, "精灵四边形恒为 unlit");
     assert_eq!(结果.alpha_mode, AlphaMode::Blend);
     assert_eq!(
@@ -248,12 +271,28 @@ fn 任一侧要求双面就不剔除背面() {
         ..材质样本()
     };
     assert_eq!(
-        材质转标准材质(&材质要求双面, Handle::default(), true, false, false, None).cull_mode,
+        材质转标准材质(
+            &材质要求双面,
+            材质贴图句柄::default(),
+            true,
+            false,
+            false,
+            None
+        )
+        .cull_mode,
         None,
         "材质说双面就得不剔除"
     );
     assert_eq!(
-        材质转标准材质(&材质样本(), Handle::default(), true, true, false, None).cull_mode,
+        材质转标准材质(
+            &材质样本(),
+            材质贴图句柄::default(),
+            true,
+            true,
+            false,
+            None
+        )
+        .cull_mode,
         None,
         "实体说双面同样不剔除：材质不该把实体故意打开的可见性关掉"
     );
@@ -627,6 +666,88 @@ fn 已挂贴图尺寸(应用: &App, 来源: 实体标识) -> UVec2 {
         .get(&图片句柄)
         .expect("贴图句柄要指向一份真实存在的图片")
         .size()
+}
+
+/// 材质某个可选贴图槽挂上的图片尺寸；槽为空就失败。
+fn 槽位尺寸(
+    应用: &App,
+    来源: 实体标识,
+    槽: fn(&StandardMaterial) -> Option<Handle<Image>>,
+) -> UVec2 {
+    let 世界 = 应用.world();
+    let 材质句柄 = 取材质句柄(世界, 来源);
+    let 图片句柄 = 世界
+        .resource::<Assets<StandardMaterial>>()
+        .get(&材质句柄)
+        .and_then(槽)
+        .expect("这个槽必须挂着一张真实解码出来的贴图");
+    世界
+        .resource::<Assets<Image>>()
+        .get(&图片句柄)
+        .expect("贴图句柄要指向一份真实存在的图片")
+        .size()
+}
+
+/// 法线 / 金属粗糙度 / 遮蔽三张贴图分别落到 `StandardMaterial` 的三个槽位。
+///
+/// 三张图取互不相同的尺寸：尺寸是唯一不会被色彩空间转换改掉的证据，
+/// 也顺带证明三格没有串位（都接到同一张图时尺寸会一样）。
+/// 同时反向对照基础色槽仍然为空 —— 多通道贴图不该冒充基础色。
+#[test]
+fn 多通道贴图分别落到三个槽位() {
+    const 法线: &str = "assets/贴图/石板_法线.png";
+    const 金属粗糙度: &str = "assets/贴图/石板_金属粗糙度.png";
+    const 遮蔽: &str = "assets/贴图/石板_遮蔽.png";
+
+    let 目录 = tempfile::tempdir().expect("临时目录");
+    let 项目 = 项目描述::创建(目录.path().join("多通道"), "多通道").expect("创建项目");
+    写入贴图(&项目, 法线, 4, 2);
+    写入贴图(&项目, 金属粗糙度, 3, 5);
+    写入贴图(&项目, 遮蔽, 6, 6);
+    项目
+        .保存材质(
+            &项目相对路径::解析(材质路径文本).unwrap(),
+            &材质资源 {
+                法线贴图: Some(资源引用值::按路径(
+                    项目相对路径::解析(法线).unwrap(),
+                )),
+                金属粗糙度贴图: Some(资源引用值::按路径(
+                    项目相对路径::解析(金属粗糙度).unwrap(),
+                )),
+                遮蔽贴图: Some(资源引用值::按路径(
+                    项目相对路径::解析(遮蔽).unwrap(),
+                )),
+                ..材质样本()
+            },
+        )
+        .expect("保存多通道材质");
+
+    let mut 文档 = 场景文档::新建("多通道");
+    let 地面 = 造实体(&mut 文档, "地面", "Primitive3d", 几何体属性(true));
+    let mut 应用 = 预览应用(Some(项目), 文档);
+    应用.update();
+
+    assert_eq!(
+        槽位尺寸(&应用, 地面, |材质| 材质.normal_map_texture.clone()),
+        UVec2::new(4, 2),
+        "法线贴图要接到 normal_map_texture"
+    );
+    assert_eq!(
+        槽位尺寸(&应用, 地面, |材质| 材质
+            .metallic_roughness_texture
+            .clone()),
+        UVec2::new(3, 5),
+        "金属粗糙度贴图要接到 metallic_roughness_texture"
+    );
+    assert_eq!(
+        槽位尺寸(&应用, 地面, |材质| 材质.occlusion_texture.clone()),
+        UVec2::new(6, 6),
+        "遮蔽贴图要接到 occlusion_texture"
+    );
+    assert!(
+        取材质(&应用, 地面).base_color_texture.is_none(),
+        "材质没填基础色贴图、实体也没有贴图时，基础色槽必须保持为空"
+    );
 }
 
 /// 同一份材质挂在两个实体上只做一次转换；代次推进后重新读盘并回收旧条目。

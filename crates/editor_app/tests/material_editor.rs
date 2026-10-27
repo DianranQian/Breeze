@@ -43,10 +43,10 @@ use editor_app::tile_terrain::地形缓存;
 use editor_core::material::材质资源;
 use editor_core::project::项目描述;
 use editor_core::state::{场景会话, 日志内容, 日志级别, 编辑器状态};
-use editor_ui::state::{UiAction, 材质编辑会话};
+use editor_ui::state::{UiAction, 材质编辑会话, 资源落点};
 use scene_doc::document::{变换数据, 场景文档, 实体标识, 组件数据};
 use scene_doc::path::项目相对路径;
-use scene_doc::property::{属性值, 枚举值, 资源引用值, 颜色值};
+use scene_doc::property::{属性值, 枚举值, 资源引用值, 资源类别, 颜色值};
 
 const 材质路径文本: &str = "assets/materials/石板.material.ron";
 const 粗糙度字段: &str = "粗糙度";
@@ -400,6 +400,107 @@ fn 关闭丢弃草稿并留下警告且不改文件() {
     assert!(
         (读磁盘材质(&应用).粗糙度 - 0.25).abs() < 1e-6,
         "丢弃只丢内存草稿，文件要保持磁盘上那份"
+    );
+}
+
+#[test]
+fn 贴图槽的选择只改草稿保存后才落盘() {
+    const 贴图: &str = "assets/贴图/石板_法线.png";
+    let (mut 应用, 目录, _实体) = 建应用("贴图选取");
+    执行(
+        &mut 应用,
+        UiAction::打开材质编辑器(材质路径文本.to_string()),
+    );
+
+    let 绝对 = 项目内(目录.path(), "贴图选取", 贴图);
+    std::fs::create_dir_all(绝对.parent().expect("贴图必有父目录")).expect("建贴图目录");
+    image::RgbaImage::from_pixel(2, 2, image::Rgba([9, 200, 9, 255]))
+        .save(&绝对)
+        .expect("写 PNG");
+    let 贴图路径 = 项目相对路径::解析(贴图).expect("测试里的路径合法");
+    {
+        let mut 持有 = 应用.world_mut().resource_mut::<EditorStateHolder>();
+        持有
+            .状态
+            .项目
+            .as_mut()
+            .expect("项目应当已打开")
+            .同步资源标识()
+            .expect("同步资源标识");
+        持有.状态.刷新资源注册表();
+    }
+    let 标识 = 编辑器(&应用)
+        .资源注册表
+        .取(&贴图路径)
+        .expect("贴图应当被扫描进注册表")
+        .唯一标识
+        .expect("注册条目应带稳定标识");
+
+    执行(
+        &mut 应用,
+        UiAction::打开材质资源选择器 {
+            材质路径: 材质路径文本.to_string(),
+            属性: "法线贴图".to_string(),
+            类别: 资源类别::图片,
+        },
+    );
+    let 选择器 = 界面(&应用).资源选择器.clone().expect("选择器应当打开");
+    assert_eq!(
+        选择器.落点,
+        资源落点::材质字段 {
+            路径: 材质路径文本.to_string(),
+        },
+        "选择器要知道结果写回哪份草稿，而不是回落到某个实体字段"
+    );
+    assert_eq!(选择器.属性, "法线贴图");
+    assert_eq!(选择器.类别, 资源类别::图片);
+
+    执行(
+        &mut 应用,
+        UiAction::设置材质资源引用 {
+            材质路径: 材质路径文本.to_string(),
+            属性: "法线贴图".to_string(),
+            资源标识: Some(标识),
+        },
+    );
+
+    let 会话 = 界面(&应用).材质编辑.clone().expect("草稿应当还在");
+    assert!(会话.脏, "选了贴图就是有未保存改动");
+    assert_eq!(
+        会话.取材质().法线贴图.map(|引用| 引用.路径),
+        Some(贴图路径),
+        "草稿里的引用要带路径与标识，保存时才能原样写回文件"
+    );
+    assert!(界面(&应用).资源选择器.is_none(), "选完要关掉浮层");
+    assert!(
+        读磁盘材质(&应用).法线贴图.is_none(),
+        "选择本身不写盘：写盘只归保存那一步，否则窗口上的「未保存」角标就是谎话"
+    );
+
+    let 动作 = 排保存(&应用);
+    执行(&mut 应用, 动作);
+    assert!(
+        读磁盘材质(&应用).法线贴图.is_some(),
+        "保存后新贴图槽才写进 `.material.ron`"
+    );
+}
+
+#[test]
+fn 草稿已关闭时选择结果被拒绝并留警告() {
+    let (mut 应用, _目录, _实体) = 建应用("选择落空");
+
+    执行(
+        &mut 应用,
+        UiAction::设置材质资源引用 {
+            材质路径: 材质路径文本.to_string(),
+            属性: "法线贴图".to_string(),
+            资源标识: None,
+        },
+    );
+
+    assert!(
+        有结构化日志(&应用, 日志级别::警告, "log_material_editor_no_draft"),
+        "没有草稿时要说明结果没地方写，而不是静默丢掉一次选择"
     );
 }
 

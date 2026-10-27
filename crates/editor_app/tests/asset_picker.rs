@@ -144,8 +144,14 @@ fn 打开选择器记录字段落点与默认类别筛选() {
     );
 
     let 状态 = 界面(&应用).资源选择器.as_ref().expect("动作应当打开选择器");
-    assert_eq!(状态.实体, 实体, "落点实体必须原样保存");
-    assert_eq!(状态.组件, "Sprite");
+    assert_eq!(
+        状态.落点,
+        editor_ui::state::资源落点::组件字段 {
+            实体,
+            组件: "Sprite".to_string(),
+        },
+        "落点必须原样保存"
+    );
     assert_eq!(状态.属性, "贴图");
     assert_eq!(状态.类别, 资源类别::图片);
     assert_eq!(

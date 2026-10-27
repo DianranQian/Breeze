@@ -24,6 +24,7 @@
 - [测试](#测试)
 - [文档索引](#文档索引)
 - [设计上的取舍](#设计上的取舍)
+- [许可证 (License)](#许可证-license)
 
 ---
 
@@ -427,3 +428,38 @@ cargo test --workspace    →  全部通过（数量以输出为准）
 Rust / Bevy / 外部库 API 保留英文原名。
 文件名、模块名、crate 名用英文 —— 这不只是风格考虑：
 Cargo 的 `package.name` 与文件名限制为 ASCII，因此这是唯一可行的组合。
+
+---
+
+## 许可证 (License)
+
+微风采用 **MIT OR Apache-2.0** 双许可，与 Bevy、egui 等 Rust 图形生态的通行做法一致：
+**使用、修改、再分发本项目的代码时任选其一即可**，不需要同时满足两份条款，
+也不需要为"两份许可怎么共存"做额外判断。
+
+| 文件 | 内容 |
+| --- | --- |
+| [`LICENSE-MIT`](LICENSE-MIT) | MIT License 全文，版权行 `Copyright (c) 2026 DianRan` |
+| [`LICENSE-APACHE`](LICENSE-APACHE) | Apache License 2.0 全文，逐字取自 <https://www.apache.org/licenses/LICENSE-2.0.txt>（未改动排版） |
+
+机器可读的声明分布在三处，任何一处都能单独支撑合规扫描：
+
+- 根 `Cargo.toml` 的 `[workspace.package]`：`license = "MIT OR Apache-2.0"`；
+  11 个成员 crate 全部 `license.workspace = true` 继承，不在子清单里各写一份。
+- `examples/` 下两个示例是**独立工程**（自带 `[workspace]`，不继承根配置），
+  各自写了自己的 `license` 行。
+- 每个 `lib.rs` / `main.rs` 首行：
+  `// SPDX-License-Identifier: MIT OR Apache-2.0`（REUSE 一类的工具据此识别）。
+
+### 第三方组件不在这份许可覆盖范围内
+
+本仓库**随附**下列第三方资产，它们保留各自的原始许可与作者署名：
+
+| 组件 | 位置 | 许可 | 主要约束 |
+| --- | --- | --- | --- |
+| Noto Sans SC 子集（界面中文字体，缺了它汉字全是 `□`） | `crates/editor_ui/assets/fonts/` | SIL Open Font License 1.1（原文随附 `OFL.txt`） | 再分发须保留许可证原文；不得单独售卖字体本身 |
+| Tabler Icons（面板图标 PNG） | `crates/editor_ui/assets/icons/` | MIT（版权与全文见同目录 `LICENSE`） | 保留版权与许可声明 |
+
+也就是说：拿走本项目时，**代码**按双许可任选其一，**字体与图标**继续受各自条款约束。
+`Cargo.toml` 里的依赖许可由各自上游决定，不受本文件声明影响。
+

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! 最小真实运行时样例。
 //!
 //! # 它是什么，不是什么

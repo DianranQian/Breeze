@@ -2,6 +2,8 @@
 name = "breeze_debug_demo"
 version = "0.1.0"
 edition = "2024"
+# 独立工程不继承根 `[workspace.package]`，许可要自己写一遍。
+license = "MIT OR Apache-2.0"
 
 # 这是一个**真实**的原生 Bevy 游戏，不是屏幕上的假数据。
 # `[workspace]` 空表把它排除在微风自己的 workspace 之外。

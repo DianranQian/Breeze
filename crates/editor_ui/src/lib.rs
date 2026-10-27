@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bevy Studio 编辑器界面层。
 //!
 //! # 这一层的职责边界

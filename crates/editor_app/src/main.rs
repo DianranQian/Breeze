@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bevy Studio 编辑器入口。
 //!
 //! # 为什么主世界这么"空"

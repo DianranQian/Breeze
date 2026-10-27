@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! 微风运行时调试协议（Breeze runtime debug protocol）。
 //!
 //! # 这个 crate 为什么**不依赖 Bevy**

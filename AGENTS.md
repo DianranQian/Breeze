@@ -3,7 +3,8 @@
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
 > 当前基线：2026-10-27，P5-6 缩略图网格视图与材质资产（选择器列表/网格双视图 →
 > 卡片几何登记 → `.material.ron` 读写 → 注册表按复合后缀识别材质），
-> 11 个 workspace 成员，
+> 11 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
+> （全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`；随附的字体/图标保留各自上游许可），
 > `cargo test --workspace` = 1,412 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,417 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
@@ -162,6 +163,10 @@
 **动手时**
 
 - 可见性优先 `pub(crate)`，不要随手放宽 `pub`。
+- 新增成员 crate 时 `[package]` 写 `license.workspace = true`（许可只在根
+  `[workspace.package]` 维护一份），入口 `lib.rs` / `main.rs` 首行保留
+  `// SPDX-License-Identifier: MIT OR Apache-2.0`。`examples/` 下的独立工程
+  自带 `[workspace]`、不继承根配置，必须自己写 `license`。
 - 新增中文字面量必须同步 `messages.tsv`；界面文案不要硬编码在绘制代码里。
 - 格式化只作用于本次改动文件（`rustfmt <文件>` / `cargo fmt -- <文件>`），
   不要 `cargo fmt --all`，避免碰到并行工作线。

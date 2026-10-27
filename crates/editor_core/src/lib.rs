@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bevy Studio 编辑器核心。
 //!
 //! # 这一层与 `scene_doc` 的分工

@@ -2,6 +2,8 @@
 name = "savegame_demo"
 version = "0.1.0"
 edition = "2024"
+# 独立工程不继承根 `[workspace.package]`，许可要自己写一遍。
+license = "MIT OR Apache-2.0"
 
 # 独立示例工程：不并入微风 workspace。
 [workspace]

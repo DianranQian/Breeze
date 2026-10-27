@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bevy Studio 的 **BSN 适配层**。
 //!
 //! # 这个 crate 是什么

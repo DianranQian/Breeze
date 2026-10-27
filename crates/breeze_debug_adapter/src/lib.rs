@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! 微风运行时调试的游戏端 Bevy 适配器。
 //!
 //! # 怎么接入（可选、默认不影响游戏）

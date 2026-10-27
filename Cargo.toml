@@ -21,6 +21,9 @@ members = [
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
+# 双许可：全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`，使用者任选其一。
+# 成员 crate 用 `license.workspace = true` 继承这一行，不要在子 crate 里各写一份
+# —— 两处不一致时 `cargo publish` 只会认后者，而人读的却是前者。
 license = "MIT OR Apache-2.0"
 repository = ""
 

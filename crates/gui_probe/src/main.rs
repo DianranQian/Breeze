@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! `gui_probe`：Bevy Studio 的 GUI 自动验收工具。
 //!
 //! # 它解决的问题

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bevy Studio 编辑器应用。
 //!
 //! # 模块结构

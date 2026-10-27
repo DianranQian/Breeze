@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! 图标烘焙工具：Tabler Icons 的 SVG 源图 → 编辑器用的 2x PNG。
 //!
 //! # 为什么要烘焙，而不是运行时渲染 SVG

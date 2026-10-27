@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bevy Studio 场景文档数据模型。
 //!
 //! # 为什么需要这一层

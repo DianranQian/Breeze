@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! 真实、可重复运行的原生 Bevy 调试示例。
 //!
 //! 它创建真实的实体、组件、`Transform` 与资源，并每帧推进玩家位置。

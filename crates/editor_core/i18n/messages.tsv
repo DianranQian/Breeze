@@ -611,6 +611,8 @@ open_demo_missing	找不到示例项目 `{}`：请确认仓库里的 examples �
 app_title	微风 (Breeze)	Breeze
 sprite_field_model	模型	Model
 sprite_field_model_tooltip	指向 assets 下的 glTF/GLB 模型；设置后按真实模型渲染	Points to a glTF/GLB model under assets; when set the entity renders as a real model
+sprite_field_material	材质	Material
+sprite_field_material_tooltip	指向 assets 下的 .material.ron 材质文档；表面参数取自该材质	Points to a .material.ron document under assets; the surface parameters come from it
 tile_terrain_field_file	地形文件	Terrain File
 tile_terrain_field_file_tooltip	项目相对的 .terrain.ron 路径；文件里存地表/覆盖两层字符网格	Project-relative .terrain.ron path; the file stores surface and overlay character grids
 tile_terrain_field_atlas	图集目录	Atlas Directory
@@ -707,6 +709,8 @@ primitive_field_lit	受光	Lit
 primitive_field_lit_tooltip	开启后使用 PBR 受光材质，会接收方向光与阴影	When on, uses a lit PBR material that receives the directional light and shadows
 primitive_field_double_sided	双面	Double Sided
 primitive_field_double_sided_tooltip	关闭背面剔除，薄墙从两面都可见	Disables back-face culling so thin walls are visible from both sides
+primitive_field_material	材质	Material
+primitive_field_material_tooltip	指向 assets 下的 .material.ron 材质文档；粗糙度、金属度与自发光取自该材质	Points to a .material.ron document under assets; roughness, metallic and emissive come from it
 mode_label	模式	Mode
 workspace_label	工作区	Workspace
 preview_scene	预览	Preview

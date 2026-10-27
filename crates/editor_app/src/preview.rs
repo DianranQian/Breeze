@@ -177,6 +177,12 @@ impl Default for 预览相机状态 {
 pub struct 预览同步状态 {
     /// 上次同步时的文档修订号。
     pub 已同步修订: Option<u64>,
+    /// 上次同步时的资源注册表代次。
+    ///
+    /// 材质、贴图这类**项目资源**的内容不在文档里，改它们不会推进文档修订号。
+    /// 把代次一起当守卫，"刷新资源/导入/材质面板保存"之后视口才会重新取材质，
+    /// 而不需要用户再去动一下场景。
+    pub 已同步代次: Option<u64>,
     /// 上次同步建立的预览实体数（用于日志与诊断）。
     pub 预览实体数: usize,
 }
@@ -275,6 +281,174 @@ impl 贴图缓存 {
     }
 }
 
+/// 自发光颜色到 HDR 亮度（nits）的换算系数。
+///
+/// Bevy 0.20 的 `StandardMaterial::emissive` 用的是物理单位（cd/m²），
+/// 而材质文档里的 `自发光` 是 `0.0..=1.0` 的调色颜色：直接把 `1.0` 塞进去
+/// 只有 1 nit，在预览那盏 9000 lux 方向光下与不发光看不出区别，
+/// 用户会以为这个字段没接线。这个系数把满量程自发光定在明显亮于受光表面、
+/// 又不至于整块网格过曝成一团白的位置；纯视觉校准，改动只需看视口。
+///
+/// 全黑仍然是不发光：`0.0 × 系数 = 0.0`，与 [`材质资源`] 的默认值口径一致。
+///
+/// [`材质资源`]: editor_core::material::材质资源
+pub const 自发光亮度系数: f32 = 2_000.0;
+
+/// 把一份材质文档投影成 Bevy 的 `StandardMaterial`。
+///
+/// # 字段归属：材质管表面，实体管渲染模式
+///
+/// | 来源 | 字段 |
+/// | --- | --- |
+/// | 材质 | `着色颜色` → `base_color`、`粗糙度` → `perceptual_roughness`、
+///   `金属度` → `metallic`、`自发光` → `emissive`（乘 [`自发光亮度系数`]） |
+/// | 材质或实体 | `base_color_texture`（材质带贴图用材质的，否则用实体的）、
+///   背面剔除（任一侧要求双面就不剔除） |
+/// | 实体 | `受光` → `unlit`、`alpha_mode`、`uv_transform`、网格本身 |
+///
+/// 材质**不碰**渲染模式：三维精灵四边形一直是 `unlit + Blend`，
+/// 因为它必须与 2D 视图长得一样（见 [`同步预览实体`] 的"材质只换表面，不换渲染模式"）；
+/// 一个表面参数改不动"这东西到底受不受光"，否则挂上材质就会让精灵在
+/// 3D 视图里突然变暗，而 2D 视图毫无变化 —— 那是最难查的一类不一致。
+///
+/// 这是纯函数：不读盘、不碰 ECS，因此能被直接断言。
+/// 读盘与缓存属于 [`解析材质句柄`]。
+///
+/// [`材质资源`]: editor_core::material::材质资源
+pub fn 材质转标准材质(
+    材质: &editor_core::material::材质资源,
+    贴图: Handle<Image>,
+    受光: bool,
+    双面: bool,
+    混合: bool,
+    贴图重复: Option<(f32, f32)>,
+) -> StandardMaterial {
+    let 自发光 = LinearRgba::from(颜色转_bevy(材质.自发光));
+    StandardMaterial {
+        base_color: 颜色转_bevy(材质.着色颜色),
+        base_color_texture: if 贴图.is_strong() {
+            Some(贴图)
+        } else {
+            None
+        },
+        metallic: 材质.金属度,
+        perceptual_roughness: 材质.粗糙度,
+        emissive: LinearRgba {
+            red: 自发光.red * 自发光亮度系数,
+            green: 自发光.green * 自发光亮度系数,
+            blue: 自发光.blue * 自发光亮度系数,
+            alpha: 自发光.alpha,
+        },
+        unlit: !受光,
+        alpha_mode: if 混合 {
+            AlphaMode::Blend
+        } else {
+            AlphaMode::Opaque
+        },
+        cull_mode: if 双面 || 材质.双面 {
+            None
+        } else {
+            Some(Face::Back)
+        },
+        uv_transform: 贴图重复
+            .map(|(u, v)| Affine2::from_scale(Vec2::new(u, v)))
+            .unwrap_or_default(),
+        ..default()
+    }
+}
+
+/// 材质转换缓存：材质引用 → 已转换的 `StandardMaterial` 句柄。
+///
+/// # 为什么必须缓存
+///
+/// `同步预览实体` 在文档修订号变化时**整体重建**预览。一个 3D 示例场景
+/// 有几十到几百个实体，绝大多数共用同一份材质；不缓存就意味着每次拖动
+/// 滑条都要重读几十次 `.material.ron`、重新解码 PNG、再往
+/// `Assets<StandardMaterial>` 里塞几十份内容相同的材质。
+///
+/// # 键里为什么带资源注册表代次
+///
+/// 代次是"磁盘上的资源可能变了"的唯一权威信号：打开项目、导入、显式刷新、
+/// 以及材质面板保存都会推进它。把代次写进键，材质文件被外部改动或
+/// 在材质编辑器里改过之后，下一次同步自然落到新键上重新转换；
+/// 旧键在同一次同步末尾由 [`材质缓存::清理本轮`] 丢弃，因此既不会复用旧内容，
+/// 也不会越攒越多。
+///
+/// # 键里为什么还带实体侧的输入
+///
+/// `受光`、`双面`、`alpha_mode`、贴图路径、UV 重复都参与生成最终的
+/// `StandardMaterial`。少登记任何一项，就会出现"同一份材质挂在两种实体上、
+/// 后者静默继承前者的渲染模式"这种只在特定组合下复现的 bug。
+/// 键的构造与 [`材质转标准材质`] 的入参由同一个函数负责，两者不会走散。
+///
+/// 值 `None` 表示"读过但失败了"（文件缺失、RON 坏了、版本过新）。
+/// 记下失败与记下成功同样重要：否则每个实体、每次重建都要重新撞一次
+/// 同一块坏磁盘，还会把警告刷成噪声。
+#[derive(Resource, Default)]
+pub struct 材质缓存 {
+    条目: std::collections::HashMap<String, Option<Handle<StandardMaterial>>>,
+    本轮使用: Vec<String>,
+}
+
+impl 材质缓存 {
+    /// 一次转换的缓存键。
+    ///
+    /// 参数顺序与 [`材质转标准材质`] 一致，只是把"材质自带的那张贴图"省掉了：
+    /// 材质引用哪张图是 `材质路径 + 代次` 的函数，代次一变就会落到新键上，
+    /// 因此不需要为它在键里另开一栏。
+    ///
+    /// UV 重复是 `f32`，进键时取**位模式**而不是 `{:?}`：调试格式会把同一个值
+    /// 打成不同的短字符串，那正好制造出"两个相同的值算出两个键"的缓存击穿。
+    #[allow(clippy::too_many_arguments)]
+    pub fn 键(
+        材质路径: &str,
+        代次: u64,
+        受光: bool,
+        双面: bool,
+        混合: bool,
+        实体贴图路径: &str,
+        贴图重复: Option<(f32, f32)>,
+    ) -> String {
+        let 重复 = 贴图重复
+            .map(|(u, v)| format!("{:x}-{:x}", u.to_bits(), v.to_bits()))
+            .unwrap_or_else(|| "无".to_string());
+        format!("{材质路径}|{代次}|{受光}|{双面}|{混合}|{实体贴图路径}|{重复}")
+    }
+
+    /// 命中时顺手把键登记为"本轮在用"，未命中返回 `None` 让调用方去读盘。
+    ///
+    /// 双层 `Option`：外层"这个键试过没有"，内层"试过的结果是句柄还是失败"。
+    /// 合成一层就把"没试过"和"试过且坏了"混成同一件事，
+    /// 于是每次重建都要重新读一次坏文件、重新警告一次。
+    pub fn 取(&mut self, 键: &str) -> Option<Option<Handle<StandardMaterial>>> {
+        let 已试 = self.条目.get(键).cloned()?;
+        self.本轮使用.push(键.to_string());
+        Some(已试)
+    }
+
+    /// 记录一次转换结果（`None` 表示失败，也要记）。
+    pub fn 记录(&mut self, 键: String, 句柄: Option<Handle<StandardMaterial>>) {
+        self.本轮使用.push(键.clone());
+        self.条目.insert(键, 句柄);
+    }
+
+    /// 丢弃本轮没有被引用的条目。
+    ///
+    /// 在 `同步预览实体` 末尾调用一次。删掉实体、换材质路径、代次推进
+    /// 留下的旧条目都在这里回收 —— 强句柄不放掉，材质资产就永远留在
+    /// `Assets<StandardMaterial>` 里。
+    pub fn 清理本轮(&mut self) {
+        let 使用 = std::mem::take(&mut self.本轮使用);
+        let 保留: std::collections::HashSet<String> = 使用.into_iter().collect();
+        self.条目.retain(|键, _| 保留.contains(键));
+    }
+
+    /// 已缓存的条目数（供测试与诊断）。
+    pub fn 数量(&self) -> usize {
+        self.条目.len()
+    }
+}
+
 /// 从场景文档的变换算出预览实体的 `Transform`。
 ///
 /// 与 [`crate::scene_bridge::变换数据转_bevy`] 复用同一段逻辑：
@@ -337,6 +511,11 @@ pub fn 解析精灵属性(
         .and_then(属性值::取资源)
         .map(|引用| 引用.路径.文本().to_string());
 
+    let 材质 = 属性
+        .get("材质")
+        .and_then(属性值::取资源)
+        .map(|引用| 引用.路径.文本().to_string());
+
     精灵视觉参数 {
         贴图路径: 贴图,
         颜色,
@@ -344,6 +523,7 @@ pub fn 解析精灵属性(
         水平翻转,
         垂直翻转,
         模型路径: 模型,
+        材质路径: 材质,
     }
 }
 
@@ -362,6 +542,8 @@ pub struct 精灵视觉参数 {
     pub 垂直翻转: bool,
     /// glTF/GLB 模型的项目相对路径（与 `贴图路径` 互斥）。
     pub 模型路径: Option<String>,
+    /// 材质文档（`.material.ron`）的项目相对路径。
+    pub 材质路径: Option<String>,
 }
 
 /// 没有贴图、也没有自定义尺寸时的默认预览尺寸（世界单位）。
@@ -476,6 +658,8 @@ pub struct 几何渲染项 {
     pub 尺寸: (f32, f32, f32),
     /// 贴图路径（项目相对）。
     pub 贴图路径: Option<String>,
+    /// 材质文档路径（项目相对，`.material.ron`）。
+    pub 材质路径: Option<String>,
     /// 基础色。
     pub 颜色: 颜色值,
     /// UV 重复。
@@ -547,6 +731,10 @@ pub fn 投影几何项(文档: &场景文档) -> Vec<几何渲染项> {
             .get("贴图")
             .and_then(属性值::取资源)
             .map(|引用| 引用.路径.文本().to_string());
+        let 材质路径 = 属性
+            .get("材质")
+            .and_then(属性值::取资源)
+            .map(|引用| 引用.路径.文本().to_string());
         let 颜色 = 属性
             .get("颜色")
             .and_then(属性值::取颜色)
@@ -578,6 +766,7 @@ pub fn 投影几何项(文档: &场景文档) -> Vec<几何渲染项> {
             形状,
             尺寸: (x, y, z),
             贴图路径,
+            材质路径,
             颜色,
             贴图重复,
             受光,
@@ -717,6 +906,7 @@ pub fn 初始化预览资源(
     });
     命令.insert_resource(贴图缓存::default());
     命令.insert_resource(地形缓存::default());
+    命令.insert_resource(材质缓存::default());
     命令.insert_resource(地形文件监视::default());
     命令.insert_resource(预览同步状态::default());
     // 三维实体用同一个 1×1 四边形，按实体显示尺寸缩放：
@@ -912,6 +1102,13 @@ pub fn 构建预览层级(
 /// 因此不可能出现"文档变了但修订号没变"导致预览不更新的情况
 /// （`editor_core` 有专门的测试守着这条）。
 ///
+/// # 为什么还要比资源注册表代次
+///
+/// 材质与贴图是**项目资源**，内容不在文档里：改一份 `.material.ron`
+/// 不会推进文档修订号。只比修订号的话，用户改完材质必须再动一下场景
+/// 才能看到视口更新 —— 那正是"改了没反应"最难复现的 bug 的形状。
+/// 代次在注册表刷新/导入/清空时推进，比较它同样是 O(1)。
+///
 /// # 同步策略：整体重建
 ///
 /// 修订号变化时**整体重建**预览实体，而不是做逐实体 diff。
@@ -922,6 +1119,19 @@ pub fn 构建预览层级(
 ///
 /// 这是刻意的取舍，不是偷懒：**正确性优先于这点性能**。
 /// 若将来大场景实测成为瓶颈，再引入 diff。
+///
+/// # 材质只换表面，不换渲染模式
+///
+/// 引用了 `.material.ron` 的实体走私有函数 `解析材质句柄`，两条三维分支都换：
+///
+/// | 分支 | 材质提供的 | 实体保留的 |
+/// | --- | --- | --- |
+/// | 精灵的三维对应物（四边形） | 着色颜色、贴图、粗糙度、金属度、自发光 | `unlit`、`Blend`、不剔除 |
+/// | 程序化几何体（网格） | 同上，外加"材质要求双面就不剔除" | `受光` → `unlit`、UV 重复、网格尺寸 |
+///
+/// 精灵四边形那三项**不交给材质**：它是"3D 视图里的精灵必须与 2D 视图
+/// 长得一样"这条约定的前提，材质把它改成受光就会出现两个视图不一致，
+/// 那是最难查的一类 bug。完整的字段归属表见 [`材质转标准材质`]。
 #[allow(clippy::too_many_arguments)]
 pub fn 同步预览实体(
     mut 命令: Commands,
@@ -930,6 +1140,7 @@ pub fn 同步预览实体(
     已有: Query<(Entity, Option<&ChildOf>), With<预览实体>>,
     mut 贴图缓存: ResMut<贴图缓存>,
     mut 地形缓存: ResMut<地形缓存>,
+    mut 材质缓存: ResMut<材质缓存>,
     三维资源: Res<三维预览资源>,
     mut 材质表: ResMut<Assets<StandardMaterial>>,
     mut 网格资源: ResMut<Assets<Mesh>>,
@@ -937,7 +1148,9 @@ pub fn 同步预览实体(
     资源服务器: Res<AssetServer>,
 ) {
     let 修订 = 编辑器.状态.文档修订();
-    if 同步状态.已同步修订 == Some(修订) {
+    let 代次 = 编辑器.状态.资源注册表.代次();
+    if 同步状态.已同步修订 == Some(修订) && 同步状态.已同步代次 == Some(代次)
+    {
         return;
     }
 
@@ -1032,20 +1245,34 @@ pub fn 同步预览实体(
         // 额外生成一个"贴了同一张图的四边形"，放在独立渲染层上由 Camera3d 渲染。
         // 它也挂在同一个节点下，只把显示尺寸乘进局部缩放，
         // 3D 视图里的世界位置因此与 2D 视图完全一致 —— 不是另算一份。
-        let mut 材质 = StandardMaterial {
-            base_color: 颜色转_bevy(项.视觉.颜色),
-            unlit: true,
-            alpha_mode: AlphaMode::Blend,
-            // 双面可见：编辑器经常从背面看一个精灵。
-            cull_mode: None,
-            ..default()
-        };
-        if !图片.is_strong() {
+        let 引用材质 = 解析材质句柄(
+            项.视觉.材质路径.as_deref(),
+            项.视觉.贴图路径.as_deref(),
+            false,
+            true,
+            true,
+            None,
+            &编辑器.状态,
+            &mut 材质缓存,
+            &mut 贴图缓存,
+            &mut 图片资源,
+            &mut 材质表,
+        );
+        let 材质句柄 = 引用材质.unwrap_or_else(|| {
+            let mut 材质 = StandardMaterial {
+                base_color: 颜色转_bevy(项.视觉.颜色),
+                unlit: true,
+                alpha_mode: AlphaMode::Blend,
+                // 双面可见：编辑器经常从背面看一个精灵。
+                cull_mode: None,
+                ..default()
+            };
+            if 图片.is_strong() {
+                材质.base_color_texture = Some(图片.clone());
+            }
             // 没有贴图时保持纯色方块，而不是显示一张 1×1 的占位图。
-        } else {
-            材质.base_color_texture = Some(图片.clone());
-        }
-        let 材质句柄 = 材质表.add(材质);
+            材质表.add(材质)
+        });
         命令
             .spawn((
                 预览来源(项.来源),
@@ -1167,19 +1394,34 @@ pub fn 同步预览实体(
             ),
         };
 
-        let mut 材质 = StandardMaterial {
-            base_color: 颜色转_bevy(项.颜色),
-            unlit: !项.受光,
-            alpha_mode: AlphaMode::Opaque,
-            cull_mode: if 项.双面 { None } else { Some(Face::Back) },
-            uv_transform: Affine2::from_scale(Vec2::new(项.贴图重复.0, 项.贴图重复.1)),
-            perceptual_roughness: 0.9,
-            ..default()
-        };
-        if 图片.is_strong() {
-            材质.base_color_texture = Some(图片);
-        }
-        let 材质句柄 = 材质表.add(材质);
+        let 引用材质 = 解析材质句柄(
+            项.材质路径.as_deref(),
+            项.贴图路径.as_deref(),
+            项.受光,
+            项.双面,
+            false,
+            Some(项.贴图重复),
+            &编辑器.状态,
+            &mut 材质缓存,
+            &mut 贴图缓存,
+            &mut 图片资源,
+            &mut 材质表,
+        );
+        let 材质句柄 = 引用材质.unwrap_or_else(|| {
+            let mut 材质 = StandardMaterial {
+                base_color: 颜色转_bevy(项.颜色),
+                unlit: !项.受光,
+                alpha_mode: AlphaMode::Opaque,
+                cull_mode: if 项.双面 { None } else { Some(Face::Back) },
+                uv_transform: Affine2::from_scale(Vec2::new(项.贴图重复.0, 项.贴图重复.1)),
+                perceptual_roughness: 0.9,
+                ..default()
+            };
+            if 图片.is_strong() {
+                材质.base_color_texture = Some(图片.clone());
+            }
+            材质表.add(材质)
+        });
 
         命令
             .spawn((
@@ -1192,7 +1434,10 @@ pub fn 同步预览实体(
             .insert(ChildOf(节点));
     }
 
+    材质缓存.清理本轮();
+
     同步状态.已同步修订 = Some(修订);
+    同步状态.已同步代次 = Some(代次);
     同步状态.预览实体数 = 待渲染.len() + 地形项.len() + 几何项.len();
     // 每次属性修改都会走到这里；用 debug 级别，正常使用不刷屏。
     debug!(
@@ -1476,6 +1721,89 @@ fn 解析贴图句柄(
     句柄.unwrap_or_default()
 }
 
+/// 解析材质引用 → 转换好的 `StandardMaterial` 句柄，带代次缓存。
+///
+/// # 降级契约
+///
+/// 返回 `None` 只发生在「没打开项目」「路径不合法」「读盘或解码失败」
+/// 这三种情况，后两种各留一条 `warn` —— 与 [`crate::tile_terrain::地形缓存`]
+/// 同一口径：材质坏了不能让整个实体消失，也不能静默。
+/// 调用方拿 `None` 时**沿用没有材质时的那份材质**，也就是引入本函数之前的
+/// 渲染结果：用户的场景不会因为一个坏引用而变黑或变白。
+///
+/// 失败也要写进缓存（[`材质缓存::记录`] 传 `None`）：否则每个挂了这个坏路径的
+/// 实体、每次重建都要重新撞一次同一块坏磁盘，并把警告刷成噪声。
+///
+/// # 材质自己的贴图走同一条贴图通道
+///
+/// 材质带贴图时盖掉实体的 `贴图` 字段，没带时沿用实体的。两种都经过
+/// [`解析贴图句柄`]，所以材质与实体共用同一份图片缓存 ——
+/// 同一张 PNG 挂在二十个实体上仍然只解码一次。
+#[allow(clippy::too_many_arguments)]
+fn 解析材质句柄(
+    材质路径: Option<&str>,
+    实体贴图路径: Option<&str>,
+    受光: bool,
+    双面: bool,
+    混合: bool,
+    贴图重复: Option<(f32, f32)>,
+    编辑器: &editor_core::state::编辑器状态,
+    缓存: &mut 材质缓存,
+    贴图缓存: &mut 贴图缓存,
+    图片资源: &mut Assets<Image>,
+    材质表: &mut Assets<StandardMaterial>,
+) -> Option<Handle<StandardMaterial>> {
+    let 路径 = 材质路径?;
+    let 项目 = 编辑器.项目.as_ref()?;
+    let 键 = 材质缓存::键(
+        路径,
+        编辑器.资源注册表.代次(),
+        受光,
+        双面,
+        混合,
+        实体贴图路径.unwrap_or("无贴图"),
+        贴图重复,
+    );
+    if let Some(已试) = 缓存.取(&键) {
+        return 已试;
+    }
+
+    let 解析后 = match scene_doc::path::项目相对路径::解析(路径) {
+        Ok(解析后) => 解析后,
+        Err(_) => {
+            warn!("[材质] {路径} 不是合法的项目相对路径；该实体按无材质渲染");
+            缓存.记录(键, None);
+            return None;
+        }
+    };
+    let 材质 = match 项目.读取材质(&解析后) {
+        Ok(材质) => 材质,
+        Err(错误) => {
+            warn!("[材质] 读取 {路径} 失败：{错误}；该实体按无材质渲染");
+            缓存.记录(键, None);
+            return None;
+        }
+    };
+
+    let 自带贴图 = 材质.贴图.as_ref().map(|引用| 引用.路径.文本().to_string());
+    let 贴图 = 解析贴图句柄(
+        自带贴图.as_deref().or(实体贴图路径),
+        Some(项目.根目录()),
+        贴图缓存,
+        图片资源,
+    );
+    let 句柄 = 材质表.add(材质转标准材质(
+        &材质,
+        贴图,
+        受光,
+        双面,
+        混合,
+        贴图重复,
+    ));
+    缓存.记录(键, Some(句柄.clone()));
+    Some(句柄)
+}
+
 #[cfg(test)]
 mod 测试 {
     use super::*;
@@ -1543,6 +1871,7 @@ mod 测试 {
             水平翻转: false,
             垂直翻转: false,
             模型路径: None,
+            材质路径: None,
         };
         assert_eq!(预览显示尺寸(&有尺寸), (120.0, 80.0));
 

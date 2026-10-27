@@ -1165,6 +1165,7 @@ fn 显示尺寸与变换缩放互不混淆() {
         水平翻转: false,
         垂直翻转: false,
         模型路径: None,
+        材质路径: None,
     });
 
     let mut 文档 = scene_doc::document::场景文档::新建("尺寸与缩放");

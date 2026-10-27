@@ -542,6 +542,13 @@ pub struct Sprite属性 {
     /// 否则按贴图精灵渲染。放在同一个组件里而不是新造一个组件，
     /// 是因为两者在编辑器里就是"这个实体长什么样"的两种取值。
     pub 模型路径: Option<scene_doc::path::项目相对路径>,
+    /// 材质文档（`.material.ron`）的项目相对路径。
+    ///
+    /// 未引用时实体外观与本字段引入前完全一致，因此旧场景不需要迁移。
+    /// 引用了材质不等于放弃自己的贴图：材质的表面参数（粗糙度、金属度、
+    /// 自发光、双面）叠在实体上，实体自己的贴图在材质没带贴图时生效。
+    /// 归属规则见 [`crate::preview::材质转标准材质`]。
+    pub 材质路径: Option<scene_doc::path::项目相对路径>,
 }
 
 impl Default for Sprite属性 {
@@ -553,6 +560,7 @@ impl Default for Sprite属性 {
             垂直翻转: false,
             自定义尺寸: None,
             模型路径: None,
+            材质路径: None,
         }
     }
 }
@@ -689,6 +697,12 @@ pub struct 几何体属性 {
     pub 受光: bool,
     /// 是否双面可见。薄墙、单面贴花用得到。
     pub 双面: bool,
+    /// 材质文档（`.material.ron`）的项目相对路径。
+    ///
+    /// 表面参数（粗糙度、金属度、自发光、双面、贴图）由材质提供；
+    /// 实体自己保留形状、尺寸、`受光` 与 UV 重复。归属规则见
+    /// [`crate::preview::材质转标准材质`]。
+    pub 材质路径: Option<scene_doc::path::项目相对路径>,
 }
 
 impl Default for 几何体属性 {
@@ -701,6 +715,7 @@ impl Default for 几何体属性 {
             贴图重复: (1.0, 1.0),
             受光: true,
             双面: false,
+            材质路径: None,
         }
     }
 }
@@ -915,6 +930,15 @@ impl 组件类型 for Sprite组件类型 {
                 None => 属性值::空,
             },
         );
+        结果.insert(
+            "材质".to_string(),
+            match &属性.材质路径 {
+                Some(路径) => 属性值::资源(scene_doc::property::资源引用值::按路径(
+                    路径.clone(),
+                )),
+                None => 属性值::空,
+            },
+        );
         Some(结果)
     }
 
@@ -943,6 +967,9 @@ impl 组件类型 for Sprite组件类型 {
         }
         if let Some(值) = 数据.get("模型") {
             属性.模型路径 = 值.取资源().map(|引用| 引用.路径.clone());
+        }
+        if let Some(值) = 数据.get("材质") {
+            属性.材质路径 = 值.取资源().map(|引用| 引用.路径.clone());
         }
         true
     }
@@ -975,6 +1002,12 @@ fn sprite字段描述() -> &'static [属性描述] {
                 scene_doc::property::资源类别::模型,
             )
             .带提示("sprite_field_model_tooltip"),
+            资源(
+                "材质",
+                "sprite_field_material",
+                scene_doc::property::资源类别::材质,
+            )
+            .带提示("sprite_field_material_tooltip"),
         ]
     })
 }
@@ -1226,6 +1259,15 @@ impl 组件类型 for 几何体组件类型 {
         );
         结果.insert("受光".to_string(), 属性值::布尔(属性.受光));
         结果.insert("双面".to_string(), 属性值::布尔(属性.双面));
+        结果.insert(
+            "材质".to_string(),
+            match &属性.材质路径 {
+                Some(路径) => 属性值::资源(scene_doc::property::资源引用值::按路径(
+                    路径.clone(),
+                )),
+                None => 属性值::空,
+            },
+        );
         Some(结果)
     }
 
@@ -1261,6 +1303,9 @@ impl 组件类型 for 几何体组件类型 {
         }
         if let Some(值) = 数据.get("双面").and_then(属性值::取布尔) {
             属性.双面 = 值;
+        }
+        if let Some(值) = 数据.get("材质") {
+            属性.材质路径 = 值.取资源().map(|引用| 引用.路径.clone());
         }
         true
     }
@@ -1298,6 +1343,12 @@ fn 几何体字段描述() -> &'static [属性描述] {
             布尔("受光", "primitive_field_lit", true).带提示("primitive_field_lit_tooltip"),
             布尔("双面", "primitive_field_double_sided", false)
                 .带提示("primitive_field_double_sided_tooltip"),
+            资源(
+                "材质",
+                "primitive_field_material",
+                scene_doc::property::资源类别::材质,
+            )
+            .带提示("primitive_field_material_tooltip"),
         ]
     })
 }

@@ -34,6 +34,7 @@
 //!
 //! 两者都是"文档的消费者"，互不干扰。
 
+use bevy::camera::primitives::Aabb;
 use bevy::camera::{RenderTarget, ScalingMode, visibility::RenderLayers};
 use bevy::math::Affine2;
 use bevy::pbr::{MeshMaterial3d, StandardMaterial};
@@ -203,6 +204,12 @@ pub struct 预览世界变换快照 {
     pub 变换: std::collections::BTreeMap<实体标识, 变换数据>,
     /// 供世界位移换算使用的逆线性矩阵（行主序，键是实体自身）。
     pub 逆矩阵: editor_ui::world_space::世界逆矩阵表,
+    /// 供 3D 视口射线拾取使用的世界 AABB。
+    ///
+    /// 键是文档实体；值是该实体自身与全部后代的网格包围盒并集。
+    /// 模型实例的网格是 glTF 子实体、在文档里没有对应标识，
+    /// 只靠文档属性算不出真实体积 —— 这一层必须由渲染侧提供。
+    pub 包围盒: std::collections::BTreeMap<实体标识, editor_ui::picking3d::世界包围盒>,
 }
 
 /// 把预览节点的 `GlobalTransform` 抄成界面可读的快照。
@@ -212,16 +219,25 @@ pub struct 预览世界变换快照 {
 ///
 /// 逆矩阵由 `GlobalTransform::affine().inverse()` 给出，不手写矩阵累加；
 /// 退化变换（任一轴缩放为 0）没有逆，直接跳过该实体，换算时退回世界增量。
+///
+/// 包围盒取 `Aabb`（网格本地盒）× `GlobalTransform` 的 8 角点并集：
+/// 只变换中心会低估旋转后的范围，用户点盒子边缘就会选不中。
+/// 同一文档标识可能有多个预览实体（二维精灵 + 三维四边形 + 网格），
+/// 因此按标识并集而不是覆盖。
 pub fn 同步预览世界变换(
-    已有: Query<(&预览来源, &GlobalTransform), With<预览实体>>,
+    已有: Query<(Entity, &预览来源, &GlobalTransform), With<预览实体>>,
+    子查询: Query<&Children>,
+    网格: Query<(&Aabb, &GlobalTransform)>,
     mut 快照: ResMut<预览世界变换快照>,
 ) {
     let 快照 = &mut *快照;
     let 变换表 = &mut 快照.变换;
     let 矩阵表 = &mut 快照.逆矩阵;
+    let 包围盒表 = &mut 快照.包围盒;
     变换表.clear();
     矩阵表.clear();
-    for (来源, 全局) in &已有 {
+    包围盒表.clear();
+    for (根, 来源, 全局) in &已有 {
         let 平移 = 全局.translation();
         let 旋转 = 全局.rotation();
         let 缩放 = 全局.scale();
@@ -233,6 +249,25 @@ pub fn 同步预览世界变换(
                 缩放: (缩放.x, 缩放.y, 缩放.z),
             },
         );
+
+        let mut 盒: Option<editor_ui::picking3d::世界包围盒> = None;
+        并入网格盒(&mut 盒, 根, &网格);
+        let mut 栈 = vec![根];
+        while let Some(当前) = 栈.pop() {
+            let Ok(子列表) = 子查询.get(当前) else {
+                continue;
+            };
+            for 子 in 子列表.iter() {
+                栈.push(子);
+                并入网格盒(&mut 盒, 子, &网格);
+            }
+        }
+        if let Some(盒) = 盒 {
+            包围盒表
+                .entry(来源.0)
+                .and_modify(|已有| 已有.并(盒))
+                .or_insert(盒);
+        }
 
         let 逆 = 全局.affine().inverse();
         if !逆.is_finite() {
@@ -247,6 +282,40 @@ pub fn 同步预览世界变换(
                 [线性.x_axis.z, 线性.y_axis.z, 线性.z_axis.z],
             ],
         );
+    }
+}
+
+/// 把一个预览实体（含模型根自身的网格）的世界包围盒并入累加器。
+fn 并入网格盒(
+    累加: &mut Option<editor_ui::picking3d::世界包围盒>,
+    实体: Entity,
+    网格: &Query<(&Aabb, &GlobalTransform)>,
+) {
+    let Ok((aabb, 变换)) = 网格.get(实体) else {
+        return;
+    };
+    let 仿射 = 变换.affine();
+    let 中心 = Vec3::from(aabb.center);
+    let 半 = Vec3::from(aabb.half_extents);
+    let mut 最小 = Vec3::splat(f32::MAX);
+    let mut 最大 = Vec3::splat(f32::MIN);
+    for 序号 in 0..8 {
+        let 符号 = Vec3::new(
+            if 序号 & 1 == 0 { -1.0 } else { 1.0 },
+            if 序号 & 2 == 0 { -1.0 } else { 1.0 },
+            if 序号 & 4 == 0 { -1.0 } else { 1.0 },
+        );
+        let 世界 = 仿射.transform_point3(中心 + 半 * 符号);
+        最小 = 最小.min(世界);
+        最大 = 最大.max(世界);
+    }
+    let 盒 = editor_ui::picking3d::世界包围盒::由角点(
+        (最小.x, 最小.y, 最小.z),
+        (最大.x, 最大.y, 最大.z),
+    );
+    match 累加 {
+        Some(已有) => 已有.并(盒),
+        None => *累加 = Some(盒),
     }
 }
 
@@ -2252,5 +2321,47 @@ mod 测试 {
             );
         }
         assert_eq!(文档.实体数量(), 4);
+    }
+
+    /// 预览快照必须把网格的**世界**包围盒抄给界面层。
+    ///
+    /// 3D 视口射线拾取靠这张表判断"点到了什么"：模型实例的网格是 glTF
+    /// 子实体、在文档里没有标识，只靠文档属性算不出真实体积。
+    /// 这里用"父节点平移 + 子节点缩放"两层钉住两件事：
+    /// 中心要跟父节点走，半尺寸要吃掉子节点的缩放。
+    #[test]
+    fn 预览快照会抄出网格的世界包围盒() {
+        let mut 应用 = App::new();
+        应用.add_plugins((MinimalPlugins, bevy::transform::TransformPlugin));
+        应用.init_resource::<预览世界变换快照>();
+        应用.add_systems(
+            PostUpdate,
+            同步预览世界变换.after(bevy::transform::TransformSystems::Propagate),
+        );
+
+        let 标识 = scene_doc::document::实体标识::新建();
+        let 根 = 应用
+            .world_mut()
+            .spawn((预览实体, 预览来源(标识), Transform::from_xyz(5.0, 0.0, 0.0)))
+            .id();
+        应用.world_mut().spawn((
+            Aabb::from_min_max(Vec3::splat(-0.5), Vec3::splat(0.5)),
+            Transform::from_scale(Vec3::splat(2.0)),
+            ChildOf(根),
+        ));
+        应用.update();
+
+        let 快照 = 应用.world().resource::<预览世界变换快照>();
+        let 盒 = 快照.包围盒.get(&标识).expect("网格子实体应当贡献包围盒");
+        let (中心x, 中心y, 中心z) = 盒.中心();
+        assert!(
+            (中心x - 5.0).abs() < 1e-4 && 中心y.abs() < 1e-4 && 中心z.abs() < 1e-4,
+            "包围盒中心应跟随父节点世界位置，实际 ({中心x}, {中心y}, {中心z})"
+        );
+        let (半x, 半y, 半z) = 盒.半尺寸();
+        assert!(
+            (半x - 1.0).abs() < 1e-4 && (半y - 1.0).abs() < 1e-4 && (半z - 1.0).abs() < 1e-4,
+            "半尺寸应吃掉子节点的 2 倍缩放，实际 ({半x}, {半y}, {半z})"
+        );
     }
 }

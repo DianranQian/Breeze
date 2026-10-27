@@ -277,6 +277,35 @@ struct 主题记录 {
     text: String,
     /// 强调色，`#RRGGBB`。
     accent: String,
+    /// 信息色，`#RRGGBB`（嵌套预制件徽标用的就是这一槽）。
+    ///
+    /// 验收用它核对徽标配色：徽标要能证明「渲染的是嵌套那一档，
+    /// 而不是套了个次要文字色的外层徽标」，光有文本键不够 —— 配色才是
+    /// 用户在层级里扫一眼分辨层级的通道。
+    info: String,
+}
+
+/// 检查器头部预制件徽标的证据。
+///
+/// # 为什么单独记一条
+///
+/// 徽标只是一行小字，不改变面板矩形、不进状态指纹：没有它，
+/// 「选中嵌套实例根时Inspector 到底画没画那条蓝色徽标」这件事在证据里
+/// 完全不存在，只能靠人眼看截图。有了 `key` + `color` + `rect`，
+/// 这三件事各自都能被断言：画了（rect 存在且非空）、画对了档（key）、
+/// 画对了色（color == theme.info）。
+#[derive(Debug, Clone, Serialize)]
+struct 徽标记录 {
+    /// 标签文本的语言键（与界面语言无关，可直接比对）。
+    key: String,
+    /// 实际渲染出的文本（含模板名）。
+    text: String,
+    /// 文字颜色，`#RRGGBB`。
+    color: String,
+    /// 标签矩形（物理像素）。
+    rect: 矩形记录,
+    /// 覆盖落点是否为内层记录。
+    inner: bool,
 }
 
 /// 一个矩形（物理像素，截图坐标系）。
@@ -389,6 +418,18 @@ struct 预制件实例记录 {
     fingerprint_mismatch: bool,
     /// 实例是否有本地覆盖。
     overrides: bool,
+    /// 本地覆盖的条目数。
+    ///
+    /// 与 `overrides`（有没有）分开记，是因为嵌套场景要断言的是
+    /// **「这一条覆盖落进了哪一份记录」**：内层记录从 0 变 1、外层记录保持 0，
+    /// 才是"最深记录归属 + 层内相对地址"这条路由真的接对了。
+    /// 只有布尔值时，两份记录都"有覆盖"也一样通过，静默写错域测不出来。
+    override_count: usize,
+    /// 这份记录是否为**内层记录**（嵌套实例根自己的记录）。
+    ///
+    /// 判据直接取 [`editor_core::state::编辑器状态::预制件身份`]，与界面
+    /// 走的是同一次换算，因此这条证据同时也是对那条换算的复核。
+    nested_record: bool,
     /// 脱离模板管理的节点数。
     detached: usize,
     /// 实例记录里保存的放置平移（位置权威）。
@@ -664,6 +705,9 @@ struct 采集证据 {
     prefab_rows: Vec<预制件行记录>,
     /// 当前场景里的预制件实例及其同步状态。
     prefab_instances: Vec<预制件实例记录>,
+    /// 检查器头部的预制件徽标；本帧没画（没选中、选中的是普通实体、
+    /// 或检查器面板不可见）为 `null`。
+    inspector_badge: Option<徽标记录>,
 }
 
 /// 一次界面绘制结束后写证据并请求截图。
@@ -937,6 +981,12 @@ fn 发起一次采集(
                 missing: 状态.map(|状态| 状态.模板缺失).unwrap_or(false),
                 fingerprint_mismatch: 状态.map(|状态| 状态.指纹不一致).unwrap_or(false),
                 overrides: 状态.map(|状态| 状态.有覆盖).unwrap_or(false),
+                override_count: 记录.覆盖.条目数(),
+                nested_record: 编辑器
+                    .状态
+                    .预制件身份(根)
+                    .map(|身份| 身份.是嵌套记录)
+                    .unwrap_or(false),
                 detached: 记录.脱钩节点.len(),
                 placement_translate: [记录.放置.平移.0, 记录.放置.平移.1, 记录.放置.平移.2],
                 sync: 同步矩形,
@@ -988,6 +1038,7 @@ fn 发起一次采集(
             panel_bg: 十六进制(界面.状态.主题库.当前().配色.面板背景),
             text: 十六进制(界面.状态.主题库.当前().配色.文字),
             accent: 十六进制(界面.状态.主题库.当前().配色.强调),
+            info: 十六进制(界面.状态.主题库.当前().配色.信息),
         },
         regions: 区域,
         status_left: 状态栏.左侧.into_iter().map(|条目| 条目.文本).collect(),
@@ -1075,6 +1126,17 @@ fn 发起一次采集(
         asset_preview: 资源预览,
         prefab_rows: 预制件行,
         prefab_instances: 实例记录列表,
+        inspector_badge: 界面
+            .状态
+            .预制件徽标
+            .as_ref()
+            .map(|徽标| 徽标记录 {
+                key: 徽标.语言键.to_string(),
+                text: 徽标.文本.clone(),
+                color: 十六进制(徽标.颜色),
+                rect: 转矩形(徽标.矩形),
+                inner: 徽标.是内层记录,
+            }),
     };
 
     if let Some(报告路径) = 报告.map(Path::to_path_buf) {

@@ -1106,7 +1106,8 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
         UiAction::同步预制件实例 { .. }
         | UiAction::同步预制件模板 { .. }
         | UiAction::重新纳入预制件节点 { .. }
-        | UiAction::刷新预制件目录 => {
+        | UiAction::刷新预制件目录
+        | UiAction::恢复预制件字段默认值 { .. } => {
             unreachable!("预制件域动作应已由 `处理预制件动作` 处理")
         }
 

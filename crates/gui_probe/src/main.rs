@@ -43,7 +43,7 @@ use std::time::{Duration, Instant};
 
 use analysis::{分析结果, 判定, 断言类别, 期望};
 use evidence::证据;
-use image_stats::图像;
+use image_stats::{图像, 矩形};
 use window_probe::窗口信息;
 
 fn main() {
@@ -949,6 +949,8 @@ fn 判定预制件(
     期望版本: &[String],
     期望待同步: &[String],
     期望放置一致: &[String],
+    期望记录嵌套: &[String],
+    期望覆盖数: &[String],
 ) -> Result<(), String> {
     let 实例列表 = 证据
         .get("prefab_instances")
@@ -1046,7 +1048,153 @@ fn 判定预制件(
             }
         }
     }
+    for 项 in 期望记录嵌套 {
+        let Some((名称, 期望)) = 项.split_once('=') else {
+            return Err(format!(
+                "`--expect-prefab-nested` 格式应为 名称=yes|no：{项}"
+            ));
+        };
+        let 期望 = 期望.trim() == "yes";
+        let 实例 = 找实例(&实例列表, 名称)?;
+        let 实际 = 实例
+            .get("nested_record")
+            .and_then(|值| 值.as_bool())
+            .ok_or_else(|| format!("实例 `{名称}` 的证据里没有 nested_record（应用版本过旧？）"))?;
+        if 实际 != 期望 {
+            return Err(format!(
+                "期望记录 `{名称}` 是{}，实际{}",
+                if 期望 { "内层记录" } else { "最外层记录" },
+                if 实际 { "内层记录" } else { "最外层记录" }
+            ));
+        }
+    }
+    for 项 in 期望覆盖数 {
+        let Some((名称, 数量文本)) = 项.split_once('=') else {
+            return Err(format!(
+                "`--expect-prefab-overrides` 格式应为 名称=数量：{项}"
+            ));
+        };
+        let 期望: usize = 数量文本
+            .trim()
+            .parse()
+            .map_err(|_| format!("覆盖数量不是整数：{数量文本}"))?;
+        let 实例 = 找实例(&实例列表, 名称)?;
+        let 实际 = 实例
+            .get("override_count")
+            .and_then(|值| 值.as_u64())
+            .ok_or_else(|| format!("实例 `{名称}` 的证据里没有 override_count（应用版本过旧？）"))?
+            as usize;
+        if 实际 != 期望 {
+            return Err(format!(
+                "期望记录 `{名称}` 有 {期望} 条覆盖，实际 {实际} 条\
+                 （覆盖写错了地址域？检查末帧徽标用的是哪一档）"
+            ));
+        }
+    }
     Ok(())
+}
+
+/// 检查器预制件徽标的判定：画没画、是不是那一档、颜色对不对、屏幕上有没有墨迹。
+///
+/// # 四件事各挡一类缺陷
+///
+/// * 矩形存在且非空 —— 「徽标压根没渲染」：面板被关掉、身份换算返回 `None`；
+/// * `key` 匹配 —— 「渲染了错的档位」。认**语言键**而不是认文本，
+///   所以切到英文界面这条断言照样成立；
+/// * `color` == `theme.<槽>` —— 「档位对、颜色错」：嵌套徽标被画成次要文字色。
+///   这一类最阴：文本没错，但用户扫一眼分不出层级，于是照样会在错误的
+///   地址域上改东西，而且改完看不出区别；
+/// * 截图在该矩形内命中该色像素 —— 「应用在证据里自称画了，屏幕上其实没有」。
+///   矩形与配色都是应用自己填的，只有像素是应用之外的事实。
+fn 判定徽标(
+    证据: &serde_json::Value,
+    截图: Option<&Path>,
+    期望键: Option<&str>,
+    期望色槽: Option<&str>,
+) -> Result<(), String> {
+    if 期望键.is_none() && 期望色槽.is_none() {
+        return Ok(());
+    }
+    let 徽标 = 证据
+        .get("inspector_badge")
+        .filter(|值| !值.is_null())
+        .ok_or_else(|| "末帧证据里没有 inspector_badge：检查器没有渲染预制件徽标".to_string())?;
+    if let Some(键) = 期望键 {
+        let 实际 = 徽标.get("key").and_then(|值| 值.as_str()).unwrap_or("");
+        if 实际 != 键 {
+            return Err(format!(
+                "期望徽标语言键 `{键}`，实际 `{实际}`（文本 {:?}）",
+                徽标.get("text").and_then(|值| 值.as_str()).unwrap_or("")
+            ));
+        }
+    }
+    let Some(色槽) = 期望色槽 else {
+        return Ok(());
+    };
+    let 期望色 = 证据
+        .get("theme")
+        .and_then(|主题| 主题.get(色槽))
+        .and_then(|值| 值.as_str())
+        .ok_or_else(|| format!("证据里没有 theme.{色槽}，无法核对徽标配色"))?
+        .to_string();
+    let 实际色 = 徽标
+        .get("color")
+        .and_then(|值| 值.as_str())
+        .unwrap_or("")
+        .to_string();
+    if 实际色 != 期望色 {
+        return Err(format!(
+            "期望徽标配色等于 theme.{色槽}（{期望色}），实际 {实际色}"
+        ));
+    }
+    let Some(路径) = 截图 else {
+        return Ok(());
+    };
+    let 图 = 图像::读取(路径).map_err(|错误| format!("徽标像素复核读不了截图：{错误}"))?;
+    let 取数 = |键: &str| {
+        徽标
+            .get("rect")
+            .and_then(|矩形| 矩形.get(键))
+            .and_then(|值| 值.as_i64())
+            .unwrap_or(0) as i32
+    };
+    let 区域 = 矩形 {
+        x: 取数("x"),
+        y: 取数("y"),
+        w: 取数("w"),
+        h: 取数("h"),
+    };
+    if 区域.w <= 0 || 区域.h <= 0 {
+        return Err(format!(
+            "徽标矩形是空的（{}×{}）：这一行没有占用任何屏幕空间",
+            区域.w, 区域.h
+        ));
+    }
+    let 目标 = 解析颜色(&期望色).ok_or_else(|| format!("theme.{色槽} 不是 #RRGGBB：{期望色}"))?;
+    // 容差 60、下限 8 像素：抗锯齿只在笔画边缘混色，芯部仍是目标色；
+    // 一行 9~11px 的中文至少有一二十个芯部像素。低于 8 就只有"没画出来"
+    // 这一种解释了。阈值写死在这里，是为了让失败信息带上实测数字，
+    // 需要调整时看的是数据，不是猜。
+    let 命中 = 图.接近色像素数(区域, 目标, 60);
+    if 命中 < 8 {
+        return Err(format!(
+            "徽标矩形 {}×{} 内只有 {命中} 个像素接近 {期望色}：文字没有被画进截图",
+            区域.w, 区域.h
+        ));
+    }
+    Ok(())
+}
+
+/// 把证据里的 `#RRGGBB` 解成 RGB 三元组。
+fn 解析颜色(文本: &str) -> Option<[u8; 3]> {
+    let 十六 = 文本.strip_prefix('#')?;
+    if 十六.len() != 6 {
+        return None;
+    }
+    let 分量 = |区间: std::ops::Range<usize>| -> Option<u8> {
+        u8::from_str_radix(&十六[区间], 16).ok()
+    };
+    Some([分量(0..2)?, 分量(2..4)?, 分量(4..6)?])
 }
 
 /// 在实例证据里按实例根名称找一条记录。
@@ -1117,6 +1265,19 @@ fn 拖拽(参数: &[String]) -> i32 {
     let mut 期望实例待同步: Vec<String> = Vec::new();
     // 实例放置与实体变换一致断言（实例名称，可重复）。
     let mut 期望实例放置一致: Vec<String> = Vec::new();
+    // 检查器徽标的语言键断言（`prefab_nested_instance` 之类）。
+    let mut 期望徽标键: Option<String> = None;
+    // 徽标配色的语义槽断言（`info` / `text` / `accent`）：
+    // 认的是"这一档徽标用的是那一槽"，而不是硬编码一个十六进制色值 ——
+    // 换主题之后硬编码必然误报，而语义槽关系是产品定义。
+    let mut 期望徽标色槽: Option<String> = None;
+    // 记录层级断言（`名称=yes|no`，可重复）：这份记录是内层记录还是最外层记录。
+    let mut 期望记录嵌套: Vec<String> = Vec::new();
+    // 本地覆盖条目数断言（`名称=数量`，可重复）。
+    //
+    // 用数量而不是布尔：嵌套路由的缺陷恰好是"覆盖写到了外层记录"，
+    // 那时两份记录都"有覆盖"，布尔断言会一起通过。
+    let mut 期望覆盖数: Vec<String> = Vec::new();
     // 逐阶段中间态记录：每个注入阶段追加一条，最后写进报告。
     let mut 阶段记录表: Vec<阶段记录> = Vec::new();
     // ---- 变换工具 / 操纵器相关的断言（本轮新增）----
@@ -1221,6 +1382,18 @@ fn 拖拽(参数: &[String]) -> i32 {
             "--expect-prefab-placement" => {
                 if let Some(值) = 取值(&mut 下标) {
                     期望实例放置一致.push(值);
+                }
+            }
+            "--expect-prefab-badge" => 期望徽标键 = 取值(&mut 下标),
+            "--expect-prefab-badge-color" => 期望徽标色槽 = 取值(&mut 下标),
+            "--expect-prefab-nested" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望记录嵌套.push(值);
+                }
+            }
+            "--expect-prefab-overrides" => {
+                if let Some(值) = 取值(&mut 下标) {
+                    期望覆盖数.push(值);
                 }
             }
             "--expect-tool" => 期望工具 = 取值(&mut 下标),
@@ -2022,6 +2195,21 @@ fn 拖拽(参数: &[String]) -> i32 {
         &期望实例版本,
         &期望实例待同步,
         &期望实例放置一致,
+        &期望记录嵌套,
+        &期望覆盖数,
+    );
+    // 徽标的像素复核必须拿**与末证据同一帧**的截图：有第三帧时是末帧，
+    // 没有第三帧时末证据就是第二帧，配错的截图会让断言指错了时刻。
+    let 末截图: &Path = if 第三帧帧号.is_some() {
+        &末图
+    } else {
+        &后图
+    };
+    let 徽标判定 = 判定徽标(
+        &末证据,
+        Some(末截图),
+        期望徽标键.as_deref(),
+        期望徽标色槽.as_deref(),
     );
     // 变换相关的断言同样只看末帧状态，但"变化/未变化"要比前后两帧。
     //
@@ -2047,6 +2235,7 @@ fn 拖拽(参数: &[String]) -> i32 {
         ("菜单", &菜单判定),
         ("选中", &选中判定),
         ("预制件", &预制件判定),
+        ("预制件徽标", &徽标判定),
         ("工具", &工具判定),
         ("操纵器悬停", &悬停判定),
         ("变换分量", &变换判定),

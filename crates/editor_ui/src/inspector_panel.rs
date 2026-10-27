@@ -16,7 +16,8 @@
 use editor_core::state::{编辑器状态, 预制件身份};
 use egui::{Color32, RichText, Ui};
 use scene_doc::document::{变换数据, 场景实体, 实体标识};
-use scene_doc::prefab::实体来源;
+use scene_doc::prefab::{变换组件名, 实体来源, 覆盖状态};
+use scene_doc::prefab_nested::变换覆盖字段;
 use scene_doc::property::{属性值, 枚举值, 颜色值};
 use scene_doc::registry::{属性描述, 属性种类};
 
@@ -307,6 +308,11 @@ fn 绘制头部(
 /// * 外层实例根 / 外层派生节点 —— 次要文字，改动记进本实例的覆盖；
 /// * 嵌套实例根 / 内层派生节点 —— 信息色，改动记进那一层的内层记录，
 ///   同步时随最外层实例一起展开。
+///
+/// 这一行的文本、语言键、实际配色与矩形会写进
+/// [`crate::state::界面状态::预制件徽标`]：徽标不改变任何面板矩形，
+/// 没有这份"本帧事实"，验收就分不清「嵌套徽标没渲染」与「渲染成了外层实例的
+/// 灰字」，而后者会让用户在错误的地址域上改东西且毫无察觉。
 fn 绘制预制件徽标(
     ui: &mut Ui,
     上下文: &mut 绘制上下文<'_>,
@@ -340,13 +346,87 @@ fn 绘制预制件徽标(
         ),
     };
     ui.horizontal(|ui| {
-        ui.label(
-            RichText::new(format!("{} · {}", 上下文.语言.取(标签键), 身份.模板名称))
+        let 文本 = format!("{} · {}", 上下文.语言.取(标签键), 身份.模板名称);
+        let 响应 = ui.label(
+            RichText::new(文本.clone())
                 .size((上下文.外观.基础字号 - 2.0).max(9.0))
                 .color(颜色),
-        )
-        .on_hover_text(上下文.语言.填充(提示键, &[&身份.模板名称]));
+        );
+        上下文.界面.预制件徽标 = Some(crate::state::预制件徽标几何 {
+            语言键: 标签键,
+            文本,
+            颜色,
+            矩形: 响应.rect,
+            是内层记录: 身份.是嵌套记录,
+        });
+        响应.on_hover_text(上下文.语言.填充(提示键, &[&身份.模板名称]));
     });
+}
+
+/**
+ * 画「恢复该项默认值」按钮：只在**这一项确实存在覆盖**时出现。
+ *
+ * 参数：
+ * * `实体` —— 正在编辑的实体；覆盖落在哪条记录、相对哪个模板根，全部由
+ *   [`编辑器状态::预制件字段覆盖状态`] 按它算出来，界面不参与换算；
+ * * `组件` / `属性` —— 与写入覆盖时**同一对键**：变换三行用 [`变换组件名`]
+ *   与 [`变换覆盖字段`]，普通属性行用注册表里的组件名与字段名；
+ * * `区域标识` —— 静态区域名，只有变换三行有。组件行拿不到静态名
+ *   （组件类型名是运行期数据，[`crate::state::区域快照`] 的标识是
+ *   `&'static str`），所以它们不登记几何 —— 两条路径走的是同一个函数，
+ *   行为由变换三行的验收与命令层测试共同覆盖。
+ *
+ * 显示条件按状态收紧到**直接覆盖**：`继承` 没有条目可删；`祖先覆盖` 由整组件
+ * 覆盖管着，删字段级条目是空操作（[`scene_doc::prefab::覆盖表::恢复字段`]
+ * 刻意不删祖先）；`移除` 是组件级动作，不是「恢复这一项」。三种情况下按钮
+ * 点下去要么什么都不做、要么只做一半，画出来就是「按了没反应」。
+ *
+ * 图标用 `⟲` 而不是文字：这一列最窄只有几十像素，文字会把属性名挤到换行；
+ * 含义由悬停提示补足（[`crate::i18n`] 的 `prefab_revert_field_hint`）。
+ */
+fn 绘制恢复按钮(
+    ui: &mut Ui,
+    上下文: &mut 绘制上下文<'_>,
+    实体: 实体标识,
+    组件: &str,
+    属性: &str,
+    区域标识: Option<&'static str>,
+) {
+    if !matches!(
+        上下文.编辑器.预制件字段覆盖状态(实体, 组件, 属性),
+        Some(覆盖状态::直接覆盖)
+    ) {
+        return;
+    }
+    let 响应 = ui
+        .push_id(("revert_field", 组件, 属性), |ui| {
+            ui.add(
+                egui::Button::new(
+                    RichText::new("⟲")
+                        .size((上下文.外观.基础字号 - 1.0).max(9.0))
+                        .color(上下文.配色.信息),
+                )
+                .fill(Color32::TRANSPARENT)
+                .frame(false),
+            )
+        })
+        .inner;
+    if let Some(标识) = 区域标识 {
+        上下文.界面.布局快照.push(crate::state::区域快照 {
+            标识,
+            矩形: 响应.rect,
+        });
+    }
+    if 响应
+        .on_hover_text(上下文.语言.取("prefab_revert_field_hint"))
+        .clicked()
+    {
+        上下文.动作.推(UiAction::恢复预制件字段默认值 {
+            实体,
+            组件: 组件.to_string(),
+            属性: 属性.to_string(),
+        });
+    }
 }
 
 /// 绘制变换区。
@@ -374,6 +454,14 @@ fn 绘制变换区(
             .min_col_width(crate::visual_spec::留白::标签列宽)
             .show(ui, |ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    绘制恢复按钮(
+                        ui,
+                        上下文,
+                        标识,
+                        变换组件名,
+                        变换覆盖字段[0],
+                        Some("inspector_revert_pos"),
+                    );
                     ui.label(RichText::new(上下文.语言.取("position")).color(上下文.配色.次要文字));
                 });
                 let 改变 = 三元拖动(ui, 上下文, "位置", &mut 新变换.平移, 0.05);
@@ -386,6 +474,14 @@ fn 绘制变换区(
                 let 欧拉 = 四元数转欧拉角(变换.旋转);
                 let mut 新欧拉 = 欧拉;
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    绘制恢复按钮(
+                        ui,
+                        上下文,
+                        标识,
+                        变换组件名,
+                        变换覆盖字段[1],
+                        Some("inspector_revert_rot"),
+                    );
                     ui.label(RichText::new(上下文.语言.取("rotate")).color(上下文.配色.次要文字));
                 });
                 ui.vertical(|ui| {
@@ -407,6 +503,14 @@ fn 绘制变换区(
                 ui.end_row();
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    绘制恢复按钮(
+                        ui,
+                        上下文,
+                        标识,
+                        变换组件名,
+                        变换覆盖字段[2],
+                        Some("inspector_revert_scale"),
+                    );
                     ui.label(
                         RichText::new(上下文.语言.取("transform_field_scale"))
                             .color(上下文.配色.次要文字),
@@ -670,6 +774,7 @@ fn 绘制单个组件(
                     // 因此这里不需要按"提示是否为空"分叉 —— 之前那样写
                     // 会出现两个完全相同的分支。
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        绘制恢复按钮(ui, 上下文, 标识, 类型名, &描述.字段名, None);
                         ui.label(
                             RichText::new(上下文.语言.取(描述.显示名)).color(上下文.配色.次要文字),
                         )

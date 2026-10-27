@@ -17,6 +17,10 @@
 #   6. 恢复该项默认值（P4-D）：先造出覆盖并保存，再**重新打开同一份工程**，
 #      在检查器里点三枚分量恢复按钮，覆盖条数回到 0、位置写回模板值；
 #      Ctrl+S 之后落盘文件里两段记录都不再有 `覆盖:`。
+#   7. 组件字段覆盖（P4-D 补链）：夹具里预置一条根节点 `Sprite.水平翻转`
+#      覆盖，选中实例根后检查器该字段行画出恢复按钮（探针标识
+#      `inspector_revert_field.Sprite.水平翻转`），点击后覆盖条数归零、
+#      实体值写回模板默认 false，Ctrl+S 后落盘文件里不再有 `覆盖:`。
 #
 # 坐标全部来自应用当帧测得的真实矩形（`prefab_rows[].row`、
 # `scene_rows[].prefab_sync`、`gizmo_parts[].hit`），没有写死屏幕坐标；
@@ -163,6 +167,26 @@ $场景 = @(
                       "--expect-dirty", "no")
        }
        Revert = $true }
+    # 组件字段覆盖（P4-D 补链）：夹具里已经有一条 **根节点** 上的
+    # `Sprite.水平翻转` 覆盖（模板默认 false、实例覆盖成 true），
+    # 因此不需要先造覆盖 —— 选中实例根，第二帧证据里就该有该行的恢复按钮。
+    #
+    # 断言认的是探针标识 `inspector_revert_field.<组件>.<属性>`：它由组件注册表
+    # 的字段名拼接（与变换三行手写的 `inspector_revert_pos` 那组不是同一套），
+    # 点击"取到坐标"本身就证明组件行的标识真的按字段名登记了。
+    #
+    # 恢复必须做到两件事，缺一不可：覆盖条目归零、实体值写回模板默认 false。
+    # 所以落盘核对同时查"不再有 `覆盖:`"与"水平翻转回到 false" ——
+    # 只查前者时，"删了覆盖但实体仍是 true"的缺陷会漏过去（下次同步才跳回）。
+    @{ Name = "component_revert"; Fixture = "tools/fixtures/component_override_project"
+       Focus = ""; Resize = $false
+       Case = "name:哨兵"
+       Case3 = "click:inspector_revert_field.Sprite.水平翻转,press:ctrls"
+       Expect = @("--expect-selection", "哨兵",
+                  "--expect-prefab-overrides", "哨兵=0",
+                  "--expect-undo-delta", "1",
+                  "--expect-dirty", "no")
+       RevertComponent = $true }
 )
 
 foreach ($s in $场景) {
@@ -284,6 +308,34 @@ foreach ($s in $场景) {
             $failed += "override_persist"
             Write-Host ("[失败] {0,-16} 落盘覆盖：内层={1} 外层干净={2}（读不到=分段没切中）" -f
                 "override_persist", $内层有覆盖, $外层无覆盖)
+        }
+    }
+
+    # 组件字段覆盖的落盘核对：内存里 `覆盖` 归零还不够，保存后的场景文件
+    # 必须同时满足两件事 —— 记录里不再有 `覆盖:`，实体字段回到模板默认 false。
+    #
+    # 只查其中一件都会漏掉一类真实缺陷：
+    # * 只查"没有覆盖:"：删除覆盖但忘记写回实体时，界面显示 true，下次同步才跳回；
+    # * 只查"水平翻转=false"：把整条实例记录删掉也能让文件干净，但实例关系没了。
+    # 因此额外要求 `预制件实例表:` 仍在。
+    if ($code -eq 0 -and $s.RevertComponent) {
+        $场景文件 = Join-Path $工程 "scenes\component_demo.scene.ron"
+        $无覆盖 = $null
+        $回默认 = $null
+        $保留记录 = $null
+        try {
+            $文本 = Get-Content $场景文件 -Raw -Encoding UTF8
+            $无覆盖 = -not ($文本 -match '覆盖:')
+            $回默认 = $文本 -match '"水平翻转": 布尔\(false\)'
+            $保留记录 = $文本 -match '预制件实例表: \{'
+        } catch { }
+        if ($无覆盖 -eq $true -and $回默认 -eq $true -and $保留记录 -eq $true) {
+            $passed++
+            Write-Host ("[通过] {0,-16} 落盘无覆盖且回到模板默认值" -f "component_revert_persist")
+        } else {
+            $failed += "component_revert_persist"
+            Write-Host ("[失败] {0,-16} 无覆盖={1} 回到默认={2} 保留记录={3}" -f
+                "component_revert_persist", $无覆盖, $回默认, $保留记录)
         }
     }
 

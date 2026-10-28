@@ -934,6 +934,9 @@ ui_field_font_size	字号	Font Size
 ui_field_text_color	文字颜色	Text Color
 ui_field_size_tooltip	屏幕像素；0 表示由内容自适应	Screen pixels; 0 means size to content
 ui_field_offset_tooltip	相对视口左上角的像素偏移	Pixel offset from the viewport's top-left corner
+ui_field_image	贴图	Texture
+ui_field_image_tooltip	留空时画成着色的实心块；选了图片则填满这个盒子	A solid tinted block when empty; a picked texture fills the box
+ui_field_tint	着色	Tint
 open_source_line_hint	在代码面板里打开这一行	Open this line in the code panel
 audition_play	试听	Audition
 audition_play_hint	在编辑器里播放这个音频（不改场景、不改项目）	Play this clip inside the editor without touching the scene or the project
@@ -985,6 +988,7 @@ physics3d_field_curve_tooltip	球体只用半径；胶囊体与圆柱体用半�
 physics3d_field_friction_tooltip	0 为无摩擦；常见固体表面约 0.5	0 means frictionless; typical solid surfaces are around 0.5
 physics3d_field_restitution_tooltip	0 为不反弹；1 为完全弹性	0 means no bounce; 1 is perfectly elastic
 log_physics3d_started	三维物理已建立：{} 个刚体、{} 个碰撞体	3D physics built: {} rigid bodies, {} colliders
+log_ui_tree_built	运行时界面树已建立：{} 个界面元素	Runtime UI tree built: {} elements
 ui_field_anchor	锚点	Anchor
 ui_field_anchor_tooltip	决定盒子贴在视口的哪条边上；换分辨率时位置会跟着走	Which edge the box sticks to; it follows when the viewport resizes
 anchor_top_left	左上	Top Left

@@ -24,6 +24,8 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+use bevy::prelude::Component;
+use scene_doc::path::项目相对路径;
 use scene_doc::property::{属性值, 颜色值};
 use scene_doc::registry::{属性描述, 属性种类, 组件类型};
 
@@ -33,9 +35,11 @@ pub const 界面面板组件名: &str = "UiNode";
 pub const 界面文本组件名: &str = "UiText";
 /// 界面按钮组件的类型名。
 pub const 界面按钮组件名: &str = "UiButton";
+/// 界面图片组件的类型名。
+pub const 界面图片组件名: &str = "UiImage";
 
 /// 界面面板属性。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, PartialEq)]
 pub struct 界面面板属性 {
     /// 锚点预设：决定盒子贴在视口的哪条边上。
     pub 锚点: editor_core::ui_layout::界面锚点,
@@ -65,7 +69,7 @@ impl Default for 界面面板属性 {
 }
 
 /// 界面文本属性。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, PartialEq)]
 pub struct 界面文本属性 {
     /// 文本内容。
     pub 文本: String,
@@ -150,7 +154,7 @@ impl Default for 界面文本属性 {
 }
 
 /// 界面按钮属性。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, PartialEq)]
 pub struct 界面按钮属性 {
     /// 按钮上的文字。
     pub 文本: String,
@@ -169,6 +173,51 @@ impl Default for 界面按钮属性 {
             字号: 22.0,
             背景色: 颜色值::srgb(0.20, 0.48, 0.85, 1.0),
             文字颜色: 颜色值::白(),
+        }
+    }
+}
+
+/// 界面图片属性（Godot 的 `TextureRect` 的最小可用子集）。
+///
+/// # 为什么单独一个组件而不是给 `UiNode` 加贴图字段
+///
+/// `UiNode` 是**容器**：它决定盒子在哪里、多大、什么底色。贴图是"盒子里画什么"，
+/// 与文字同级。放进同一个组件会让 Inspector 里出现"既填文字又填贴图"的歧义，
+/// 也让"一个盒子同时有底色、贴图和文字"退化成不可能。
+///
+/// 因此图片与文字一样是可叠加的内容层：实体可以只挂 `UiImage`（自动获得
+/// 默认尺寸与位置），也可以挂 `UiNode + UiImage`（图片画在面板盒里）。
+///
+/// 贴图为空时渲染成 `着色` 的实心块，而不是不显示 —— "加了组件却什么也没有"
+/// 比"看到一个色块、知道它在那儿"更难排查。
+#[derive(Component, Debug, Clone, PartialEq)]
+pub struct 界面图片属性 {
+    /// 锚点预设：决定盒子贴在视口的哪条边上。
+    pub 锚点: editor_core::ui_layout::界面锚点,
+    /// 宽度（屏幕像素）。
+    pub 宽度: f32,
+    /// 高度（屏幕像素）。
+    pub 高度: f32,
+    /// 左上角横坐标（屏幕像素）。
+    pub 偏移x: f32,
+    /// 左上角纵坐标（屏幕像素）。
+    pub 偏移y: f32,
+    /// 贴图的项目相对路径。`None` 表示没有贴图。
+    pub 贴图路径: Option<项目相对路径>,
+    /// 着色（与贴图逐像素相乘；无贴图时就是实心块的颜色）。
+    pub 着色: 颜色值,
+}
+
+impl Default for 界面图片属性 {
+    fn default() -> Self {
+        Self {
+            锚点: editor_core::ui_layout::界面锚点::左上,
+            宽度: 256.0,
+            高度: 256.0,
+            偏移x: 40.0,
+            偏移y: 40.0,
+            贴图路径: None,
+            着色: 颜色值::白(),
         }
     }
 }
@@ -340,6 +389,85 @@ impl 组件类型 for 界面按钮组件类型 {
     }
 }
 
+/// 界面图片组件类型。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct 界面图片组件类型;
+
+impl 组件类型 for 界面图片组件类型 {
+    fn 组件名(&self) -> &'static str {
+        界面图片组件名
+    }
+
+    fn 默认实例(&self) -> Box<dyn std::any::Any> {
+        Box::new(界面图片属性::default())
+    }
+
+    fn 字段描述(&self) -> &[属性描述] {
+        图片字段()
+    }
+
+    fn 导出(&self, 实例: &dyn std::any::Any) -> Option<BTreeMap<String, 属性值>> {
+        let 属性 = 实例.downcast_ref::<界面图片属性>()?;
+        let mut 结果 = BTreeMap::new();
+        结果.insert(
+            "锚点".to_string(),
+            属性值::枚举(scene_doc::property::枚举值::新建(
+                属性.锚点.变体名(),
+                属性.锚点.序号(),
+            )),
+        );
+        结果.insert("宽度".to_string(), 属性值::浮点(属性.宽度));
+        结果.insert("高度".to_string(), 属性值::浮点(属性.高度));
+        结果.insert("偏移X".to_string(), 属性值::浮点(属性.偏移x));
+        结果.insert("偏移Y".to_string(), 属性值::浮点(属性.偏移y));
+        结果.insert(
+            "贴图".to_string(),
+            属性
+                .贴图路径
+                .as_ref()
+                .map(|路径| {
+                    属性值::资源(scene_doc::property::资源引用值::按路径(
+                        路径.clone(),
+                    ))
+                })
+                .unwrap_or(属性值::空),
+        );
+        结果.insert("着色".to_string(), 属性值::颜色(属性.着色));
+        Some(结果)
+    }
+
+    fn 实例化(
+        &self, 实例: &mut dyn std::any::Any, 数据: &BTreeMap<String, 属性值>
+    ) -> bool {
+        let Some(属性) = 实例.downcast_mut::<界面图片属性>() else {
+            return false;
+        };
+        if let Some(属性值::枚举(枚举)) = 数据.get("锚点") {
+            属性.锚点 = editor_core::ui_layout::界面锚点::由值(&枚举.变体名, 枚举.序号);
+        }
+        if let Some(值) = 数据.get("宽度").and_then(属性值::取浮点) {
+            属性.宽度 = 值.max(0.0);
+        }
+        if let Some(值) = 数据.get("高度").and_then(属性值::取浮点) {
+            属性.高度 = 值.max(0.0);
+        }
+        if let Some(值) = 数据.get("偏移X").and_then(属性值::取浮点) {
+            属性.偏移x = 值;
+        }
+        if let Some(值) = 数据.get("偏移Y").and_then(属性值::取浮点) {
+            属性.偏移y = 值;
+        }
+        属性.贴图路径 = 数据
+            .get("贴图")
+            .and_then(属性值::取资源)
+            .map(|引用| 引用.路径.clone());
+        if let Some(值) = 数据.get("着色").and_then(属性值::取颜色) {
+            属性.着色 = 值;
+        }
+        true
+    }
+}
+
 fn 面板字段() -> &'static [属性描述] {
     static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
     列表.get_or_init(|| {
@@ -478,9 +606,84 @@ fn 按钮字段() -> &'static [属性描述] {
     })
 }
 
+fn 图片字段() -> &'static [属性描述] {
+    static 列表: OnceLock<Vec<属性描述>> = OnceLock::new();
+    列表.get_or_init(|| {
+        let 锚点选项: Vec<(String, String, u32)> = editor_core::ui_layout::界面锚点::全部
+            .iter()
+            .map(|锚点| {
+                (
+                    锚点.词条键().to_string(),
+                    锚点.变体名().to_string(),
+                    锚点.序号(),
+                )
+            })
+            .collect();
+        vec![
+            属性描述::新建(
+                "锚点",
+                "ui_field_anchor",
+                属性种类::枚举 {
+                    选项: 锚点选项
+                },
+                属性值::枚举(scene_doc::property::枚举值::新建("TopLeft", 0)),
+            )
+            .带提示("ui_field_anchor_tooltip"),
+            属性描述::新建(
+                "宽度",
+                "ui_field_width",
+                属性种类::浮点范围(0.0, 4096.0, 1.0),
+                属性值::浮点(256.0),
+            )
+            .带提示("ui_field_size_tooltip"),
+            属性描述::新建(
+                "高度",
+                "ui_field_height",
+                属性种类::浮点范围(0.0, 4096.0, 1.0),
+                属性值::浮点(256.0),
+            )
+            .带提示("ui_field_size_tooltip"),
+            属性描述::新建(
+                "偏移X",
+                "ui_field_offset_x",
+                属性种类::浮点范围(-4096.0, 4096.0, 1.0),
+                属性值::浮点(40.0),
+            )
+            .带提示("ui_field_offset_tooltip"),
+            属性描述::新建(
+                "偏移Y",
+                "ui_field_offset_y",
+                属性种类::浮点范围(-4096.0, 4096.0, 1.0),
+                属性值::浮点(40.0),
+            )
+            .带提示("ui_field_offset_tooltip"),
+            属性描述::新建(
+                "贴图",
+                "ui_field_image",
+                属性种类::资源 {
+                    类别: scene_doc::property::资源类别::图片,
+                },
+                属性值::空,
+            )
+            .带提示("ui_field_image_tooltip"),
+            属性描述::新建(
+                "着色",
+                "ui_field_tint",
+                属性种类::颜色,
+                属性值::颜色(颜色值::白()),
+            ),
+        ]
+    })
+}
+
 /// 界面组件名列表（供测试与界面提示）。
 pub fn 界面组件名列表() -> Vec<&'static str> {
-    vec![界面面板组件名, 界面文本组件名, 界面按钮组件名]
+    vec![
+        界面面板组件名,
+        界面文本组件名,
+        界面按钮组件名,
+        界面图片组件名,
+    ]
 }
 
 #[cfg(test)]
@@ -540,5 +743,77 @@ mod 测试 {
         let 导出 = 类型.导出(&*实例).unwrap();
         assert_eq!(导出.get("文本"), Some(&属性值::文本("开始游戏".into())));
         assert_eq!(导出.get("字号"), Some(&属性值::浮点(32.0)));
+    }
+
+    /// 贴图、着色与锚点必须原样穿过属性表，负尺寸夹到 0。
+    #[test]
+    fn 图片字段导出实例化往返() {
+        let 类型 = 界面图片组件类型;
+        let mut 实例 = 类型.默认实例();
+        let 路径 = 项目相对路径::解析("assets/ui/logo.png").unwrap();
+        let mut 数据 = BTreeMap::new();
+        数据.insert(
+            "锚点".into(),
+            属性值::枚举(scene_doc::property::枚举值::新建("BottomRight", 3)),
+        );
+        数据.insert("宽度".into(), 属性值::浮点(-16.0));
+        数据.insert(
+            "贴图".into(),
+            属性值::资源(scene_doc::property::资源引用值::按路径(
+                路径.clone(),
+            )),
+        );
+        数据.insert(
+            "着色".into(),
+            属性值::颜色(颜色值::srgb(0.5, 0.25, 0.125, 1.0)),
+        );
+        类型.实例化(&mut *实例, &数据);
+
+        let 属性 = 实例.downcast_ref::<界面图片属性>().unwrap();
+        assert_eq!(属性.锚点, editor_core::ui_layout::界面锚点::右下);
+        assert_eq!(属性.宽度, 0.0, "负宽度必须夹到 0");
+        assert_eq!(属性.贴图路径.as_ref(), Some(&路径));
+
+        let 导出 = 类型.导出(&*实例).unwrap();
+        let 枚举 = match 导出.get("锚点") {
+            Some(属性值::枚举(枚举)) => 枚举,
+            other => panic!("锚点应当是枚举，实际 {other:?}"),
+        };
+        assert_eq!((枚举.变体名.as_str(), 枚举.序号), ("BottomRight", 3));
+        assert_eq!(
+            导出
+                .get("贴图")
+                .and_then(属性值::取资源)
+                .map(|引用| &引用.路径),
+            Some(&路径),
+            "贴图路径必须原样导出"
+        );
+        assert_eq!(导出.get("宽度"), Some(&属性值::浮点(0.0)));
+    }
+
+    /// 挂 `UiImage` 的实体在构建运行时世界时必须被算作"已应用"，
+    /// 否则「运行」会误报一类组件未注册被跳过。
+    #[test]
+    fn 图片组件会被运行时世界接收() {
+        use scene_doc::document::{场景文档, 组件数据};
+
+        let 注册表 = crate::scene_bridge::全部内置组件注册表();
+        let 类型 = 注册表.要求(界面图片组件名).expect("UiImage 必须已注册");
+        let mut 属性 = BTreeMap::new();
+        for 描述 in 类型.字段描述() {
+            属性.insert(描述.字段名.clone(), 描述.默认值.clone());
+        }
+        let mut 文档 = 场景文档::新建("界面");
+        let 标识 = 文档.生成实体("徽标", None);
+        if let Some(实体) = 文档.取可变(标识) {
+            实体.加组件(组件数据::新建(界面图片组件名, 属性));
+        }
+
+        let mut 世界 = bevy::prelude::World::new();
+        let (统计, 映射) = crate::scene_bridge::构建世界(&mut 世界, &文档, &注册表);
+        assert_eq!(统计.组件数, 1);
+        assert!(统计.跳过类型.is_empty(), "UiImage 不应被当成未支持类型");
+        let 运行时 = 映射.取运行时(标识).expect("映射里应当有图片实体");
+        assert!(世界.get::<界面图片属性>(运行时).is_some());
     }
 }

@@ -59,7 +59,9 @@ pub mod scene_bridge;
 pub mod tile_terrain;
 pub mod tilemap_textures;
 pub mod ui_components;
+pub mod ui_data;
 pub mod ui_preview;
+pub mod ui_runtime;
 
 pub use build::构建宿主;
 pub use config::{

@@ -39,6 +39,8 @@ pub mod bsn_templates;
 pub mod build;
 pub mod capture;
 pub mod code_loader;
+pub mod particle_components;
+pub mod particle_runtime;
 pub mod components3d;
 pub mod config;
 pub mod debug_bridge;

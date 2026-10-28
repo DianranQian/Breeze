@@ -57,10 +57,18 @@
 > 片段为空占位，意图保留在属性里）；编辑器预览按 `模型` 路径加载 `Gltf` 主资产，
 > 从 `named_animations` 按名字解析片段，找到 `WorldAssetRoot` 子树里 glTF 加载器
 > 放下的 `AnimationPlayer` 后编译单片段图并套用速度 / 循环，片段缺失或模型无动画
-> 只告警一次；证据：`gltf_animation.rs` 4 集成 + 11 单元测试），
+> 只告警一次；证据：`gltf_animation.rs` 4 集成 + 11 单元测试）+
+> P5-17 粒子特效（`bevy_hanabi` 0.19 依赖 Bevy ^0.19 与 0.20 不兼容、git 主分支
+> 未发布，记录冲突后改走极简自定义系统：新增文档组件 `粒子发射器`——
+> 发射速率 / 生命周期 / 初始速度 / 颜色 / 粒子大小；`particle_runtime` 的确定性
+> CPU 步进模拟器（LCG 伪随机、重力 -9.8、寿命 ±20% 抖动、512 个硬上限）同时
+> 服务两个宿主：运行时在隔离 `World` 里生成 `粒子实例` 实体并在 `推进运行时粒子`
+> 中回收，预览在三维层用共享小球网格 + 不受光混合材质渲染、随寿命收缩；
+> 预览投影不要求 `Sprite`，隐藏实体不发射；证据：`particle_emitter.rs` 5 集成 +
+> 13 单元测试），
 > 11 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
 > （全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`；随附的字体/图标保留各自上游许可），
-> `cargo test --workspace` = 1,562 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,567 处）。
+> `cargo test --workspace` = 1,580 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,585 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

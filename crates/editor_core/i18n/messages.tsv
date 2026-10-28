@@ -943,6 +943,16 @@ anim_field_speed	播放速度	Speed
 anim_field_speed_tooltip	1 为原速，负数倒放；只影响播放，不改模型文件	1 is normal speed, negative plays backwards; playback only, the model file is untouched
 anim_field_loop	循环	Loop
 anim_field_loop_tooltip	关闭时片段播一次后停在最后一帧	When off, the clip stops on its last frame
+fx_field_rate	发射速率（个/秒）	Emission rate (particles/s)
+fx_field_rate_tooltip	每秒生成多少个粒子；到 512 个会停止发射，等旧粒子自然消亡	Particles spawned per second; emission pauses at 512 live particles until old ones expire
+fx_field_lifetime	生命周期（秒）	Lifetime (s)
+fx_field_lifetime_tooltip	单个粒子存活多久；每个粒子有 ±20% 的随机抖动	How long a particle lives; each one varies by ±20%
+fx_field_speed	初始速度	Initial speed
+fx_field_speed_tooltip	沿本地 +Y 锥形喷射的初速度（世界单位/秒），之后只受重力影响	Initial speed along a local +Y cone (world units/s); only gravity acts afterwards
+fx_field_color	粒子颜色	Particle color
+fx_field_color_tooltip	粒子的颜色，透明度会参与混合	Particle color; alpha participates in blending
+fx_field_size	粒子大小	Particle size
+fx_field_size_tooltip	粒子直径（世界单位），接近消亡时会收缩到 5%	Particle diameter (world units); shrinks to 5% near the end of life
 open_source_line_hint	在代码面板里打开这一行	Open this line in the code panel
 audition_play	试听	Audition
 audition_play_hint	在编辑器里播放这个音频（不改场景、不改项目）	Play this clip inside the editor without touching the scene or the project

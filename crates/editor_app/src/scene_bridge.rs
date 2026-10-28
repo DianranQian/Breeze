@@ -528,6 +528,14 @@ fn 插入已知组件(
         crate::animation_runtime::装配运行时动画(世界, 运行时实体, 值);
         return true;
     }
+    // 粒子发射器：属性原样落进世界，并立刻挂上粒子云。粒子实体由
+    // `particle_runtime::推进运行时粒子` 每帧生成/更新/回收，
+    // 停止运行时随整个世界一起丢弃，不会有残留。
+    if let Some(值) = 实例.downcast_ref::<crate::particle_components::粒子发射器属性>() {
+        世界.entity_mut(运行时实体).insert(值.clone());
+        crate::particle_runtime::装配运行时粒子(世界, 运行时实体);
+        return true;
+    }
     false
 }
 
@@ -1680,6 +1688,7 @@ static 内置组件构造表: &[组件构造] = &[
     // 界面图片同样只能追加：它属于界面组，但既有顺序已经是外部契约。
     || Box::new(crate::ui_components::界面图片组件类型),
     || Box::new(crate::animation_components::动画播放器组件类型),
+    || Box::new(crate::particle_components::粒子发射器组件类型),
 ];
 
 /// 按构造表构建注册表；这是全项目唯一的 `.注册` 调用点。
@@ -1763,6 +1772,7 @@ mod 测试 {
                 "刚体3d",
                 "UiImage",
                 "动画播放器",
+                "粒子发射器",
             ],
             "注册顺序是集中前的基线，不得改变"
         );

@@ -506,9 +506,11 @@ fn 预览应用(项目: Option<项目描述>, 文档: 场景文档) -> App {
     应用.insert_resource(贴图缓存::default());
     应用.insert_resource(地形缓存::default());
     应用.insert_resource(材质缓存::default());
+    应用.insert_resource(editor_app::particle_runtime::粒子材质表::default());
     应用.insert_resource(预览同步状态::default());
     应用.insert_resource(三维预览资源 {
         四边形: Handle::default(),
+        粒子球: Handle::default(),
     });
     应用.add_systems(Update, 同步预览实体);
     应用

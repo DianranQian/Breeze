@@ -83,6 +83,8 @@ pub const 三维渲染层: usize = 预览渲染层 + 1;
 pub struct 三维预览资源 {
     /// 四边形网格句柄。
     pub 四边形: Handle<Mesh>,
+    /// 粒子小球网格句柄（所有粒子共用，直径 1，按实体缩放）。
+    pub 粒子球: Handle<Mesh>,
 }
 
 /// 三维预览的当前状态。
@@ -737,6 +739,43 @@ pub fn 投影预览项(文档: &场景文档) -> Vec<预览渲染项> {
     结果
 }
 
+/// 从场景文档投影出"哪些实体要发射粒子"。
+///
+/// # 与 [`投影预览项`] 分开的原因
+///
+/// 粒子不要求实体有 `Sprite`：一个空的定位节点完全可以只当发射器用，
+/// 这在火焰、烟雾、喷泉里是最常见的搭法。因此粒子单独成一条投影规则，
+/// 只要求"有 `粒子发射器` 组件且未被编辑器隐藏"。
+///
+/// 顺序与 `深度优先遍历` 一致，便于对照。
+pub fn 投影粒子发射器(
+    文档: &场景文档,
+) -> Vec<(实体标识, crate::particle_components::粒子发射器属性)> {
+    let mut 结果 = Vec::new();
+    for 标识 in 文档.文档遍历() {
+        let Some(实体) = 文档.取(标识) else {
+            continue;
+        };
+        if 实体.编辑器隐藏 {
+            continue;
+        }
+        if let Some(组件) = 实体.取组件(crate::particle_components::粒子发射器组件名)
+        {
+            结果.push((标识, crate::particle_components::解析粒子发射器(&组件.属性)));
+        }
+    }
+    结果
+}
+
+/// 由文档标识派生粒子模拟器的种子。
+///
+/// 取 UUID 的低 32 位与次 32 位异或：同一个实体每次打开场景、
+/// 每次重建预览都得到同一段轨迹，避免"每次同步粒子形状都变"。
+pub fn 粒子种子(标识: 实体标识) -> u32 {
+    let 位 = 标识.0.as_u128();
+    (位 as u32) ^ ((位 >> 32) as u32)
+}
+
 /// 一个 `TileTerrain` 实体应当产生的渲染项。
 ///
 /// 与 [`预览渲染项`] 分开，因为它的"贴图"不是一条资源路径，而是
@@ -1016,12 +1055,14 @@ pub fn 初始化预览资源(
     命令.insert_resource(贴图缓存::default());
     命令.insert_resource(地形缓存::default());
     命令.insert_resource(材质缓存::default());
+    命令.insert_resource(crate::particle_runtime::粒子材质表::default());
     命令.insert_resource(地形文件监视::default());
     命令.insert_resource(预览同步状态::default());
     // 三维实体用同一个 1×1 四边形，按实体显示尺寸缩放：
     // 一个网格句柄服务全部实体，比每个实体建一个网格省得多。
     命令.insert_resource(三维预览资源 {
         四边形: 网格资源.add(Rectangle::new(1.0, 1.0)),
+        粒子球: 网格资源.add(Sphere::new(0.5).mesh().uv(8, 6)),
     });
     命令.insert_resource(三维预览状态::default());
 
@@ -1250,6 +1291,7 @@ pub fn 同步预览实体(
     mut 贴图缓存: ResMut<贴图缓存>,
     mut 地形缓存: ResMut<地形缓存>,
     mut 材质缓存: ResMut<材质缓存>,
+    mut 粒子材质缓存: ResMut<crate::particle_runtime::粒子材质表>,
     三维资源: Res<三维预览资源>,
     mut 材质表: ResMut<Assets<StandardMaterial>>,
     mut 网格资源: ResMut<Assets<Mesh>>,
@@ -1287,6 +1329,19 @@ pub fn 同步预览实体(
     // 世界变换只由 `TransformPlugin` 的 `GlobalTransform` 传播产生。
     let 节点表 = 构建预览层级(&mut 命令, 文档);
     let 叠放序号 = 文档.叠放序号表();
+
+    // 粒子发射器挂在预览节点上：节点承载文档变换，粒子用节点本地坐标
+    // 运动，所以移动/旋转节点时整束粒子跟着走，不需要每帧重算世界空间。
+    for (标识, 属性) in 投影粒子发射器(文档) {
+        let Some(节点) = 节点表.get(&标识).copied() else {
+            continue;
+        };
+        let 材质 = 粒子材质缓存.取或建(属性.颜色, &mut 材质表);
+        命令.entity(节点).insert((
+            属性,
+            crate::particle_runtime::预览粒子云::新建(材质, 粒子种子(标识)),
+        ));
+    }
 
     for 项 in &待渲染 {
         let Some(节点) = 节点表.get(&项.来源).copied() else {

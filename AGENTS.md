@@ -72,10 +72,30 @@
 > 启动也能找到 `dist/assets/`；根目录 `build_release.ps1` 执行
 > `cargo build --release`，从 cargo 的 JSON 产物消息读取真实 exe 路径（兼容
 > `target-dir` 重定向），收集 exe / pdb / 可选资源与示例到 `dist/` 并写清单；
-> README 增加两种导出路径与诚实边界；证据：`asset_root` 9 单元测试），
+> README 增加两种导出路径与诚实边界；证据：`asset_root` 9 单元测试）+
+> P5-19 独立游戏运行模式与一键可玩包（新增 `editor_core::game_manifest`：
+> `game_manifest.ron`（格式版本 / 名称 / 主场景 / 设计分辨率 / 是否全屏）
+> 只接受项目根内的相对路径、拒绝目录穿越、拒绝比当前程序更新的格式版本，
+> 读取端跳过 UTF-8 BOM；`editor_app::standalone` 在 `main` 里**先判身份再装配**
+> （`--game` 参数 → exe 同级 → 当前目录的清单），命中就只加 `DefaultPlugins`
+> 且**不加 `EguiPlugin` / 不加 `BevyStudio插件`**，复用编辑器的投影与运行时世界
+> （`同步预览实体` / 灯光与环境 / 界面元素 / glTF 动画 / 粒子 / `推进运行时`），
+> 另加 `同步运行姿态`（运行时本地 `Transform` → 投影节点，两棵树共用文档父链才敢直拷）
+> 与 `同步游戏相机`（文档 `Camera3d` 节点的 `GlobalTransform` 驱动唯一那台 `预览相机`），
+> `Esc` 退出；窗口必须走 `DefaultPlugins.set(WindowPlugin)`（再 `add_plugins` 一次会
+> 在启动瞬间 panic），`WinitPlugin` 在非主线程建事件循环会 panic，故把「游戏内核」
+> 从「窗口外壳」里拆成 `装配内核` 供单测断言**没有装配任何界面层**；
+> `build_release.ps1 -ExportGame` 把 exe + 工程 + 场景 + 资源 + 无 BOM 清单收进
+> `Game_Build/`（`-ExportWindowed` 改窗口模式，`-ProjectDir` 缺省时读编辑器配置的
+> 最近项目），编辑器「打包」也随包写 `game_manifest.ron`，无主场景的项目不写；
+> 顺带修 `viewport_panel` 二维预览按**贴图尺寸**铺放导致视口右上留黑的缺陷
+> （改按面板换算的 `显示矩形`）；示例 `examples/3d_demo` 补「主相机」节点与
+> 场景背景色，使导出的包真能看见三维画面；证据：`game_manifest` 8 单元 +
+> `standalone` 10 单元 + `package` 清单 2 + `viewport_panel` 预览矩形 2，
+> 并用真实导出包跑通「启动 → 三维取景渲染 → Esc 退出」），
 > 11 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
 > （全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`；随附的字体/图标保留各自上游许可），
-> `cargo test --workspace` = 1,589 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,594 处）。
+> `cargo test --workspace` = 1,610 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,615 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

@@ -7,6 +7,8 @@
 /target/
 # build_release.ps1 的默认输出目录；发行包是产物，不进仓库。
 /dist/
+# build_release.ps1 -ExportGame 的默认输出目录；可玩包 = exe + 工程 + 清单，同样是产物。
+/Game_Build/
 # 独立示例是自己的 Cargo 工程，构建产物落在它自己的目录里。
 /examples/bevy_debug_demo/target/
 **/*.rs.bk

@@ -40,9 +40,23 @@ fn 资源目录() -> String {
         .to_string()
 }
 
+/// 进程入口：先判身份，再装配。
+///
+/// 带 `--game`（或 exe / 当前目录里有 `game_manifest.ron`）时以**游戏**身份
+/// 启动，走 `standalone::从命令行启动`，全程不装配编辑器界面；
+/// 否则以**编辑器**身份启动。两种身份共用同一份投影与运行时桥接，
+/// 因此"视口里长这样、打包后长那样"这类分裂从构造上就不会出现。
 fn main() {
     // 崩溃一律写报告文件 + stderr，不弹原生窗口（见 `panic_report` 模块文档）。
     editor_app::panic_report::安装崩溃钩子();
+    let 参数: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(结果) = editor_app::standalone::从命令行启动(&参数) {
+        if let Err(错误) = 结果 {
+            eprintln!("独立游戏模式启动失败：{错误}");
+            std::process::exit(1);
+        }
+        return;
+    }
     // 允许用环境变量覆盖窗口尺寸：不同尺寸下的布局验收必须能自动跑，
     // 否则"窗口变窄时状态栏被挤坏"这类问题只能靠人去拉窗口。
     let (宽, 高) = std::env::var(editor_app::capture::窗口尺寸环境变量)

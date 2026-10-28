@@ -60,6 +60,9 @@ pub mod recovery_autosave;
 pub mod run;
 pub mod runtime_acceptance;
 pub mod scene_bridge;
+// 独立游戏运行模式：与编辑器共用同一个 exe，靠 `--game` 或
+// `game_manifest.ron` 判定身份，启动时只装配投影与运行时、不装配界面。
+pub mod standalone;
 pub mod tile_terrain;
 pub mod tilemap_textures;
 pub mod ui_components;

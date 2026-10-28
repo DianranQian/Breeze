@@ -256,3 +256,32 @@
 需要 `TEMP=<workspace>/target/tmp TMP=<workspace>/target/tmp`；
 `cargo test --workspace` 仍有 3 条既有失败，原因全部是"临时目录落在仓库内被
 cargo 当成工作区成员"，与本轮改动无关（清单见 `docs/验收证据/69_资源预览_自动化测试日志.log`）。
+
+## 17. P5-19 独立游戏运行模式与一键可玩包
+
+验收对象：`crates/editor_core/src/game_manifest.rs`、`crates/editor_app/src/standalone.rs`、
+根目录 `build_release.ps1 -ExportGame`，以及**真实导出的包**。
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 自动化：清单数据层 | `cargo test -p editor_core --lib game_manifest` | **8 通过 / 0 失败**（往返、版本倒退、目录穿越、缺文件、无场景、BOM、`project.ron` 稳定写法） |
+| 自动化：启动身份 | `cargo test -p editor_app --lib standalone` | **10 通过 / 0 失败**（`--game`、`--game=`、exe 同级清单、清单损坏不退回编辑器、设计分辨率写入项目、相机视野夹取、缺场景报错） |
+| 自动化：装配无界面 | `游戏应用装配里没有界面层` | 裸 `App` 装 `装配内核` 后 `!is_plugin_added::<EguiPlugin>()` 且无 `BevyStudio插件`（`DefaultPlugins` 会在线程外建事件循环，测试不构造它） |
+| 自动化：打包写入 | `cargo test -p editor_core --lib package` | 含 `包里有游戏清单…` / `没有主场景的项目不写游戏清单` 两条 |
+| 全量回归 | `cargo test --workspace` | **1,610 passed / 0 failed / 8 ignored** |
+| 导出 | `.\build_release.ps1 -ExportGame -SkipBuild -ProjectDir examples/3d_demo -GameOutDir target/verify/Game_Build` | 17 个文件 / 114.6 MB；`game_manifest.ron` 无 BOM，主场景与设计分辨率取自 `project.ron` |
+| 实机启动 | 包内 `.\bevy-studio.exe --windowed` | 日志 `独立游戏已启动：运行时实体 37 个…三维取景`；窗口标题为项目名；**无编辑器面板**；截图 `docs/验收证据/71_独立游戏_导出包实机.png` |
+| 实机退出 | 向窗口投递 `WM_KEYDOWN/UP VK_ESCAPE` | 进程在 4 秒内退出，日志无 panic / error |
+| 相机跟随（A/B 定案） | 把示例主相机旋转改为单位四元数后重新导出 | 画面变成**纯背景色**（水平视线在 34 单位高度上看不见场地），证明确实按文档变换取景，而不是回落到默认机位 |
+
+**过程中修掉的真实缺陷**（都由实机启动暴露，单测当时是绿的）：
+
+1. `add_plugins(WindowPlugin{…})` 与 `DefaultPlugins` 自带的那一份冲突，
+   启动瞬间 panic `plugin was already added in application` → 改走 `DefaultPlugins.set(...)`；
+2. `解析三维相机` 里用 `?` 提前返回，导致"第一个实体不是相机"就整轮失败
+   （表现为同一份工程时好时坏）→ 改 `let … else { continue }`；
+3. 示例场景补主相机后仍不进三维取景：手工加的根实体没登记进 `顶层顺序`，
+   按文档语义等同悬空 → 补登记（编辑器写入路径本来就会维护这张表）。
+
+**未验证**：全屏（无边框）模式下的多显示器行为、以及用户工程自带的 System/Plugin
+在独立模式里的执行 —— 独立模式仍只跑编辑器的投影 + 运行时世界，游戏逻辑走子进程路径。

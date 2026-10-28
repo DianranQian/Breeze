@@ -42,6 +42,8 @@ pub mod collision;
 pub mod command;
 pub mod delta;
 pub mod diagnostics;
+// 独立游戏运行清单：只依赖 `std` 与 serde，路径校验与版本校验可直接单测。
+pub mod game_manifest;
 pub mod i18n;
 pub mod instance;
 pub mod log_source;
@@ -92,6 +94,9 @@ pub use delta::文档差量;
 pub use diagnostics::{
     从构建诊断, 任务标识, 任务类别, 保留构建记录, 构建记录, 筛选条件, 解析运行日志, 诊断严重级别,
     诊断条目, 诊断来源, 诊断集合, 默认诊断上限,
+};
+pub use game_manifest::{
+    清单错误, 游戏清单, 游戏清单文件名, 游戏清单格式版本,
 };
 pub use i18n::{词条, 词表, 语言};
 pub use instance::{实例化为, 实例化结果, 实例来源, 实例标记组件, 来源属性};

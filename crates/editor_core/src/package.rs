@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::game_manifest::{游戏清单, 游戏清单文件名};
 use crate::project::{项目描述, 项目清单文件名};
 
 /// 打包输出目录的默认名字（相对项目根）。
@@ -218,16 +219,7 @@ pub fn 生成打包计划(
     let 场景列表: Vec<scene_doc::path::项目相对路径> = if 配置.包含全部场景 {
         项目.场景列表()
     } else {
-        项目
-            .清单()
-            .启动场景
-            .clone()
-            .into_iter()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .chain(项目.场景列表().into_iter().take(1))
-            .take(1)
-            .collect()
+        项目.启动场景().into_iter().collect()
     };
 
     for 场景 in 场景列表 {
@@ -301,7 +293,7 @@ pub fn 生成打包计划(
     计划
 }
 
-/// 执行打包：按计划把文件复制到输出目录。
+/// 执行打包：按计划把文件复制到输出目录，并写游戏运行清单。
 ///
 /// # 失败处理
 ///
@@ -311,6 +303,13 @@ pub fn 生成打包计划(
 ///
 /// 会先清空输出目录：发行包必须是"恰好这些文件"，
 /// 残留的上一版资源会让用户以为改动没生效。
+///
+/// # 为什么清单不是计划里的一条
+///
+/// `game_manifest.ron` 的内容由项目清单推导（见 [`游戏清单::从项目`]），
+/// 磁盘上没有对应的源文件可复制，因此它在复制阶段之后单独生成。
+/// 项目一个场景都没有时不写清单：没有入口的目录不是可玩的包，
+/// 写了清单只会让运行时加载到空入口。
 pub fn 执行打包(
     项目: &项目描述, 配置: &打包配置, 计划: &打包计划
 ) -> 打包报告 {
@@ -355,8 +354,29 @@ pub fn 执行打包(
         }
     }
 
+    let mut 附加文件: Vec<(String, u64)> = Vec::new();
+    match 游戏清单::从项目(项目) {
+        Ok(清单) => match 清单.写入(&输出目录) {
+            Ok(路径) => {
+                let 字节 = std::fs::metadata(&路径).map(|元| 元.len()).unwrap_or(0);
+                附加文件.push((游戏清单文件名.to_string(), 字节));
+            }
+            Err(错误) => 报告
+                .失败项
+                .push((游戏清单文件名.to_string(), 错误.to_string())),
+        },
+        // 空项目：没有主场景就没有可玩的入口，不写清单（见文档说明）。
+        Err(错误) => {
+            if !matches!(错误, crate::game_manifest::清单错误::没有主场景) {
+                报告
+                    .失败项
+                    .push((游戏清单文件名.to_string(), 错误.to_string()));
+            }
+        }
+    }
+
     if 配置.写入清单 {
-        let 清单 = 生成清单文本(计划, &报告);
+        let 清单 = 生成清单文本(计划, &报告, &附加文件);
         if let Err(错误) = std::fs::write(输出目录.join("build-info.txt"), 清单) {
             报告
                 .失败项
@@ -369,17 +389,26 @@ pub fn 执行打包(
 }
 
 /// 生成包内说明文件（文件清单，便于用户与 CI 排查"包里到底有什么"）。
-fn 生成清单文本(计划: &打包计划, 报告: &打包报告) -> String {
+///
+/// `附加` 是复制阶段之外生成的文件（目前只有游戏清单），它们同样要
+/// 出现在清单里，否则用户会以为"包里没有 game_manifest.ron"。
+fn 生成清单文本(
+    计划: &打包计划, 报告: &打包报告, 附加: &[(String, u64)]
+) -> String {
+    let 附加字节: u64 = 附加.iter().map(|(_, 字节)| 字节).sum();
     let mut 文本 = String::new();
     文本.push_str("# 微风（Breeze）打包清单\n");
     文本.push_str(&format!(
         "# 共 {} 个文件，{}\n",
-        计划.条目.len(),
-        人类可读字节(计划.总字节())
+        计划.条目.len() + 附加.len(),
+        人类可读字节(计划.总字节() + 附加字节)
     ));
     文本.push_str("# 目标                大小\n");
     for 条目 in &计划.条目 {
         文本.push_str(&format!("{:<28} {}\n", 条目.目标, 人类可读字节(条目.大小)));
+    }
+    for (名称, 字节) in 附加 {
+        文本.push_str(&format!("{名称:<28} {}\n", 人类可读字节(*字节)));
     }
     if !报告.失败项.is_empty() {
         文本.push_str("\n# 写入失败：\n");
@@ -536,6 +565,7 @@ mod 测试 {
             "assets/hero.png",
             "mini_game.exe",
             "project.ron",
+            "game_manifest.ron",
             "build-info.txt",
         ] {
             assert!(
@@ -547,6 +577,23 @@ mod 测试 {
         }
         let 清单 = std::fs::read_to_string(输出.join("build-info.txt")).expect("读清单");
         assert!(清单.contains("assets/hero.png"));
+        assert!(清单.contains("game_manifest.ron"), "说明文件必须列出游戏清单");
+        let 游戏清单 = 游戏清单::读取(&输出).expect("读取游戏清单");
+        assert_eq!(游戏清单.主场景, "scenes/主场景.scene.ron");
+    }
+
+    #[test]
+    fn 没有主场景的项目不写游戏清单() {
+        let (_目录, 项目) = 建项目();
+        let 配置 = 打包配置::default();
+        let 计划 = 生成打包计划(&项目, &配置, None);
+        let 报告 = 执行打包(&项目, &配置, &计划);
+        assert!(报告.成功, "失败项：{:?}", 报告.失败项);
+        let 输出 = 项目.根目录().join(默认输出目录);
+        assert!(
+            !输出.join(游戏清单文件名).exists(),
+            "没有场景就没有可玩的入口，不应写出空入口的清单"
+        );
     }
 
     #[test]

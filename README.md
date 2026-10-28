@@ -94,6 +94,9 @@
 
 - **运行 / 暂停 / 继续 / 停止**当前场景，运行时诊断面板显示实体数、
   组件类型数、帧率、帧耗时
+- **独立游戏运行模式**：同一个 exe 用 `--game` 或同级的 `game_manifest.ron`
+  切换到游戏身份，不装配任何编辑器界面，直接全屏加载主场景并启动运行时
+  （物理 / 动画 / 粒子）；导出方式见「如何导出一个可玩的游戏」
 - 运行时世界与编辑器文档**物理隔离**：运行时的任何修改都不会写回文档
 - **控制台**：按级别过滤与搜索，自动滚到底部，错误在标签页上显示角标
 - **历史面板**、**性能面板**
@@ -154,7 +157,9 @@ cargo run -p editor_app --bin bevy-studio
 ### 打包与独立运行（绿色版）
 
 `build_release.ps1` 做两件事：构建 release 编辑器，再把可执行文件与资源
-收进 `dist/`。目标机器不需要安装 Rust，把 `dist/` 整个复制过去即可运行。
+收进 `dist/`。加 `-ExportGame` 时改做第三件事：把 exe + 一个工程 + 游戏清单
+收进 `Game_Build/`，那是一个**直接进游戏、不开编辑器**的可玩包。
+目标机器不需要安装 Rust，把产物目录整个复制过去即可运行。
 
 ```powershell
 # 仓库根目录
@@ -162,6 +167,11 @@ cargo run -p editor_app --bin bevy-studio
 .\build_release.ps1 -SkipBuild                 # 复用已有 release 产物
 .\build_release.ps1 -AssetsDir D:\游戏资源     # 指定要随包分发的资源目录
 .\build_release.ps1 -WithExamples              # 额外把 examples/ 拷进 dist/
+.\build_release.ps1 -ExportGame                # 导出可玩包 → Game_Build/
+.\build_release.ps1 -ExportGame -ExportWindowed        # 包内清单改为窗口模式启动
+.\build_release.ps1 -ExportGame -SkipBuild `
+    -ProjectDir examples\3d_demo `
+    -GameOutDir D:\发布\我的游戏                # 指定工程与输出目录
 ```
 
 产物布局与资源查找规则一一对应：
@@ -178,6 +188,25 @@ dist/
 脚本从 `cargo build --message-format=json` 的产物消息里读可执行文件路径，
 因此本仓库把 `target-dir` 重定向到别处时也不会找错目录。
 
+`-ExportGame` 的产物布局（与 `editor_app::standalone` 的身份判定一一对应：
+exe 同级有 `game_manifest.ron` 就以游戏身份启动）：
+
+```text
+Game_Build/
+├── bevy-studio.exe
+├── bevy-studio.pdb        # 存在时一并复制，崩溃报告才能定位符号
+├── game_manifest.ron      # 主场景 / 设计分辨率 / 是否全屏
+├── project.ron            # 工程清单（独立模式仍按它装载项目）
+├── scenes/  assets/  prefabs/  animations/   # 工程里存在才复制
+└── build-info.txt
+```
+
+`-ProjectDir` 省略时，脚本读编辑器配置里的**当前打开的工程**
+（`%APPDATA%\BevyStudio\config.ron`，可用 `BEVY_STUDIO_CONFIG_DIR` 覆盖），
+所以"在编辑器里调好、回终端敲一条命令"就是完整流程。主场景与设计分辨率
+从工程的 `project.ron` 推导；读不出启动场景时退回 `scenes/` 里第一个场景，
+一个场景都没有则直接报错——生成一个跑不起来的包比报错更难排查。
+
 **资源根解析**（`editor_core::asset_root`，编辑器启动时执行一次）：
 
 | 优先级 | 候选 |
@@ -192,29 +221,56 @@ dist/
 
 ### 如何导出一个可玩的游戏
 
-**方式一：编辑器内打包（项目交付）**
+**方式一：一键导出可玩包（推荐给玩家/测试者）**
+
+```powershell
+.\build_release.ps1 -ExportGame          # → Game_Build/，双击 exe 直接进游戏
+```
+
+包里是同一个 `bevy-studio.exe`，但启动时**不装配任何编辑器界面**：
+入口先判身份（`--game` 参数，或 exe 同级/当前目录里有 `game_manifest.ron`），
+命中就以游戏身份加载清单里的主场景，直接渲染到窗口并启动运行时
+（物理步进、glTF 动画、粒子）。判定顺序与参数见
+[`crates/editor_app/src/standalone.rs`](crates/editor_app/src/standalone.rs)。
+
+| 启动方式 | 结果 |
+| --- | --- |
+| 双击 `Game_Build/bevy-studio.exe` | 按 `game_manifest.ron` 全屏进游戏 |
+| `bevy-studio.exe --windowed` | 同样进游戏，但不独占显示器 |
+| `bevy-studio.exe --game D:\我的工程` | 不带清单，直接以该工程的启动场景运行 |
+| 以上都不满足 | 编辑器照旧启动 |
+
+`Esc` 退出游戏窗口。3D 场景需要文档里有一台 `Camera3d` 节点（编辑器
+新建场景时会自动补），否则退回二维正交取景并在日志里告警。
+
+> **边界**：独立模式复用编辑器的**投影 + 运行时世界**，因此能看到场景、
+> 物理、动画与粒子，但**不执行项目自己的 System / Plugin**——游戏逻辑仍走
+> 「运行项目」的子进程路径（见下方方式三）。
+
+**方式二：编辑器内打包（项目交付）**
 
 1. 打开项目，进入构建面板，把配置切到 `Release`，点「构建」并等待成功；
 2. 在同一面板下方点「打包」；
 3. 产物在项目根的 `dist/`（可在项目设置里改输出目录）。
 
 包内包含：项目清单 `project.ron`、启动场景及其登记的资源、构建出的可执行
-文件、`build-info.txt` 清单。打包会**先清空输出目录**，因此输出目录必须是
-项目内的相对路径（绝对路径与 `..` 会被拒绝）。
+文件、`game_manifest.ron`、`build-info.txt` 清单。打包会**先清空输出目录**，
+因此输出目录必须是项目内的相对路径（绝对路径与 `..` 会被拒绝）。
+项目一个场景都没有时**不写** `game_manifest.ron`：没有入口的目录不是可玩的包。
 
 > **边界**：「打包」要求先有构建成功且真实存在的可执行文件。纯微风项目
 > 如果没有声明运行目标，就没有可执行文件，打包按钮会保持不可用 ——
-> 这种情况下用方式二，以编辑器本体打开项目运行当前场景。
+> 这种情况下用方式一。
 
-**方式二：绿色版编辑器（本仓库自身）**
+**方式三：绿色版编辑器（本仓库自身）**
 
 1. 运行 `.\build_release.ps1`（需要分发示例项目时加 `-WithExamples`）；
 2. 把 `dist/` 整个复制到目标机器，双击 `bevy-studio.exe`；
 3. 菜单 **项目 → 打开项目…** 选择项目目录，按 `F5` 运行当前场景。
 
-> 当前的运行时世界负责场景构建、统计、物理、动画与粒子步进，但还没有
-> 加载项目自己的 System / Plugin（见上方「它现在不能做什么」）；因此“可玩”
-> 目前指**在编辑器视口里运行当前场景**，与独立游戏进程是两件事。
+> 这一条交付的是**编辑器**：菜单、面板、撤销栈一个不少，适合让人接着改。
+> 运行时世界负责场景构建、统计、物理、动画与粒子步进，但还没有加载项目
+> 自己的 System / Plugin（见上方「它现在不能做什么」）。
 
 ### 跑测试
 

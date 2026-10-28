@@ -52,7 +52,7 @@ use egui::{RichText, Ui};
 
 use crate::dev_modes::开发模式;
 use crate::icons::图标;
-use crate::state::{UiAction, 基础图元类型, 绘制上下文};
+use crate::state::{UiAction, 光源类型, 基础图元类型, 绘制上下文};
 
 /// 模式栏高度（逻辑像素）。
 pub const 模式栏高度: f32 = 30.0;
@@ -195,6 +195,25 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
                     .clicked()
                 {
                     上下文.动作.推(UiAction::创建基础图元 { 类型 });
+                }
+            }
+            // 光源只对三维场景有意义：二维模式不画这一组，
+            // 免得用户点了以后发现画面没有任何变化。
+            if 模式 == 开发模式::三维 {
+                ui.separator();
+                ui.label(
+                    RichText::new(语言.取("light_create"))
+                        .small()
+                        .color(配色.次要文字),
+                );
+                for 类型 in 光源类型::全部 {
+                    if ui
+                        .button(语言.取(类型.词条键()))
+                        .on_hover_text(语言.取(类型.提示词条键()))
+                        .clicked()
+                    {
+                        上下文.动作.推(UiAction::创建光源 { 类型 });
+                    }
                 }
             }
             true

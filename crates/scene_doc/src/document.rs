@@ -27,7 +27,7 @@ use crate::error::{场景结果, 场景错误};
 use crate::path::{资源唯一标识, 项目相对路径};
 use crate::prefab::{实体来源, 预制件实例记录};
 use crate::prefab_nested::记录站位;
-use crate::property::属性值;
+use crate::property::{属性值, 颜色值};
 
 /// 本编辑器支持的最高场景格式版本。
 ///
@@ -214,6 +214,60 @@ impl Default for 场景元数据 {
     }
 }
 
+/// 场景环境：全局照明与背景设置。
+///
+/// # 为什么挂在文档上而不是做成组件
+///
+/// 环境光与背景对整个场景生效，没有"所属实体"。若要求场景里必须存在一个
+/// 带环境组件的实体，删掉它就会让整片场景突然变黑；做成文档级字段后，
+/// 它随场景一起保存、加载、撤销，也不会被层级操作误删。
+///
+/// # 兼容性
+///
+/// 三个字段都带默认值：旧场景缺少 `环境` 时按默认读取；等于默认值时
+/// 不写进文件，因此升级前保存的场景文件字节保持不变。
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct 场景环境 {
+    /// 环境光颜色。
+    #[serde(default = "默认环境光颜色")]
+    pub 环境光颜色: 颜色值,
+    /// 环境光强度。对应 Bevy `GlobalAmbientLight::brightness`。
+    #[serde(default = "默认环境光强度")]
+    pub 环境光强度: f32,
+    /// 背景颜色。透明度会被渲染端忽略，预览画布始终不透明。
+    #[serde(default = "默认背景颜色")]
+    pub 背景颜色: 颜色值,
+}
+
+fn 默认环境光颜色() -> 颜色值 {
+    颜色值::白()
+}
+
+fn 默认环境光强度() -> f32 {
+    600.0
+}
+
+fn 默认背景颜色() -> 颜色值 {
+    颜色值::srgb(0.09, 0.09, 0.10, 1.0)
+}
+
+impl Default for 场景环境 {
+    fn default() -> Self {
+        Self {
+            环境光颜色: 默认环境光颜色(),
+            环境光强度: 默认环境光强度(),
+            背景颜色: 默认背景颜色(),
+        }
+    }
+}
+
+impl 场景环境 {
+    /// 是否恰好等于默认值（序列化时据此省略整个字段）。
+    pub fn 是默认(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 /// 场景中的一个实体。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct 场景实体 {
@@ -368,6 +422,9 @@ pub struct 场景文档 {
     pub 格式版本: u32,
     /// 元数据。
     pub 元数据: 场景元数据,
+    /// 全局环境设置（环境光与背景）。默认值的场景不写该字段。
+    #[serde(default, skip_serializing_if = "场景环境::是默认")]
+    pub 环境: 场景环境,
     /// 实体表。
     #[serde(default)]
     pub 实体表: BTreeMap<实体标识, 场景实体>,
@@ -400,6 +457,7 @@ impl 场景文档 {
         Self {
             格式版本: 当前格式版本,
             元数据: 场景元数据::新建(场景名),
+            环境: 场景环境::default(),
             实体表: BTreeMap::new(),
             顶层顺序: Vec::new(),
             资源表: BTreeMap::new(),
@@ -951,6 +1009,7 @@ impl 场景文档 {
     pub fn 覆盖为(&mut self, 其他: &场景文档) {
         self.格式版本 = 其他.格式版本;
         self.元数据 = 其他.元数据.clone();
+        self.环境 = 其他.环境;
         self.实体表 = 其他.实体表.clone();
         self.顶层顺序 = 其他.顶层顺序.clone();
         self.资源表 = 其他.资源表.clone();

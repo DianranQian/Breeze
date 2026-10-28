@@ -76,7 +76,19 @@ fn 欧拉角转四元数(角度: (f32, f32, f32)) -> (f32, f32, f32, f32) {
 }
 
 /// 绘制检查器。
+///
+/// # 环境设置为什么常驻
+///
+/// 环境光与背景属于**整个场景**，不挂在任何实体上。若只在选中实体时显示，
+/// 用户必须先随便选个东西才能改天空亮度；若不选实体就不显示，又会出现
+/// "这个面板到底有没有环境设置"的不确定感。放在顶部常驻，选中与不选中
+/// 两种状态都能编辑。
 pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    绘制环境区(ui, 上下文);
+    ui.add_space(crate::visual_spec::留白::分组 * 0.5);
+    crate::visual_spec::细线(ui, 上下文.配色);
+    ui.add_space(crate::visual_spec::留白::分组 * 0.5);
+
     let 编辑器 = 上下文.编辑器;
 
     let Some(标识) = 编辑器.选择.主选中() else {
@@ -123,6 +135,72 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             // ---- 组件 ----
             绘制组件列表(ui, 上下文, 标识, &实体快照);
         });
+}
+
+/// 绘制全局环境设置：环境光颜色/强度与背景颜色。
+///
+/// # 交互
+///
+/// 三个控件都直接改文档里的 [`场景环境`] 副本，一旦有变化就推一条
+/// [`UiAction::设置场景环境`]。动作层用连续命令执行，因此拖一次滑块
+/// 只产生一步撤销；预览在同一帧的下一次同步里读到新值，实现实时反馈。
+///
+/// # 背景为什么固定不透明
+///
+/// 预览相机渲染到界面纹理，透明背景会让画布后面的面板透出来。
+/// 用户选的是"场景背景"，只暴露 RGB 三个分量，透明度强制为 1。
+fn 绘制环境区(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    let mut 环境 = 上下文.编辑器.会话.文档.环境;
+    let mut 改了 = false;
+
+    egui::CollapsingHeader::new(RichText::new(语言.取("environment_settings")).color(配色.文字))
+        .default_open(true)
+        .show(ui, |ui| {
+            egui::Grid::new("environment_settings_grid")
+                .num_columns(2)
+                .spacing([8.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label(语言.取("environment_ambient_color"));
+                    let mut 颜色 = [
+                        环境.环境光颜色.红,
+                        环境.环境光颜色.绿,
+                        环境.环境光颜色.蓝,
+                        环境.环境光颜色.透明度,
+                    ];
+                    if ui.color_edit_button_rgba_unmultiplied(&mut 颜色).changed() {
+                        环境.环境光颜色 = 颜色值::srgb(颜色[0], 颜色[1], 颜色[2], 颜色[3]);
+                        改了 = true;
+                    }
+                    ui.end_row();
+
+                    ui.label(语言.取("environment_ambient_intensity"));
+                    if ui
+                        .add(
+                            egui::DragValue::new(&mut 环境.环境光强度)
+                                .speed(10.0)
+                                .range(0.0..=100_000.0),
+                        )
+                        .changed()
+                    {
+                        改了 = true;
+                    }
+                    ui.end_row();
+
+                    ui.label(语言.取("environment_background_color"));
+                    let mut 颜色 = [环境.背景颜色.红, 环境.背景颜色.绿, 环境.背景颜色.蓝];
+                    if ui.color_edit_button_rgb(&mut 颜色).changed() {
+                        环境.背景颜色 = 颜色值::srgb(颜色[0], 颜色[1], 颜色[2], 1.0);
+                        改了 = true;
+                    }
+                    ui.end_row();
+                });
+        });
+
+    if 改了 {
+        上下文.动作.推(UiAction::设置场景环境(环境));
+    }
 }
 
 /// 绘制头部：实体名、标识、预制件归属、组件与实体动作。

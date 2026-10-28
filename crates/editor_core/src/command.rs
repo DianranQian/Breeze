@@ -19,7 +19,9 @@
 
 use std::collections::BTreeMap;
 
-use scene_doc::document::{变换数据, 场景实体, 场景文档, 实体标识, 组件数据};
+use scene_doc::document::{
+    变换数据, 场景实体, 场景文档, 场景环境, 实体标识, 组件数据
+};
 use scene_doc::error::{场景结果, 场景错误};
 use scene_doc::path::项目相对路径;
 use scene_doc::prefab::{
@@ -283,6 +285,16 @@ pub enum 编辑器命令 {
         文档: Box<场景文档>,
     },
 
+    /// 修改场景的全局环境（环境光与背景）。
+    ///
+    /// 单独成一条命令而不是走 `设为快照`：环境滑块每拖一帧发一次，
+    /// 快照命令不参与合并，会把一次拖拽拆成几十条撤销记录；
+    /// 这条命令带合并键，整段拖拽只留一步。
+    设置场景环境 {
+        /// 新的环境设置。
+        环境: 场景环境,
+    },
+
     /**
      * 在场景里创建一个预制件实例，并立即物化成实体树。
      *
@@ -494,6 +506,7 @@ impl 编辑器命令 {
             编辑器命令::批量设属性 { .. } => "command_batch_set_property",
             编辑器命令::替换实体 { .. } => "command_replace_entity",
             编辑器命令::设为快照 { .. } => "command_apply_snapshot",
+            编辑器命令::设置场景环境 { .. } => "command_set_environment",
             编辑器命令::创建预制件实例 { .. } => "command_create_prefab_instance",
             编辑器命令::同步预制件实例 { .. } => "command_sync_prefab_instances",
             编辑器命令::重新纳入预制件节点 { .. } => "command_reclaim_prefab_node",
@@ -540,6 +553,10 @@ impl 编辑器命令 {
                         .map(|(标识, 类型名, 属性名, _)| 属性目标(标识, 类型名, 属性名)),
                 ),
             )),
+            编辑器命令::设置场景环境 { .. } => Some(合并键::新建(
+                "scene_environment",
+                "document".to_string(),
+            )),
             _ => None,
         }
     }
@@ -550,7 +567,7 @@ impl 编辑器命令 {
     }
 
     /// 全部命令显示名键，供词表覆盖核对枚举。
-    pub fn 全部显示名键() -> [&'static str; 20] {
+    pub fn 全部显示名键() -> [&'static str; 21] {
         [
             "new_entity_2",
             "delete_entity",
@@ -567,6 +584,7 @@ impl 编辑器命令 {
             "command_batch_set_property",
             "command_replace_entity",
             "command_apply_snapshot",
+            "command_set_environment",
             "command_create_prefab_instance",
             "command_sync_prefab_instances",
             "command_reclaim_prefab_node",
@@ -844,6 +862,15 @@ impl 编辑器命令 {
                 文档.覆盖为(快照);
                 Ok(命令结果 {
                     影响实体: 文档.实体表.keys().copied().collect(),
+                    新实体: None,
+                    预制件同步: None,
+                })
+            }
+
+            Self::设置场景环境 { 环境 } => {
+                文档.环境 = *环境;
+                Ok(命令结果 {
+                    影响实体: Vec::new(),
                     新实体: None,
                     预制件同步: None,
                 })

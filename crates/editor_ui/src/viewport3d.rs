@@ -34,7 +34,7 @@ use egui::{Pos2, Rect, RichText, Sense, Stroke, Ui};
 use crate::dev_modes::开发模式;
 use crate::gizmo::变换工具;
 use crate::state::{
-    UiAction, 三维相机, 基础图元类型, 绘制上下文, 视口拖拽, 选择意图
+    UiAction, 三维相机, 光源类型, 基础图元类型, 绘制上下文, 视口拖拽, 选择意图
 };
 
 /// 网格半边长（世界单位）。
@@ -60,8 +60,9 @@ const 主网格间隔: i32 = 5;
 ///
 /// # 工具条
 ///
-/// 顶部工具条在工具组之后带一组「快速创建」（立方体 / 球体 / 圆柱体）：
-/// 搭场景是三维视口里最高频的操作，入口留在视口内，不必先切回顶部模式栏。
+/// 顶部工具条在工具组之后带「快速创建」与「光源」两组：搭场景是三维视口里
+/// 最高频的操作，入口留在视口内，不必先切回顶部模式栏。光源按钮只发出
+/// [`UiAction::创建光源`]，放置点与默认朝向由动作层决定。
 pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Rect) {
     let 尺寸 = 内容矩形.size();
     if 尺寸.x < 2.0 || 尺寸.y < 2.0 {
@@ -350,6 +351,29 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>, 内容矩形: Re
                     .clicked()
                 {
                     上下文.动作.推(UiAction::创建基础图元 { 类型 });
+                }
+            }
+            ui.add_space(4.0);
+            crate::visual_spec::工具栏分组(ui, 上下文.配色);
+            ui.add_space(2.0);
+            ui.label(
+                RichText::new(上下文.语言.取("light_create"))
+                    .size(11.0)
+                    .color(上下文.配色.次要文字),
+            );
+            for 类型 in 光源类型::全部 {
+                let 按钮 = egui::Button::new(
+                    RichText::new(上下文.语言.取(类型.词条键()))
+                        .size(11.0)
+                        .color(上下文.配色.文字),
+                )
+                .frame(false);
+                if ui
+                    .add(按钮)
+                    .on_hover_text(上下文.语言.取(类型.提示词条键()))
+                    .clicked()
+                {
+                    上下文.动作.推(UiAction::创建光源 { 类型 });
                 }
             }
             ui.add_space(4.0);

@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use editor_core::command::编辑器命令;
 use editor_core::state::编辑器状态;
-use scene_doc::document::{变换数据, 实体标识};
+use scene_doc::document::{变换数据, 场景环境, 实体标识};
 use scene_doc::path::项目相对路径;
 use scene_doc::prefab::覆盖状态;
 use scene_doc::property::{属性值, 资源类别};
@@ -2544,6 +2544,64 @@ impl 基础图元类型 {
     }
 }
 
+/// 可快速创建的光源类型。
+///
+/// # 界面为什么只需要类型
+///
+/// 与 [`基础图元类型`] 同理：按钮回答"放哪种灯"，颜色、强度、锥角与
+/// 组件类型名全部由动作层决定。界面层不依赖 `editor_app` 的组件常量，
+/// 组件改名时这里不需要跟着改。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum 光源类型 {
+    /// 方向光。
+    方向光,
+    /// 点光。
+    点光,
+    /// 聚光灯。
+    聚光灯,
+}
+
+impl 光源类型 {
+    /// 全部类型（工具栏按这个顺序排按钮）。
+    pub const 全部: [Self; 3] = [Self::方向光, Self::点光, Self::聚光灯];
+
+    /// 按钮文本词条键。
+    pub fn 词条键(self) -> &'static str {
+        match self {
+            Self::方向光 => "light_directional",
+            Self::点光 => "light_point",
+            Self::聚光灯 => "light_spot",
+        }
+    }
+
+    /// 按钮悬停说明词条键。
+    pub fn 提示词条键(self) -> &'static str {
+        match self {
+            Self::方向光 => "light_directional_hint",
+            Self::点光 => "light_point_hint",
+            Self::聚光灯 => "light_spot_hint",
+        }
+    }
+
+    /// 新实体默认名称的词条键。
+    pub fn 名称词条键(self) -> &'static str {
+        match self {
+            Self::方向光 => "light_directional_name",
+            Self::点光 => "light_point_name",
+            Self::聚光灯 => "light_spot_name",
+        }
+    }
+
+    /// 固定中文名，用于**不随语言变化**的日志与动作摘要。
+    pub fn 固定名(self) -> &'static str {
+        match self {
+            Self::方向光 => "方向光",
+            Self::点光 => "点光",
+            Self::聚光灯 => "聚光灯",
+        }
+    }
+}
+
 /// 界面向编辑器发出的意图。
 ///
 /// 由 `editor_app` 在绘制结束后统一执行。分成四类：
@@ -2718,6 +2776,19 @@ pub enum UiAction {
         /// 要创建的类型。
         类型: 基础图元类型,
     },
+    /// 快速创建一盏光源并选中它。
+    ///
+    /// 与 [`UiAction::创建基础图元`] 同一套放置规则：3D 取轨道相机目标。
+    /// 光源放在 2D 模式没有意义，动作层会拒绝。
+    创建光源 {
+        /// 要创建的光源类型。
+        类型: 光源类型,
+    },
+    /// 修改场景的全局环境（环境光与背景）。
+    ///
+    /// Inspector 的滑块每帧都可能触发一次；动作层用连续命令执行，
+    /// 一次拖拽只留一条撤销记录。
+    设置场景环境(场景环境),
     /// 把实体拖到新父级下（大纲视图的层级拖动）。
     ///
     /// 界面只负责回答"谁拖到了谁身上"，**世界位置如何保持由动作层决定**：

@@ -1594,12 +1594,13 @@ static 内置组件构造表: &[组件构造] = &[
     || Box::new(几何体组件类型),
     // 扩展组件：启动时由 `全部内置组件注册表` 一并注册。
     //
-    // `Camera3d` 放在三维一组的最前面：它与 `方向光` / `点光` 同属
+    // `Camera3d` 放在三维一组的最前面：它与 `方向光` / `点光` / `聚光灯` 同属
     // "让三维场景能被看见"的必要节点，但不属于 2D 基础契约，
     // 因此不进 `默认组件注册表`（前 6 项）。
     || Box::new(相机3d组件类型),
     || Box::new(crate::components3d::方向光组件类型),
     || Box::new(crate::components3d::点光组件类型),
+    || Box::new(crate::components3d::聚光灯组件类型),
     || Box::new(crate::ui_components::界面面板组件类型),
     || Box::new(crate::ui_components::界面文本组件类型),
     || Box::new(crate::ui_components::界面按钮组件类型),
@@ -1678,6 +1679,7 @@ mod 测试 {
                 "Camera3d",
                 "方向光",
                 "点光",
+                "聚光灯",
                 "UiNode",
                 "UiText",
                 "UiButton",

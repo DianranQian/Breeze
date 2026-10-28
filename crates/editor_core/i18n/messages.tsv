@@ -144,6 +144,7 @@ command_reparent	调整层级	Reparent
 command_reparent_keep_world	拖动改变层级	Reparent (Keep World Position)
 command_replace_entity	替换实体	Replace Entity
 command_revert_prefab_field	恢复该项默认值	Revert Field to Default
+command_set_environment	设置场景环境	Set Environment
 command_set_property	修改属性	Set Property
 command_set_transform	修改变换	Set Transform
 command_sync_prefab_instances	同步预制件实例	Sync Prefab Instances
@@ -790,6 +791,16 @@ primitive_cube_name	立方体	Cube
 primitive_sphere_name	球体	Sphere
 primitive_cylinder_name	圆柱体	Cylinder
 primitive_plane_name	平面	Plane
+light_create	光源	Lights
+light_directional	方向光	Directional
+light_point	点光	Point
+light_spot	聚光灯	Spot
+light_directional_hint	在视口焦点处放置一盏方向光；朝向由实体旋转决定	Place a directional light at the viewport focus; direction follows the entity rotation
+light_point_hint	在视口焦点处放置一盏点光，向四周均匀照明	Place a point light at the viewport focus; it lights in all directions
+light_spot_hint	在视口焦点处放置一盏朝下的聚光灯	Place a downward spot light at the viewport focus
+light_directional_name	方向光	Directional Light
+light_point_name	点光	Point Light
+light_spot_name	聚光灯	Spot Light
 default_main_camera_name	主相机	Main Camera
 default_directional_light_name	平行光	Directional Light
 mode_label	模式	Mode
@@ -896,6 +907,14 @@ light_field_intensity	强度	Intensity
 light_field_intensity_tooltip	单位流明。灯泡约 800，篝火约 3000	In lumens. A bulb is about 800, a campfire about 3000
 light_field_range	半径	Range
 light_field_range_tooltip	影响半径（米）；超出这个距离不再受该灯影响	Influence radius in meters; nothing beyond this distance is lit
+light_field_inner_angle	内锥角	Inner Angle
+light_field_inner_angle_tooltip	光斑中心完全明亮的半角（度），不得大于外锥角	Half-angle in degrees where the cone is fully bright; cannot exceed the outer angle
+light_field_outer_angle	外锥角	Outer Angle
+light_field_outer_angle_tooltip	光斑边缘的半角（度），必须小于 90°	Half-angle in degrees at the cone edge; must be below 90°
+environment_settings	环境设置	Environment
+environment_ambient_color	环境光颜色	Ambient Color
+environment_ambient_intensity	环境光强度	Ambient Intensity
+environment_background_color	背景颜色	Background Color
 save_subscene	另存为子场景…	Save Branch as Scene…
 subscene_need_selection	先在场景树里选中一个实体（它和它的子节点会被导出）	Select an entity in the scene tree first; it and its children are exported
 log_subscene_done	已保存子场景 {}（{} 个实体）	Saved subscene {} ({} entities)
@@ -1308,6 +1327,7 @@ recovery_unnamed	（未命名场景）	(Unnamed scene)
 log_recovery_restored	已恢复自动保存内容：{}	Restored autosave content: {}
 log_recovery_discarded	已丢弃恢复点：{}	Discarded recovery point: {}
 log_primitive_created	已创建基础图元 {}	Created primitive {}
+log_light_created	已创建光源 {}	Created light {}
 log_default_scene_ready	已自动加入默认场景环境：{}	Added default scene environment: {}
 runtime_debug_data_incompatible	协议不兼容	Incompatible protocol
 runtime_debug_data_last	最近快照（已过期，不是实时）	Last snapshot (stale, not live)

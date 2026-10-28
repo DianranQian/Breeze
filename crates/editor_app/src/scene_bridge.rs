@@ -520,6 +520,14 @@ fn 插入已知组件(
         世界.entity_mut(运行时实体).insert(值.clone());
         return true;
     }
+    // 动画播放器：文档意图落进世界（调试器可见），同时立刻建立真实的
+    // `AnimationGraph` + `AnimationPlayer`。运行时世界不加载 glTF，
+    // 片段是空占位；名字解析与真实曲目在预览宿主完成（见 `animation_runtime`）。
+    if let Some(值) = 实例.downcast_ref::<crate::animation_components::动画播放器属性>() {
+        世界.entity_mut(运行时实体).insert(值.clone());
+        crate::animation_runtime::装配运行时动画(世界, 运行时实体, 值);
+        return true;
+    }
     false
 }
 
@@ -1671,6 +1679,7 @@ static 内置组件构造表: &[组件构造] = &[
     || Box::new(crate::physics3d_components::刚体3d组件类型),
     // 界面图片同样只能追加：它属于界面组，但既有顺序已经是外部契约。
     || Box::new(crate::ui_components::界面图片组件类型),
+    || Box::new(crate::animation_components::动画播放器组件类型),
 ];
 
 /// 按构造表构建注册表；这是全项目唯一的 `.注册` 调用点。
@@ -1753,6 +1762,7 @@ mod 测试 {
                 "碰撞体3d",
                 "刚体3d",
                 "UiImage",
+                "动画播放器",
             ],
             "注册顺序是集中前的基线，不得改变"
         );

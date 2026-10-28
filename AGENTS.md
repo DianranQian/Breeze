@@ -50,10 +50,17 @@
 > 增加第三趟，按项目**设计分辨率**把界面元素建成挂在 `运行界面根` 下的
 > `Node` / `Text` / `ImageNode` 树（`界面节点数` 单独统计，不混进实体数），
 > 停止运行随世界整体丢弃；`运行场景` 改走 `启动以设计分辨率`；证据：
-> `ui_hud.rs` 3 集成 + 11 单元测试），
+> `ui_hud.rs` 3 集成 + 11 单元测试）+
+> P5-16 glTF 动画播放（新增文档组件 `动画播放器`：片段名 / 播放速度 / 是否循环，
+> 速度夹在 ±10 且允许负数倒放；运行时 `插入已知组件` 落成真实的
+> `AnimationGraph` + `AnimationPlayer` 并立即播放（运行时世界不加载 glTF，
+> 片段为空占位，意图保留在属性里）；编辑器预览按 `模型` 路径加载 `Gltf` 主资产，
+> 从 `named_animations` 按名字解析片段，找到 `WorldAssetRoot` 子树里 glTF 加载器
+> 放下的 `AnimationPlayer` 后编译单片段图并套用速度 / 循环，片段缺失或模型无动画
+> 只告警一次；证据：`gltf_animation.rs` 4 集成 + 11 单元测试），
 > 11 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
 > （全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`；随附的字体/图标保留各自上游许可），
-> `cargo test --workspace` = 1,547 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,552 处）。
+> `cargo test --workspace` = 1,562 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,567 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

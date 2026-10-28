@@ -937,6 +937,12 @@ ui_field_offset_tooltip	相对视口左上角的像素偏移	Pixel offset from t
 ui_field_image	贴图	Texture
 ui_field_image_tooltip	留空时画成着色的实心块；选了图片则填满这个盒子	A solid tinted block when empty; a picked texture fills the box
 ui_field_tint	着色	Tint
+anim_field_clip	动画片段	Clip
+anim_field_clip_tooltip	glTF 里动画的名称（导出时常见 Idle / Run / Walk）；找不到时模型按静态姿势显示	The animation name in the glTF (often Idle / Run / Walk); the model stays static if missing
+anim_field_speed	播放速度	Speed
+anim_field_speed_tooltip	1 为原速，负数倒放；只影响播放，不改模型文件	1 is normal speed, negative plays backwards; playback only, the model file is untouched
+anim_field_loop	循环	Loop
+anim_field_loop_tooltip	关闭时片段播一次后停在最后一帧	When off, the clip stops on its last frame
 open_source_line_hint	在代码面板里打开这一行	Open this line in the code panel
 audition_play	试听	Audition
 audition_play_hint	在编辑器里播放这个音频（不改场景、不改项目）	Play this clip inside the editor without touching the scene or the project

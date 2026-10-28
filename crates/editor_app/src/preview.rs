@@ -675,6 +675,10 @@ pub struct 预览渲染项 {
     pub 视觉: 精灵视觉参数,
     /// 最终显示尺寸（世界单位）。
     pub 显示尺寸: (f32, f32),
+    /// 文档里的动画意图。`None` 表示实体没有动画播放器组件。
+    ///
+    /// 只有挂了 glTF 模型时它才会被消费：静态精灵没有可播放的片段。
+    pub 动画: Option<crate::animation_components::动画播放器属性>,
 }
 
 /// 从场景文档投影出"应当渲染哪些实体"。
@@ -718,11 +722,15 @@ pub fn 投影预览项(文档: &场景文档) -> Vec<预览渲染项> {
 
         let 视觉 = 解析精灵属性(&精灵组件.属性);
         let 显示尺寸 = 预览显示尺寸(&视觉);
+        let 动画 = 实体
+            .取组件(crate::animation_components::动画播放器组件名)
+            .map(|组件| crate::animation_components::解析动画播放器(&组件.属性));
         结果.push(预览渲染项 {
             来源: 标识,
             变换: 变换转预览(变换数据),
             视觉,
             显示尺寸,
+            动画,
         });
     }
 
@@ -1294,16 +1302,23 @@ pub fn 同步预览实体(
             // glTF 的首个场景是子资源，标签固定为 `Scene0`；
             // 不带标签会报 "Could not find an asset loader matching"。
             let 场景 = 资源服务器.load::<bevy::world_serialization::WorldAsset>(
-                bevy::asset::AssetPath::from_path_buf(绝对).with_label("Scene0"),
+                bevy::asset::AssetPath::from_path_buf(绝对.clone()).with_label("Scene0"),
             );
-            命令
-                .spawn((
-                    预览来源(项.来源),
-                    bevy::world_serialization::WorldAssetRoot(场景),
-                    Transform::default(),
-                    RenderLayers::layer(三维渲染层),
-                ))
-                .insert(ChildOf(节点));
+            let mut 模型实体 = 命令.spawn((
+                预览来源(项.来源),
+                bevy::world_serialization::WorldAssetRoot(场景),
+                Transform::default(),
+                RenderLayers::layer(三维渲染层),
+            ));
+            if let Some(动画) = &项.动画 {
+                模型实体.insert(crate::animation_runtime::模型动画装配 {
+                    模型: 资源服务器
+                        .load::<bevy::gltf::Gltf>(bevy::asset::AssetPath::from_path_buf(绝对)),
+                    模型路径: 模型路径.to_string(),
+                    动画: 动画.clone(),
+                });
+            }
+            模型实体.insert(ChildOf(节点));
             continue;
         }
 

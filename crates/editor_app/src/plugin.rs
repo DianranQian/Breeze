@@ -609,6 +609,9 @@ impl Plugin for BevyStudio插件 {
                     )
                         .chain(),
                     (
+                        // glTF 场景实例化是异步的：这里每帧轮询待装配的
+                        // 动画标记，等模型子树出现播放器后按名字播放片段。
+                        crate::animation_runtime::装配模型动画,
                         actions::推进运行时,
                         actions::收集运行时诊断,
                         actions::应用动画预览,

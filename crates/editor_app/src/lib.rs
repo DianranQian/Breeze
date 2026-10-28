@@ -25,6 +25,8 @@
 
 pub mod actions;
 pub mod agent_context;
+pub mod animation_components;
+pub mod animation_runtime;
 pub mod agent_dsh;
 pub mod agent_persistence;
 pub mod agent_runtime;

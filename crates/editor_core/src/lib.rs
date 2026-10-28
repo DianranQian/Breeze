@@ -31,6 +31,9 @@ pub mod arrange;
 pub mod architecture_reserved;
 pub mod asset_index;
 pub mod asset_registry;
+// 资源根解析只依赖 `std`：候选顺序（环境变量 → 当前目录 → exe 同级）
+// 可以用临时目录逐条验证，见模块头部的优先级表。
+pub mod asset_root;
 pub mod asset_uid;
 pub mod build;
 pub mod cargo_metadata;
@@ -68,6 +71,10 @@ pub use animation::{
 pub use arrange::{分布轴, 对齐盒, 对齐边, 计算分布, 计算对齐};
 pub use asset_index::{项目引用, 项目资源索引};
 pub use asset_registry::{注册条目, 资源刷新报告, 资源注册表};
+pub use asset_root::{
+    可执行目录, 候选资源根, 资源根来源, 资源根环境变量, 资源根解析, 资源目录名, 解析资源根,
+    解析资源根带参数, 选定资源根,
+};
 pub use asset_uid::{标识格式版本, 标识表相对路径, 资源标识表};
 pub use build::{
     代码位置, 构建快照, 构建报告, 构建状态, 构建诊断, 构建配置, 构建配置类型, 编译事件,

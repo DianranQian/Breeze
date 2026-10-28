@@ -24,6 +24,22 @@ use editor_app::BevyStudio插件;
 /// 更窄的窗口会在 `cargo test` 的布局几何测试里被单独覆盖。
 const 默认窗口尺寸: (u32, u32) = (1600, 950);
 
+/// 交给 Bevy 资产服务器的资源目录。
+///
+/// # 为什么不用默认值
+///
+/// Bevy 默认把 `assets` 拼在 `CARGO_MANIFEST_DIR`（开发期）或可执行文件
+/// 所在目录（发行版）上。发行版若从快捷方式、任务计划器启动，当前工作
+/// 目录可能不在 exe 旁边；这里改用 [`editor_core::asset_root::解析资源根`]：
+/// 先看环境变量与当前目录，都不存在就回退到 exe 同级的 `assets/`，
+/// 与 `build_release.ps1` 产出的 `dist/` 布局一致。
+fn 资源目录() -> String {
+    editor_core::asset_root::解析资源根()
+        .路径
+        .display()
+        .to_string()
+}
+
 fn main() {
     // 崩溃一律写报告文件 + stderr，不弹原生窗口（见 `panic_report` 模块文档）。
     editor_app::panic_report::安装崩溃钩子();
@@ -41,6 +57,7 @@ fn main() {
                 // Bevy 0.20 默认拒绝根目录外的绝对路径（日志：is unapproved），
                 // 这里显式放开：路径由编辑器自己拼装，不来自不可信输入。
                 .set(bevy::asset::AssetPlugin {
+                    file_path: 资源目录(),
                     unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
                     ..default()
                 })

@@ -65,10 +65,17 @@
 > 服务两个宿主：运行时在隔离 `World` 里生成 `粒子实例` 实体并在 `推进运行时粒子`
 > 中回收，预览在三维层用共享小球网格 + 不受光混合材质渲染、随寿命收缩；
 > 预览投影不要求 `Sprite`，隐藏实体不发射；证据：`particle_emitter.rs` 5 集成 +
-> 13 单元测试），
+> 13 单元测试）+
+> P5-18 一键打包与资源回退（新增 `editor_core::asset_root`：资源根按
+> `BEVY_ASSET_ROOT` → 当前工作目录 → exe 同级 → 回退 exe 同级 四档解析，
+> 编辑器入口用它配置 `AssetPlugin.file_path`，发行版从快捷方式或任意工作目录
+> 启动也能找到 `dist/assets/`；根目录 `build_release.ps1` 执行
+> `cargo build --release`，从 cargo 的 JSON 产物消息读取真实 exe 路径（兼容
+> `target-dir` 重定向），收集 exe / pdb / 可选资源与示例到 `dist/` 并写清单；
+> README 增加两种导出路径与诚实边界；证据：`asset_root` 9 单元测试），
 > 11 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
 > （全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`；随附的字体/图标保留各自上游许可），
-> `cargo test --workspace` = 1,580 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,585 处）。
+> `cargo test --workspace` = 1,589 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,594 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

@@ -94,8 +94,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 当前路径 = 上下文
         .界面
         .脚本
-        .文档
-        .as_ref()
+        .当前文档()
         .and_then(|文档| 文档.路径.as_ref())
         .map(|路径| 路径.文本().to_string());
 

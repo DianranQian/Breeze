@@ -422,68 +422,44 @@ impl 脚本文档 {
     }
 }
 
-/// 脚本编辑器的界面状态。
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct 脚本状态 {
-    /// 当前文档。
-    pub 文档: Option<脚本文档>,
-    /// 是否展开查找栏。
-    pub 显示查找: bool,
+/// 一个打开的代码标签页。
+///
+/// # 为什么查找与滚动挂在标签上而不是面板上
+///
+/// 同一份代码可能同时看着两处：用户在 A 里查找 "spawn" 跳到第 80 行，
+/// 切到 B 看了几眼再切回来 —— 如果这些状态是面板级的，回来时命中华、
+/// 命中序号与滚动位置全都回到了 A 的顶部，等于"刚才的查找白做了"。
+/// 因此每个标签自带一份查找词、命中列表、当前命中与纵向滚动偏移，
+/// 切换标签只是换一份状态，不是重置。
+#[derive(Debug, Clone, PartialEq)]
+pub struct 脚本标签 {
+    /// 文档内容与保存基线。
+    pub 文档: 脚本文档,
     /// 查找关键字。
     pub 查找: String,
     /// 查找命中的行号（0 基）。
     pub 命中行: Vec<usize>,
     /// 当前命中序号。
     pub 当前命中: usize,
-    /// 一次性提示（例如"已保存"）。
-    pub 提示: Option<String>,
+    /// 上一次绘制时记下的纵向滚动偏移。
+    pub 滚动偏移: f32,
+    /// 切回本标签时要一次性恢复的纵向偏移（`None` 表示沿用滚动区自身状态）。
+    pub 待恢复滚动: Option<f32>,
     /// 请求滚动到某一行（0 基）。
     pub 滚动到行: Option<usize>,
-    /// 正在后台读取的路径。
-    ///
-    /// 由 [`脚本状态::请求打开`] 置位、由后台回执清空。它存在的意义只是
-    /// "让界面能显示正在读取" —— 读盘本身不在主线程上，见 `code_loader`。
-    pub 加载中: Option<scene_doc::path::项目相对路径>,
-    /// 已声明但尚未交给后台线程的读取意图。
-    pub 待读取: Option<scene_doc::path::项目相对路径>,
-    /// 读取代次：每次请求递增，界面只接受与当前代次相同的回执。
-    pub 加载代次: u64,
 }
 
-impl 脚本状态 {
-    /// 打开一份文档。
-    pub fn 打开(&mut self, 文档: 脚本文档) {
-        self.文档 = Some(文档);
-        self.命中行.clear();
-        self.当前命中 = 0;
-        self.滚动到行 = Some(0);
-        self.加载中 = None;
-        self.待读取 = None;
-    }
-
-    /// 声明"要打开这个文件"的意图，把读盘交给后台线程。
-    ///
-    /// 这里**不**清空旧文档：读盘成功前用户仍能看到并继续编辑旧文件，
-    /// 失败时也不会突然变空白。代次递增与意图成对出现，保证回执能被
-    /// 正确认领或丢弃。
-    pub fn 请求打开(&mut self, 路径: scene_doc::path::项目相对路径) {
-        self.加载代次 = self.加载代次.wrapping_add(1);
-        self.加载中 = Some(路径.clone());
-        self.待读取 = Some(路径);
-    }
-
-    /// 是否有文件正在读取。
-    pub fn 正在读取(&self) -> bool {
-        self.加载中.is_some()
-    }
-
-    /// 标记已保存。
-    pub fn 标记已保存(&mut self, 路径: Option<scene_doc::path::项目相对路径>) {
-        if let Some(文档) = self.文档.as_mut() {
-            if let Some(新路径) = 路径 {
-                文档.路径 = Some(新路径);
-            }
-            文档.已保存文本 = 文档.文本.clone();
+impl 脚本标签 {
+    /// 从文档创建标签。
+    pub fn 新建(文档: 脚本文档) -> Self {
+        Self {
+            文档,
+            查找: String::new(),
+            命中行: Vec::new(),
+            当前命中: 0,
+            滚动偏移: 0.0,
+            待恢复滚动: Some(0.0),
+            滚动到行: None,
         }
     }
 
@@ -494,11 +470,8 @@ impl 脚本状态 {
         if self.查找.is_empty() {
             return;
         }
-        let Some(文档) = self.文档.as_ref() else {
-            return;
-        };
         let 关键字 = self.查找.to_lowercase();
-        for (下标, 行) in 文档.文本.lines().enumerate() {
+        for (下标, 行) in self.文档.文本.lines().enumerate() {
             if 行.to_lowercase().contains(&关键字) {
                 self.命中行.push(下标);
             }
@@ -527,21 +500,256 @@ impl 脚本状态 {
     }
 }
 
+/// 需要用户确认的脚本操作。
+///
+/// # 为什么"切换标签"不确认，而"打开另一个文件"要确认
+///
+/// 标签之间的切换**不丢任何东西**：每个标签各自持有一份缓冲区，切过去
+/// 再切回来，编辑内容原样还在。为这种无损操作弹窗只会训练用户无脑点
+/// "放弃"。真正会让人丢失劳动的是"离开当前文件"：打开另一个文件要把
+/// 焦点让出去，关闭标签要把缓冲区销毁 —— 这两种才需要一次确认。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum 脚本待确认 {
+    /// 关闭一个带未保存修改的标签。
+    关闭 {
+        /// 标签下标。
+        索引: usize,
+    },
+    /// 打开另一个文件，但当前活动标签有未保存修改。
+    打开 {
+        /// 要打开的项目相对路径。
+        路径: scene_doc::path::项目相对路径,
+    },
+}
+
+/// 脚本编辑器的界面状态。
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct 脚本状态 {
+    /// 已打开的标签（按打开顺序）。
+    pub 标签: Vec<脚本标签>,
+    /// 活动标签下标。没有标签时无意义（恒为 0）。
+    pub 活动: usize,
+    /// 是否展开查找栏。
+    pub 显示查找: bool,
+    /// 一次性提示（例如"已保存"）。
+    pub 提示: Option<String>,
+    /// 正在后台读取的路径。
+    ///
+    /// 由 [`脚本状态::请求打开`] 置位、由后台回执清空。它存在的意义只是
+    /// "让界面能显示正在读取" —— 读盘本身不在主线程上，见 `code_loader`。
+    pub 加载中: Option<scene_doc::path::项目相对路径>,
+    /// 已声明但尚未交给后台线程的读取意图。
+    pub 待读取: Option<scene_doc::path::项目相对路径>,
+    /// 读取代次：每次请求递增，界面只接受与当前代次相同的回执。
+    pub 加载代次: u64,
+    /// 需要用户确认的关闭 / 打开。
+    pub 待确认: Option<脚本待确认>,
+    /// "另存为"完成后应当标记已保存的标签下标。
+    ///
+    /// 对话框是异步的，回执回来时用户可能已经切到别的标签；没有这个字段，
+    /// 保存成功会清掉**别人**的星号。
+    pub 另存目标: Option<usize>,
+    /// 最近一次绘制时代码编辑框的 egui 元素 id。
+    ///
+    /// Ctrl+S 据此判断"焦点是否在代码面板里"：egui 的焦点是**元素级**状态，
+    /// 面板自己维护一个布尔量会在面板没有绘制的那一帧残留旧值（例如用户
+    /// 切到别的停靠标签后再按 Ctrl+S，会去保存一个根本没在看的文件）。
+    pub 代码焦点: Option<egui::Id>,
+}
+
+impl 脚本状态 {
+    /// 路径对应的标签下标。
+    pub fn 标签索引(&self, 路径: &scene_doc::path::项目相对路径) -> Option<usize> {
+        self.标签
+            .iter()
+            .position(|标签| 标签.文档.路径.as_ref() == Some(路径))
+    }
+
+    /// 活动标签。
+    pub fn 当前标签(&self) -> Option<&脚本标签> {
+        self.标签.get(self.活动)
+    }
+
+    /// 活动标签（可变）。
+    pub fn 当前标签可变(&mut self) -> Option<&mut 脚本标签> {
+        self.标签.get_mut(self.活动)
+    }
+
+    /// 活动文档。
+    pub fn 当前文档(&self) -> Option<&脚本文档> {
+        self.当前标签().map(|标签| &标签.文档)
+    }
+
+    /// 活动文档（可变）。
+    pub fn 当前文档可变(&mut self) -> Option<&mut 脚本文档> {
+        self.当前标签可变().map(|标签| &mut 标签.文档)
+    }
+
+    /// 活动标签是否有未保存修改。
+    pub fn 当前标签有未保存修改(&self) -> bool {
+        self.当前文档().is_some_and(脚本文档::有未保存修改)
+    }
+
+    /// 打开一份文档。
+    ///
+    /// 同一路径已经打开时**聚焦已有标签**，不再新建：否则在文件树里双击
+    /// 同一个文件会出现两条同名标签，关闭其中一条时用户根本分不清关的是哪个。
+    /// 已有标签带未保存修改时保留用户内容（磁盘版本只补在没有修改的标签上），
+    /// 磁盘已经读到的内容不会覆盖正在编辑的文本。
+    pub fn 打开(&mut self, 文档: 脚本文档) {
+        self.加载中 = None;
+        self.待读取 = None;
+        if let Some(路径) = 文档.路径.clone()
+            && let Some(索引) = self.标签索引(&路径)
+        {
+            let 标签 = &mut self.标签[索引];
+            if !标签.文档.有未保存修改() {
+                标签.文档 = 文档;
+            }
+            self.切换(索引);
+            return;
+        }
+        let 新下标 = self.标签.len();
+        self.标签.push(脚本标签::新建(文档));
+        self.切换(新下标);
+    }
+
+    /// 切换到指定标签，并安排恢复它的滚动位置。
+    pub fn 切换(&mut self, 索引: usize) {
+        if 索引 >= self.标签.len() {
+            return;
+        }
+        self.活动 = 索引;
+        self.待确认 = None;
+        let 标签 = &mut self.标签[索引];
+        标签.待恢复滚动 = Some(标签.滚动偏移);
+    }
+
+    /// 移除一个标签。
+    ///
+    /// 移除活动标签后焦点落到它后面那个；移除的是最后一个就往前退一格。
+    /// 这个顺序与浏览器的标签行为一致，用户不会看到"关掉右边的标签，
+    /// 焦点却跳到了最左边"。
+    pub fn 移除(&mut self, 索引: usize) {
+        if 索引 >= self.标签.len() {
+            return;
+        }
+        self.标签.remove(索引);
+        self.待确认 = None;
+        self.另存目标 = None;
+        if self.标签.is_empty() {
+            self.活动 = 0;
+            return;
+        }
+        if 索引 < self.活动 {
+            self.活动 -= 1;
+        }
+        self.活动 = self.活动.min(self.标签.len() - 1);
+        let 标签 = &mut self.标签[self.活动];
+        标签.待恢复滚动 = Some(标签.滚动偏移);
+    }
+
+    /// 关闭全部标签（切换项目时用）。
+    pub fn 清空(&mut self) {
+        self.标签.clear();
+        self.活动 = 0;
+        self.加载中 = None;
+        self.待读取 = None;
+        self.待确认 = None;
+        self.另存目标 = None;
+        self.提示 = None;
+        self.代码焦点 = None;
+    }
+
+    /// 声明"要打开这个文件"的意图，把读盘交给后台线程。
+    ///
+    /// 这里**不**清空旧文档：读盘成功前用户仍能看到并继续编辑旧文件，
+    /// 失败时也不会突然变空白。代次递增与意图成对出现，保证回执能被
+    /// 正确认领或丢弃。
+    pub fn 请求打开(&mut self, 路径: scene_doc::path::项目相对路径) {
+        self.加载代次 = self.加载代次.wrapping_add(1);
+        self.加载中 = Some(路径.clone());
+        self.待读取 = Some(路径);
+        self.待确认 = None;
+    }
+
+    /// 是否有文件正在读取。
+    pub fn 正在读取(&self) -> bool {
+        self.加载中.is_some()
+    }
+
+    /// 把某个标签标记为已保存。
+    ///
+    /// `路径` 用于"另存为"：文档原来没有路径，保存成功后补上。调用方只在
+    /// **写盘成功**后调用，因此星号清掉就一定意味着磁盘上是最新内容。
+    pub fn 标记已保存(
+        &mut self, 索引: usize, 路径: Option<scene_doc::path::项目相对路径>
+    ) {
+        let Some(标签) = self.标签.get_mut(索引) else {
+            return;
+        };
+        if let Some(新路径) = 路径 {
+            标签.文档.路径 = Some(新路径);
+        }
+        标签.文档.已保存文本 = 标签.文档.文本.clone();
+    }
+
+    /// 重新计算活动标签的查找命中。
+    pub fn 重新查找(&mut self) {
+        if let Some(标签) = self.当前标签可变() {
+            标签.重新查找();
+        }
+    }
+
+    /// 跳到活动标签的下一个命中。
+    pub fn 下一个命中(&mut self) {
+        if let Some(标签) = self.当前标签可变() {
+            标签.下一个命中();
+        }
+    }
+
+    /// 跳到活动标签的上一个命中。
+    pub fn 上一个命中(&mut self) {
+        if let Some(标签) = self.当前标签可变() {
+            标签.上一个命中();
+        }
+    }
+}
+
 /// 绘制脚本面板。
+///
+/// 自上而下：标签栏 → 工具栏 → 查找栏 → 编辑区 → 确认浮层。确认浮层必须
+/// 最后画，否则会被编辑区覆盖（`egui` 按调用顺序叠放）。
 pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    if !上下文.界面.脚本.标签.is_empty() {
+        绘制标签栏(ui, 上下文);
+        ui.separator();
+    }
+    绘制工具栏(ui, 上下文);
+    绘制查找栏(ui, 上下文);
+    ui.separator();
+    绘制编辑区(ui, 上下文);
+    绘制确认浮层(ui, 上下文);
+}
+
+/// 绘制顶部工具栏。
+///
+/// 顺序：保存 / 另存为 / 查找三个图标按钮 → 源文件下拉 → 当前文档名与行数 →
+/// 后台读盘中的转圈提示 → 未保存角标。
+///
+/// 源文件下拉是必要入口：资源浏览器只扫 `assets/`，而 Rust 源码在 `src/`
+/// （原生 Cargo 工程还可能是多个成员包的 `src/`）。没有它，用户只能靠
+/// 「点构建诊断跳转」才能打开源文件 —— 那不叫浏览。
+///
+/// 三个按钮的启用条件都是「有活动文档」，与是否有未保存修改无关：对干净
+/// 文档再保存一次只是重复写盘，无害。
+fn 绘制工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
     let 语言 = 上下文.语言;
     let 配色 = 上下文.配色;
-
-    // ---- 顶部工具栏 ----
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
-        let 有文档 = 上下文.界面.脚本.文档.is_some();
-        let 有修改 = 上下文
-            .界面
-            .脚本
-            .文档
-            .as_ref()
-            .is_some_and(|文档| 文档.有未保存修改());
+        let 有文档 = 上下文.界面.脚本.当前文档().is_some();
+        let 有修改 = 上下文.界面.脚本.当前标签有未保存修改();
 
         if 上下文
             .图标
@@ -588,17 +796,11 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
         }
 
         ui.separator();
-        // ---- 源文件入口 ----
-        //
-        // 资源浏览器只扫 `assets/`，而 Rust 源码在 `src/`（原生 Cargo 工程
-        // 还可能是多个成员包的 `src/`）。没有这个入口，用户只能靠"点构建
-        // 诊断跳转"才能打开源文件 —— 那不叫浏览。
         let 源文件 = 上下文.界面.源文件(上下文.编辑器.项目.as_ref());
         let 当前路径 = 上下文
             .界面
             .脚本
-            .文档
-            .as_ref()
+            .当前文档()
             .and_then(|文档| 文档.路径.clone());
         let 显示文本 = 当前路径
             .as_ref()
@@ -625,7 +827,7 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             });
 
         ui.separator();
-        match 上下文.界面.脚本.文档.as_ref() {
+        match 上下文.界面.脚本.当前文档() {
             Some(文档) => {
                 let 名 = 文档.显示名(语言);
                 let 文本 = if 文档.有未保存修改() {
@@ -656,7 +858,6 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 );
             }
         }
-        // 后台读盘期间给一个可见的"正在读取"，否则双击后界面看起来没反应。
         if let Some(路径) = 上下文.界面.脚本.加载中.as_ref() {
             ui.add(egui::Spinner::new().size(12.0));
             ui.label(
@@ -673,9 +874,18 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             );
         }
     });
+}
 
-    // ---- 查找栏 ----
-    if 上下文.界面.脚本.显示查找 {
+/// 绘制查找栏（仅在「查找」打开时）。
+///
+/// 查找词、命中列表与当前序号都挂在活动标签上：切到别的文件再切回来，
+/// 高亮与「第几个命中」还在原处（见 [`脚本标签`] 的说明）。
+fn 绘制查找栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    if 上下文.界面.脚本.显示查找
+        && let Some(标签) = 上下文.界面.脚本.当前标签可变()
+    {
         ui.horizontal(|ui| {
             ui.label(
                 RichText::new(语言.取("script_find"))
@@ -683,20 +893,21 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                     .color(配色.次要文字),
             );
             let 响应 = ui.add(
-                egui::TextEdit::singleline(&mut 上下文.界面.脚本.查找)
+                egui::TextEdit::singleline(&mut 标签.查找)
+                    .id_salt("script_find_input")
                     .desired_width(180.0)
                     .hint_text(语言.取("script_find_hint")),
             );
             if 响应.changed() {
-                上下文.界面.脚本.重新查找();
+                标签.重新查找();
             }
             if ui.small_button("◀").clicked() {
-                上下文.界面.脚本.上一个命中();
+                标签.上一个命中();
             }
             if ui.small_button("▶").clicked() {
-                上下文.界面.脚本.下一个命中();
+                标签.下一个命中();
             }
-            let 命中数 = 上下文.界面.脚本.命中行.len();
+            let 命中数 = 标签.命中行.len();
             ui.label(
                 RichText::new(if 命中数 == 0 {
                     语言.取("script_no_match").to_string()
@@ -708,11 +919,35 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
             );
         });
     }
+}
 
-    ui.separator();
-
-    // ---- 编辑区 ----
-    let Some(文档) = 上下文.界面.脚本.文档.as_mut() else {
+/// 绘制代码编辑区（行号栏 + 滚动区 + 编辑框）。
+///
+/// 步骤：
+/// 1. 没有标签时只画空态提示，并清空 `代码焦点`（否则关掉最后一个标签后
+///    Ctrl+S 还会以为焦点在代码里）；`ui.separator()` 由调用方在查找栏之后画。
+/// 2. 字号下限 13：更小的等宽字形会挤在一起，行号也难认。
+/// 3. 行号槽先按最大行号位数占位，数字等滚动之后才画 —— 需要先拿到
+///    galley 的落点。
+/// 4. 滚动区与编辑框的 egui id 都按「标签键」区分：路径文本在项目内唯一，
+///    未命名文档退回下标；共用 id 会让滚动位置与光标跟着「当前谁在画」
+///    漂移，切标签看起来像随机跳了一下。
+/// 5. 着色整篇一次推进词法状态，块注释与原始字符串因此可以跨行；命中词用
+///    选中背景强调。
+/// 6. 滚动目标优先于待恢复偏移：前者来自「跳到第 N 行」（把目标行放在视口
+///    上部约三分之一处，不贴顶），后者来自切回标签。两者都只设一次，之后
+///    交给滚动区自己维护 —— 每帧强设偏移会顶掉用户的滚轮。
+/// 7. 内容宽度跨帧记忆：`TextEdit` 的宽度被可用宽度夹住，撑宽子 `Ui` 需要
+///    上一帧量到的 galley 宽度，否则第一帧永远只有视口宽。
+/// 8. 光标行号由 `CCursor::index`（字符下标）前的换行数加一得到。
+/// 9. 行号栏只画可见行，且铺不透明底：横向滚动时代码会从槽右侧滑过，
+///    透底会串字。
+/// 10. 记录代码框的 egui id 到 `代码焦点`（`Ctrl+S` 靠它判断焦点是否在
+///     代码面板）与滚动偏移；文本有变化时写回标签并重算查找命中。
+fn 绘制编辑区(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    if 上下文.界面.脚本.标签.is_empty() {
         ui.add_space(12.0);
         ui.label(RichText::new(语言.取("script_empty_hint")).color(配色.次要文字));
         ui.add_space(6.0);
@@ -721,146 +956,289 @@ pub fn 绘制(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
                 .small()
                 .color(配色.次要文字),
         );
+        上下文.界面.脚本.代码焦点 = None;
         return;
-    };
+    }
 
-    let 语言类型 = 文档.语言;
-    let 高亮配色 = 配色;
-    // 代码字号：低于 13 时等宽字形会挤在一起，行号也难认。
     let 字号 = 上下文.外观.基础字号.max(13.0);
+    let 活动 = 上下文.界面.脚本.活动;
+    let 高亮配色 = 配色;
     let 字体 = FontId::monospace(字号);
     let 行高 =
         ui.fonts_mut(|字体库| 字体库.row_height(&字体)) + ui.spacing().extra_text_line_spacing;
-    let 查找词 = 上下文.界面.脚本.查找.clone();
-    let mut 文本 = 文档.文本.clone();
-    let 行数 = 文本.split('\n').count().max(1);
-    let 滚动目标 = 上下文.界面.脚本.滚动到行.take();
-    // 内容宽度跨帧记忆：`TextEdit` 的宽度被可用宽度夹住，撑宽子 `Ui`
-    // 需要上一帧量到的 galley 宽度，否则第一帧永远是视口宽。
-    let 内容宽键 = egui::Id::new("script_code_content_width");
+    let mut 代码框_id = None;
 
-    let mut 布局任务 = |ui: &Ui, 缓冲: &dyn egui::TextBuffer, _宽度: f32| {
-        let mut 作业 = egui::text::LayoutJob::default();
-        // 整篇一次推进词法状态：块注释、原始字符串因此可以跨行。
-        let mut 状态 = 词法状态::新();
-        for 行 in 缓冲.as_str().split('\n') {
-            let 词元 = if 语言类型.支持着色() {
-                切词带状态(行, &mut 状态)
-            } else {
-                vec![(0..行.len(), 词元角色::普通)]
-            };
-            for (范围, 角色) in 词元 {
-                let 片段 = &行[范围.clone()];
-                if 片段.is_empty() {
-                    continue;
-                }
-                let 强调 =
-                    !查找词.is_empty() && 片段.to_lowercase().contains(&查找词.to_lowercase());
-                作业.append(
-                    片段,
-                    0.0,
-                    TextFormat {
-                        font_id: 字体.clone(),
-                        color: 角色颜色(角色, &高亮配色),
-                        background: if 强调 {
-                            高亮配色.选中背景
-                        } else {
-                            Color32::TRANSPARENT
+    {
+        let Some(标签) = 上下文.界面.脚本.当前标签可变() else {
+            return;
+        };
+        let 语言类型 = 标签.文档.语言;
+        let 查找词 = 标签.查找.clone();
+        let mut 文本 = 标签.文档.文本.clone();
+        let 行数 = 文本.split('\n').count().max(1);
+        let 滚动目标 = 标签.滚动到行.take();
+        let 待恢复滚动 = 标签.待恢复滚动.take();
+        let 标签键 = 标签
+            .文档
+            .路径
+            .as_ref()
+            .map(|路径| 路径.文本().to_string())
+            .unwrap_or_else(|| format!("#{活动}"));
+        let 内容宽键 = egui::Id::new(("script_code_content_width", 标签键.as_str()));
+
+        let mut 布局任务 = |ui: &Ui, 缓冲: &dyn egui::TextBuffer, _宽度: f32| {
+            let mut 作业 = egui::text::LayoutJob::default();
+            let mut 状态 = 词法状态::新();
+            for 行 in 缓冲.as_str().split('\n') {
+                let 词元 = if 语言类型.支持着色() {
+                    切词带状态(行, &mut 状态)
+                } else {
+                    vec![(0..行.len(), 词元角色::普通)]
+                };
+                for (范围, 角色) in 词元 {
+                    let 片段 = &行[范围.clone()];
+                    if 片段.is_empty() {
+                        continue;
+                    }
+                    let 强调 =
+                        !查找词.is_empty() && 片段.to_lowercase().contains(&查找词.to_lowercase());
+                    作业.append(
+                        片段,
+                        0.0,
+                        TextFormat {
+                            font_id: 字体.clone(),
+                            color: 角色颜色(角色, &高亮配色),
+                            background: if 强调 {
+                                高亮配色.选中背景
+                            } else {
+                                Color32::TRANSPARENT
+                            },
+                            ..Default::default()
                         },
-                        ..Default::default()
-                    },
-                );
-            }
-            作业.append("\n", 0.0, TextFormat::simple(字体.clone(), 高亮配色.文字));
-        }
-        ui.painter().layout_job(作业)
-    };
-
-    ui.horizontal_top(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-
-        // ---- 行号槽：先占位，滚动之后再往里画 ----
-        let 位数 = 行数.to_string().len().max(2);
-        let 数字宽 = ui.fonts_mut(|字体库| {
-            字体库
-                .layout_no_wrap("0".repeat(位数), 字体.clone(), 配色.禁用文字)
-                .size()
-                .x
-        });
-        let 槽宽 = 数字宽 + 12.0;
-        let 槽 = ui
-            .allocate_exact_size(
-                egui::vec2(槽宽, ui.available_height()),
-                egui::Sense::hover(),
-            )
-            .0;
-
-        let 可用宽 = ui.available_width().max(1.0);
-        let 上一帧宽 = ui
-            .data(|数据| 数据.get_temp::<f32>(内容宽键))
-            .unwrap_or(0.0);
-        let 内容宽 = 上一帧宽.max(可用宽);
-
-        let mut 滚动 = egui::ScrollArea::both()
-            .id_salt("script_code_scroll")
-            .auto_shrink([false, false]);
-        if let Some(行) = 滚动目标 {
-            // 目标行放到视口上部约三分之一处，而不是贴顶。
-            let 偏移 = (行.min(行数.saturating_sub(1)) as f32) * 行高 - 槽.height() * 0.3;
-            滚动 = 滚动.vertical_scroll_offset(偏移.max(0.0));
-        }
-
-        let 滚动输出 = 滚动.show(ui, |ui| {
-            let 子尺寸 = egui::vec2(内容宽, (行数 as f32 * 行高).max(ui.available_height()));
-            ui.allocate_ui_with_layout(子尺寸, egui::Layout::top_down(egui::Align::Min), |ui| {
-                let 编辑器 = egui::TextEdit::multiline(&mut 文本)
-                    .code_editor()
-                    .font(字体.clone())
-                    .desired_rows(30)
-                    .layouter(&mut 布局任务);
-                let 输出 = 编辑器.show(ui);
-                if let Some(范围) = 输出.cursor_range {
-                    // `CCursor::index` 是字符下标；用它数换行得到真实行号。
-                    let 字符下标: usize = 范围.primary.index.into();
-                    let 前缀: String = 文本.chars().take(字符下标).collect();
-                    文档.光标行 = Some(前缀.matches('\n').count() + 1);
+                    );
                 }
-                输出
-            })
-            .inner
-        });
-        let 输出 = 滚动输出.inner;
-        let 内容宽实测 = 输出.galley.rect.width().max(可用宽);
-        ui.data_mut(|数据| 数据.insert_temp(内容宽键, 内容宽实测));
+                作业.append("\n", 0.0, TextFormat::simple(字体.clone(), 高亮配色.文字));
+            }
+            ui.painter().layout_job(作业)
+        };
 
-        // ---- 行号：跟着代码的 galley 走，只画可见行 ----
-        let 可画 = 槽.intersect(ui.clip_rect());
-        if 可画.is_positive() {
-            let 画布 = ui.painter().with_clip_rect(可画);
-            // 不透明底：横向滚动时代码会从槽右侧滑过，透底会串字。
-            画布.rect_filled(槽, 0.0, 配色.面板背景);
-            for 行 in 可见行区间(槽.y_range(), 输出.galley_pos.y, 行高, 行数) {
-                let 纵 = 输出.galley_pos.y + 行 as f32 * 行高;
-                画布.text(
-                    egui::pos2(槽.right() - 6.0, 纵),
-                    egui::Align2::RIGHT_TOP,
-                    format!("{:>位数$}", 行 + 1),
-                    字体.clone(),
-                    配色.禁用文字,
+        ui.horizontal_top(|ui| {
+            ui.spacing_mut().item_spacing.x = 0.0;
+
+            let 位数 = 行数.to_string().len().max(2);
+            let 数字宽 = ui.fonts_mut(|字体库| {
+                字体库
+                    .layout_no_wrap("0".repeat(位数), 字体.clone(), 配色.禁用文字)
+                    .size()
+                    .x
+            });
+            let 槽宽 = 数字宽 + 12.0;
+            let 槽 = ui
+                .allocate_exact_size(
+                    egui::vec2(槽宽, ui.available_height()),
+                    egui::Sense::hover(),
+                )
+                .0;
+
+            let 可用宽 = ui.available_width().max(1.0);
+            let 上一帧宽 = ui
+                .data(|数据| 数据.get_temp::<f32>(内容宽键))
+                .unwrap_or(0.0);
+            let 内容宽 = 上一帧宽.max(可用宽);
+
+            let mut 滚动 = egui::ScrollArea::both()
+                .id_salt(("script_code_scroll", 标签键.as_str()))
+                .auto_shrink([false, false]);
+            if let Some(行) = 滚动目标 {
+                let 偏移 = (行.min(行数.saturating_sub(1)) as f32) * 行高 - 槽.height() * 0.3;
+                滚动 = 滚动.vertical_scroll_offset(偏移.max(0.0));
+            } else if let Some(偏移) = 待恢复滚动 {
+                滚动 = 滚动.vertical_scroll_offset(偏移.max(0.0));
+            }
+
+            let 滚动输出 = 滚动.show(ui, |ui| {
+                let 子尺寸 = egui::vec2(内容宽, (行数 as f32 * 行高).max(ui.available_height()));
+                ui.allocate_ui_with_layout(
+                    子尺寸,
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        let 编辑器 = egui::TextEdit::multiline(&mut 文本)
+                            .id_salt(("script_code_edit", 标签键.as_str()))
+                            .code_editor()
+                            .font(字体.clone())
+                            .desired_rows(30)
+                            .layouter(&mut 布局任务);
+                        let 输出 = 编辑器.show(ui);
+                        if let Some(范围) = 输出.cursor_range {
+                            let 字符下标: usize = 范围.primary.index.into();
+                            let 前缀: String = 文本.chars().take(字符下标).collect();
+                            标签.文档.光标行 = Some(前缀.matches('\n').count() + 1);
+                        }
+                        输出
+                    },
+                )
+                .inner
+            });
+            let 滚动偏移 = 滚动输出.state.offset.y;
+            let 输出 = 滚动输出.inner;
+            标签.滚动偏移 = 滚动偏移;
+            代码框_id = Some(输出.response.id);
+            let 内容宽实测 = 输出.galley.rect.width().max(可用宽);
+            ui.data_mut(|数据| 数据.insert_temp(内容宽键, 内容宽实测));
+
+            let 可画 = 槽.intersect(ui.clip_rect());
+            if 可画.is_positive() {
+                let 画布 = ui.painter().with_clip_rect(可画);
+                画布.rect_filled(槽, 0.0, 配色.面板背景);
+                for 行 in 可见行区间(槽.y_range(), 输出.galley_pos.y, 行高, 行数) {
+                    let 纵 = 输出.galley_pos.y + 行 as f32 * 行高;
+                    画布.text(
+                        egui::pos2(槽.right() - 6.0, 纵),
+                        egui::Align2::RIGHT_TOP,
+                        format!("{:>位数$}", 行 + 1),
+                        字体.clone(),
+                        配色.禁用文字,
+                    );
+                }
+                画布.line_segment(
+                    [槽.right_top(), 槽.right_bottom()],
+                    egui::Stroke::new(1.0, 配色.分割线),
                 );
             }
-            画布.line_segment(
-                [槽.right_top(), 槽.right_bottom()],
-                egui::Stroke::new(1.0, 配色.分割线),
+        });
+
+        if 文本 != 标签.文档.文本 {
+            标签.文档.文本 = 文本;
+            if !查找词.is_empty() {
+                标签.重新查找();
+            }
+        }
+    }
+
+    上下文.界面.脚本.代码焦点 = 代码框_id;
+}
+
+/// 绘制标签栏。
+///
+/// 每个标签 = 可点选的标题 + 独立的关闭按钮。标题后的 `*` 表示有未保存
+/// 修改 —— 用星号而不是只靠颜色，因为颜色在深色 / 浅色主题下还要与
+/// "选中""警告"区分，而 `*` 在任何主题里都只有一个意思。
+///
+/// 每个 `×` 都挂自己的下标，而不是「关当前标签」：用户点哪一条就关哪一条。
+///
+/// 先把标题快照出来再画：绘制过程中既要遍历 `界面.脚本.标签`，又要往
+/// `动作` 队列里推；快照只有标题字符串与布尔量，代价可以忽略，却让
+/// "遍历状态"与"推动作"不再同时借用同一个结构。
+fn 绘制标签栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    let 活动 = 上下文.界面.脚本.活动;
+    let 快照: Vec<(usize, String, bool)> = 上下文
+        .界面
+        .脚本
+        .标签
+        .iter()
+        .enumerate()
+        .map(|(下标, 标签)| (下标, 标签.文档.显示名(语言), 标签.文档.有未保存修改()))
+        .collect();
+
+    let mut 要切换 = None;
+    let mut 要关闭 = None;
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 2.0;
+        for (下标, 名, 有修改) in &快照 {
+            let 标题 = if *有修改 {
+                format!("{名}*")
+            } else {
+                名.clone()
+            };
+            let 响应 = ui.selectable_label(
+                *下标 == 活动,
+                RichText::new(标题).small().color(if *有修改 {
+                    配色.警告
+                } else {
+                    配色.文字
+                }),
             );
+            if 响应.clicked() {
+                要切换 = Some(*下标);
+            }
+            if ui
+                .small_button("×")
+                .on_hover_text(语言.取("script_tab_close"))
+                .clicked()
+            {
+                要关闭 = Some(*下标);
+            }
         }
     });
+    if let Some(下标) = 要切换 {
+        上下文.动作.推(UiAction::切换脚本标签(下标));
+    }
+    if let Some(下标) = 要关闭 {
+        上下文.动作.推(UiAction::关闭脚本标签(下标));
+    }
+}
 
-    if 文本 != 文档.文本 {
-        文档.文本 = 文本;
-        if !查找词.is_empty() {
-            上下文.界面.脚本.重新查找();
+/// 绘制未保存确认浮层。
+///
+/// 用 `egui::Window` 而不是模态框：脚本面板可能停靠在浮窗里，模态会连
+/// 主编辑区一起锁住，用户想先看看别处的代码再决定都做不到。点右上角
+/// 关闭等同"取消"—— 把关闭按钮当成"放弃修改"会让一次误点毁掉编辑。
+fn 绘制确认浮层(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) {
+    let 语言 = 上下文.语言;
+    let 配色 = 上下文.配色;
+    let Some(待确认) = 上下文.界面.脚本.待确认.clone() else {
+        return;
+    };
+    let 正文 = match &待确认 {
+        脚本待确认::关闭 { 索引 } => {
+            let 名 = 上下文
+                .界面
+                .脚本
+                .标签
+                .get(*索引)
+                .map(|标签| 标签.文档.显示名(语言))
+                .unwrap_or_default();
+            语言.填充("script_confirm_close", &[&名])
         }
+        脚本待确认::打开 { 路径 } => 语言.填充("script_confirm_switch", &[&路径.文本()]),
+    };
+
+    let mut 打开 = true;
+    let mut 要保存 = false;
+    let mut 要放弃 = false;
+    let mut 要取消 = false;
+    egui::Window::new(语言.取("script_confirm_title"))
+        .id(egui::Id::new("script_confirm_overlay"))
+        .collapsible(false)
+        .resizable(false)
+        .open(&mut 打开)
+        .show(ui.ctx(), |ui| {
+            ui.label(RichText::new(正文).color(配色.文字));
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button(语言.取("script_confirm_save")).clicked() {
+                    要保存 = true;
+                }
+                if ui
+                    .button(RichText::new(语言.取("script_confirm_discard")).color(配色.警告))
+                    .clicked()
+                {
+                    要放弃 = true;
+                }
+                if ui.button(语言.取("cancel")).clicked() {
+                    要取消 = true;
+                }
+            });
+        });
+
+    if 要保存 {
+        上下文.动作.推(UiAction::脚本确认保存);
+    } else if 要放弃 {
+        上下文.动作.推(UiAction::脚本放弃修改);
+    } else if 要取消 || !打开 {
+        上下文.动作.推(UiAction::脚本取消确认);
     }
 }
 
@@ -989,28 +1367,30 @@ mod 测试 {
             None,
             "alpha\nbeta\nAlpha again\n".to_string(),
         ));
-        状态.查找 = "alpha".to_string();
-        状态.重新查找();
-        assert_eq!(状态.命中行, vec![0, 2], "查找应当不区分大小写");
-        assert_eq!(状态.滚动到行, Some(0));
-        状态.下一个命中();
-        assert_eq!(状态.滚动到行, Some(2));
-        状态.下一个命中();
-        assert_eq!(状态.滚动到行, Some(0), "命中应当循环");
-        状态.上一个命中();
-        assert_eq!(状态.滚动到行, Some(2));
+        let 标签 = 状态.当前标签可变().expect("应当有活动标签");
+        标签.查找 = "alpha".to_string();
+        标签.重新查找();
+        assert_eq!(标签.命中行, vec![0, 2], "查找应当不区分大小写");
+        assert_eq!(标签.滚动到行, Some(0));
+        标签.下一个命中();
+        assert_eq!(标签.滚动到行, Some(2));
+        标签.下一个命中();
+        assert_eq!(标签.滚动到行, Some(0), "命中应当循环");
+        标签.上一个命中();
+        assert_eq!(标签.滚动到行, Some(2));
     }
 
     #[test]
     fn 空查找不产生命中() {
         let mut 状态 = 脚本状态::default();
         状态.打开(脚本文档::新建(None, "abc".to_string()));
-        状态.查找 = String::new();
-        状态.重新查找();
-        assert!(状态.命中行.is_empty());
+        let 标签 = 状态.当前标签可变().expect("应当有活动标签");
+        标签.查找 = String::new();
+        标签.重新查找();
+        assert!(标签.命中行.is_empty());
         // 没有命中时跳转是安全的空操作。
-        状态.下一个命中();
-        状态.上一个命中();
+        标签.下一个命中();
+        标签.上一个命中();
     }
 
     #[test]
@@ -1135,5 +1515,126 @@ mod 测试 {
         状态.打开(脚本文档::新建(Some(路径), "fn main() {}".to_string()));
         assert!(!状态.正在读取(), "装载完成后不应再显示正在读取");
         assert!(状态.待读取.is_none());
+    }
+
+    #[test]
+    fn 多标签打开与切换保留各自状态() {
+        let mut 状态 = 脚本状态::default();
+        let 甲 = scene_doc::path::项目相对路径::解析("src/甲.rs").expect("合法路径");
+        let 乙 = scene_doc::path::项目相对路径::解析("src/乙.rs").expect("合法路径");
+        状态.打开(脚本文档::新建(
+            Some(甲.clone()),
+            "fn 甲() {}".to_string(),
+        ));
+        状态.打开(脚本文档::新建(
+            Some(乙.clone()),
+            "fn 乙() {}".to_string(),
+        ));
+        assert_eq!(状态.标签.len(), 2);
+        assert_eq!(状态.活动, 1, "新打开的文件应当成为活动标签");
+
+        {
+            let 标签 = 状态.当前标签可变().expect("应当有活动标签");
+            标签.查找 = "乙".to_string();
+            标签.重新查找();
+            标签.滚动偏移 = 240.0;
+            标签.文档.文本.push_str("\n// 未保存");
+        }
+        assert!(状态.当前标签有未保存修改());
+
+        状态.切换(0);
+        assert_eq!(状态.当前文档().unwrap().路径.as_ref(), Some(&甲));
+        let 甲标签 = 状态.当前标签().unwrap();
+        assert!(甲标签.查找.is_empty(), "甲标签的查找词不该被乙污染");
+        assert_eq!(甲标签.待恢复滚动, Some(0.0));
+        assert!(!状态.当前标签有未保存修改());
+
+        状态.切换(1);
+        let 乙标签 = 状态.当前标签().unwrap();
+        assert_eq!(乙标签.查找, "乙");
+        assert_eq!(
+            乙标签.待恢复滚动,
+            Some(240.0),
+            "切回来要恢复离开时的滚动位置"
+        );
+        assert!(乙标签.文档.有未保存修改(), "切换标签不能丢未保存修改");
+    }
+
+    #[test]
+    fn 重复打开同一路径聚焦已有标签() {
+        let mut 状态 = 脚本状态::default();
+        let 甲 = scene_doc::path::项目相对路径::解析("src/甲.rs").expect("合法路径");
+        let 乙 = scene_doc::path::项目相对路径::解析("src/乙.rs").expect("合法路径");
+        状态.打开(脚本文档::新建(
+            Some(甲.clone()),
+            "fn 甲() {}".to_string(),
+        ));
+        状态.打开(脚本文档::新建(Some(乙), "fn 乙() {}".to_string()));
+        assert_eq!(状态.活动, 1);
+
+        状态.打开(脚本文档::新建(
+            Some(甲.clone()),
+            "fn 甲() {}\n// 磁盘版本".to_string(),
+        ));
+        assert_eq!(状态.标签.len(), 2, "同一路径不能开出两条标签");
+        assert_eq!(状态.活动, 0, "重复打开应当聚焦已有标签");
+        assert!(
+            状态.当前文档().unwrap().文本.contains("磁盘版本"),
+            "没有未保存修改时应当取磁盘内容"
+        );
+
+        // 已有未保存修改时，磁盘内容不能把用户写的东西盖掉。
+        状态.当前文档可变().unwrap().文本 = "用户改过的内容".to_string();
+        状态.打开(脚本文档::新建(Some(甲), "磁盘内容".to_string()));
+        assert_eq!(状态.当前文档().unwrap().文本, "用户改过的内容");
+    }
+
+    #[test]
+    fn 关闭标签后活动下标前后对齐() {
+        let mut 状态 = 脚本状态::default();
+        let 路径们: Vec<_> = ["甲", "乙", "丙"]
+            .iter()
+            .map(|名| {
+                scene_doc::path::项目相对路径::解析(&format!("src/{名}.rs")).expect("合法路径")
+            })
+            .collect();
+        for 路径 in &路径们 {
+            状态.打开(脚本文档::新建(Some(路径.clone()), String::new()));
+        }
+        assert_eq!(状态.标签.len(), 3);
+
+        状态.切换(1);
+        状态.移除(1);
+        assert_eq!(状态.标签.len(), 2);
+        assert_eq!(状态.活动, 1, "关掉中间的标签，焦点落到后面那个");
+        assert_eq!(状态.当前文档().unwrap().路径.as_ref(), Some(&路径们[2]));
+
+        状态.移除(1);
+        assert_eq!(状态.活动, 0, "关掉最后一个标签应当往前退一格");
+
+        状态.移除(0);
+        assert!(状态.标签.is_empty());
+        assert_eq!(状态.活动, 0, "没有标签时下标恒为 0");
+        assert!(状态.当前文档().is_none());
+    }
+
+    #[test]
+    fn 标记已保存只清除目标标签的星号() {
+        let mut 状态 = 脚本状态::default();
+        let 甲 = scene_doc::path::项目相对路径::解析("src/甲.rs").expect("合法路径");
+        let 乙 = scene_doc::path::项目相对路径::解析("src/乙.rs").expect("合法路径");
+        状态.打开(脚本文档::新建(Some(甲), "甲".to_string()));
+        状态.打开(脚本文档::新建(Some(乙), "乙".to_string()));
+        for 下标 in 0..2 {
+            状态.标签[下标].文档.文本.push('!');
+        }
+        assert!(状态.标签.iter().all(|标签| 标签.文档.有未保存修改()));
+
+        状态.标记已保存(0, None);
+        assert!(!状态.标签[0].文档.有未保存修改());
+        assert!(
+            状态.标签[1].文档.有未保存修改(),
+            "保存甲不能顺手把乙的星号也清掉"
+        );
     }
 }

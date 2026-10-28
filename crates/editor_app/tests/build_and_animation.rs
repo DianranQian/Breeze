@@ -282,9 +282,9 @@ fn 打开诊断会把源码装进脚本面板并定位到行() {
     // 诊断里的路径是**相对项目根**的（rustc 就这么给）。
     actions::打开源码位置(&mut 编辑器, &mut 界面, Some(Path::new("src/game.rs")), 3);
 
-    界面.脚本.文档.as_ref().expect("脚本面板应当装入了文件");
-    assert_eq!(界面.脚本.滚动到行, Some(2), "行号应当转成 0 基");
-    let 文本 = &界面.脚本.文档.as_ref().unwrap().文本;
+    let 标签 = 界面.脚本.当前标签().expect("脚本面板应当装入了文件");
+    assert_eq!(标签.滚动到行, Some(2), "行号应当转成 0 基");
+    let 文本 = &标签.文档.文本;
     assert!(文本.contains("let b = 2;"), "读到的内容应当是真实文件");
     assert!(
         界面.面板可见(editor_ui::Tab::脚本),

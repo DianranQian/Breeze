@@ -656,7 +656,12 @@ script_open_failed	打开代码文件失败：{}	Failed to open code file: {}
 script_save_failed	保存代码文件失败：{}	Failed to save code file: {}
 script_unsaved_outside_project	代码已保存，但不在当前项目目录内，无法加入资源列表	Code saved, but it is outside the project and cannot be listed
 script_loading	正在读取…	Loading…
-script_discarded	已放弃「{}」里未保存的修改	Discarded unsaved changes in "{}"
+script_tab_close	关闭标签	Close tab
+script_confirm_title	未保存的修改	Unsaved Changes
+script_confirm_close	「{}」有未保存的修改，关闭前要保存吗？	"{}" has unsaved changes. Save before closing?
+script_confirm_switch	打开「{}」前，要保存当前文件的修改吗？	Save changes to the current file before opening "{}"?
+script_confirm_save	保存	Save
+script_confirm_discard	放弃修改	Discard Changes
 log_project_tree_refreshed	已刷新项目文件树（{} 个文件）	Project file tree refreshed ({} files)
 log_script_opened	已打开代码文件「{}」	Opened code file "{}"
 log_script_saved	已保存代码文件「{}」	Saved code file "{}"

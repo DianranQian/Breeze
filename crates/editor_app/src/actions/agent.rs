@@ -296,7 +296,7 @@ pub(super) fn 处理智能体动作(
         }
 
         UiAction::智能体附加原生工程上下文 => {
-            let 脚本 = 界面状态.脚本.文档.as_ref();
+            let 脚本 = 界面状态.脚本.当前文档();
             let 项列表 = crate::agent_context::原生上下文项(编辑器, 脚本, 120);
             if 项列表.is_empty() {
                 编辑器.警告("请先打开项目：原生工程上下文需要真实 Cargo 工程".to_string());

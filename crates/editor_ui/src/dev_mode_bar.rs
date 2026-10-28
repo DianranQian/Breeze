@@ -219,7 +219,7 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
             true
         }
         开发模式::脚本 => {
-            let 有文档 = 上下文.界面.脚本.文档.is_some();
+            let 有文档 = 上下文.界面.脚本.当前文档().is_some();
             if 上下文
                 .图标
                 .图标按钮(
@@ -249,7 +249,7 @@ pub fn 绘制模式工具栏(ui: &mut Ui, 上下文: &mut 绘制上下文<'_>) -
             {
                 上下文.界面.脚本.显示查找 = true;
             }
-            match 上下文.界面.脚本.文档.as_ref() {
+            match 上下文.界面.脚本.当前文档() {
                 Some(文档) => {
                     ui.label(
                         RichText::new(format!(

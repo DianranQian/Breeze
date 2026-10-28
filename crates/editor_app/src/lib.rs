@@ -43,6 +43,8 @@ pub mod debug_bridge;
 pub mod diagnostics;
 pub mod light_preview;
 pub mod panic_report;
+pub mod physics3d_components;
+pub mod physics3d_runtime;
 pub mod physics_components;
 pub mod physics_runtime;
 pub mod pie_input;

@@ -949,7 +949,7 @@ log_no_project	尚未打开项目	No project is open
 log_nothing_selected	没有选中实体	No entity is selected
 log_entity_has_no_audio	实体 {} 上没有音频组件	Entity {} has no audio component
 collision_shapes	碰撞	Collisions
-collision_shapes_hint	显示碰撞体轮廓（当前只做可视化，不跑物理模拟）	Show collision outlines (visualization only; no simulation yet)
+collision_shapes_hint	显示碰撞体轮廓；物理只在运行时模拟	Show collision outlines; physics only runs at runtime
 collision_field_shape	形状	Shape
 collision_field_width	宽度	Width
 collision_field_height	高度	Height
@@ -966,6 +966,20 @@ shape_circle	圆形	Circle
 rigid_body_static	静态	Static
 rigid_body_dynamic	动态	Dynamic
 rigid_body_kinematic	运动学	Kinematic
+shape_box	立方体	Box
+shape_sphere	球体	Sphere
+shape_capsule	胶囊体	Capsule
+shape_cylinder	圆柱体	Cylinder
+physics3d_field_shape	形状	Shape
+collision_field_depth	深度	Depth
+collision_field_half_height	半高	Half Height
+physics3d_field_friction	摩擦系数	Friction
+physics3d_field_restitution	弹性系数	Restitution
+physics3d_field_size_tooltip	世界单位；宽/高/深是外接尺寸	World units; width/height/depth are the full extents
+physics3d_field_curve_tooltip	球体只用半径；胶囊体与圆柱体用半径和半高	Sphere uses radius only; capsule and cylinder use radius and half height
+physics3d_field_friction_tooltip	0 为无摩擦；常见固体表面约 0.5	0 means frictionless; typical solid surfaces are around 0.5
+physics3d_field_restitution_tooltip	0 为不反弹；1 为完全弹性	0 means no bounce; 1 is perfectly elastic
+log_physics3d_started	三维物理已建立：{} 个刚体、{} 个碰撞体	3D physics built: {} rigid bodies, {} colliders
 ui_field_anchor	锚点	Anchor
 ui_field_anchor_tooltip	决定盒子贴在视口的哪条边上；换分辨率时位置会跟着走	Which edge the box sticks to; it follows when the viewport resizes
 anchor_top_left	左上	Top Left

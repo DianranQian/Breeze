@@ -888,7 +888,22 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
                     for 问题 in &物理诊断.问题 {
                         编辑器.警告(问题.clone());
                     }
-                    if 物理诊断.刚体数 == 0 {
+                    // 三维诊断只在场景里真的有三维碰撞体时才打扰用户：
+                    // 纯二维场景的"0 个刚体"不是问题。
+                    let 三维诊断 = 物理.上次诊断三维.clone();
+                    if 三维诊断.刚体数 > 0 {
+                        编辑器.结构化信息(
+                            "log_physics3d_started",
+                            vec![
+                                日志参数::数值(三维诊断.刚体数 as i64),
+                                日志参数::数值(三维诊断.碰撞体数 as i64),
+                            ],
+                        );
+                    }
+                    for 问题 in &三维诊断.问题 {
+                        编辑器.警告(问题.clone());
+                    }
+                    if 物理诊断.刚体数 == 0 && 三维诊断.刚体数 == 0 {
                         编辑器.信息("场景里没有碰撞体，本次运行不会有物理模拟");
                     }
                     let 统计 = 运行时.上次统计.clone();
@@ -902,6 +917,8 @@ fn 执行单个动作(动作: UiAction, 上下文: &mut 动作上下文<'_>) {
                     let 物理类型 = [
                         editor_core::collision::碰撞体组件名,
                         editor_core::collision::刚体组件名,
+                        crate::physics3d_components::碰撞体3D组件名,
+                        crate::physics3d_components::刚体3D组件名,
                     ];
                     let 真跳过: Vec<&String> = 统计
                         .跳过类型
@@ -1682,37 +1699,50 @@ pub fn 推进运行时(
     if 运行时.状态 != 运行状态::运行中 {
         return;
     }
-    let Some(物理世界) = 物理.当前.as_mut() else {
-        return;
-    };
-    物理世界.推进(时间.delta_secs());
-    if let Some(世界) = 运行时.世界.as_mut() {
-        物理世界.写回(世界);
-    }
-    // 碰撞/触发器事件进控制台：这是"运行调试"链路里最基本的一环。
-    for 事件 in 物理世界.取出事件() {
-        match 事件 {
-            crate::physics_runtime::物理事件::开始接触 {
-                甲, 乙, 传感器
-            } => {
-                if 传感器 {
+    let 经过 = 时间.delta_secs();
+
+    // ---- 二维物理 ----
+    if let Some(物理世界) = 物理.当前.as_mut() {
+        物理世界.推进(经过);
+        if let Some(世界) = 运行时.世界.as_mut() {
+            物理世界.写回(世界);
+        }
+        // 碰撞/触发器事件进控制台：这是"运行调试"链路里最基本的一环。
+        for 事件 in 物理世界.取出事件() {
+            match 事件 {
+                crate::physics_runtime::物理事件::开始接触 {
+                    甲, 乙, 传感器
+                } => {
+                    if 传感器 {
+                        编辑器资源.状态.结构化信息(
+                            "log_physics_sensor_entered",
+                            vec![日志参数::用户数据(甲), 日志参数::用户数据(乙)],
+                        );
+                    } else {
+                        编辑器资源.状态.结构化信息(
+                            "log_physics_collision_started",
+                            vec![日志参数::用户数据(甲), 日志参数::用户数据(乙)],
+                        );
+                    }
+                }
+                crate::physics_runtime::物理事件::结束接触 { 甲, 乙 } => {
                     编辑器资源.状态.结构化信息(
-                        "log_physics_sensor_entered",
-                        vec![日志参数::用户数据(甲), 日志参数::用户数据(乙)],
-                    );
-                } else {
-                    编辑器资源.状态.结构化信息(
-                        "log_physics_collision_started",
+                        "log_physics_collision_stopped",
                         vec![日志参数::用户数据(甲), 日志参数::用户数据(乙)],
                     );
                 }
             }
-            crate::physics_runtime::物理事件::结束接触 { 甲, 乙 } => {
-                编辑器资源.状态.结构化信息(
-                    "log_physics_collision_stopped",
-                    vec![日志参数::用户数据(甲), 日志参数::用户数据(乙)],
-                );
-            }
+        }
+    }
+
+    // ---- 三维物理 ----
+    //
+    // 与二维分开推进：两边各自有固定步长累加器，帧率抖动时不会互相
+    // 吞掉对方的余量。
+    if let Some(三维) = 物理.当前三维.as_mut() {
+        三维.推进(经过);
+        if let Some(世界) = 运行时.世界.as_mut() {
+            三维.写回(世界);
         }
     }
 }

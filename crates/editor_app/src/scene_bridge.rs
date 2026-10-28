@@ -1607,6 +1607,9 @@ static 内置组件构造表: &[组件构造] = &[
     || Box::new(crate::audio_components::音频组件类型),
     || Box::new(crate::physics_components::碰撞体组件类型),
     || Box::new(crate::physics_components::刚体组件类型),
+    // 三维物理追加在末尾：顺序是既有基线，新组件只能往后排。
+    || Box::new(crate::physics3d_components::碰撞体3d组件类型),
+    || Box::new(crate::physics3d_components::刚体3d组件类型),
 ];
 
 /// 按构造表构建注册表；这是全项目唯一的 `.注册` 调用点。
@@ -1686,6 +1689,8 @@ mod 测试 {
                 "音频",
                 "碰撞体2d",
                 "刚体2d",
+                "碰撞体3d",
+                "刚体3d",
             ],
             "注册顺序是集中前的基线，不得改变"
         );

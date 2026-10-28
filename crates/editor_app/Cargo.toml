@@ -26,6 +26,11 @@ bevy.workspace = true
 # - Avian 2D 0.7 依赖 Bevy ^0.19，不支持本项目使用的 Bevy 0.20，排除；
 # - bevy_rapier2d 0.37 依赖 Bevy ^0.20，Apache-2.0，集成由官方维护 —— 采用。
 rapier2d = { version = "0.36", default-features = false, features = ["dim2", "f32", "std", "block-solver", "simd8"] }
+# 3D 物理引擎选型记录（见 physics3d_runtime.rs 的模块文档）：
+# - avian3d 0.8 与 bevy_rapier3d 0.37 都依赖 Bevy 0.20，但两者的入口都是
+#   `App` 插件；本项目的运行时世界是独立 `World`，没有 App 调度可挂；
+# - 因此与二维一致，直接依赖 bevy_rapier3d 背后的 rapier3d 0.36 后端。
+rapier3d = { version = "0.36", default-features = false, features = ["dim3", "f32", "std", "block-solver", "simd8"] }
 bevy_egui.workspace = true
 egui.workspace = true
 serde.workspace = true

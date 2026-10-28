@@ -136,7 +136,7 @@
 | I5 | 骨骼蒙皮 / 重定向 / IK | M1 | 暂缓 | — | glTF 动画仅作为资源 |
 | I6 | 过场/相机轨道/字幕 | M2 | 核心原生 | 动画可驱动变换 | 无 sequencer |
 | J1 | 2D 刚体/碰撞模拟（Rapier） | M3 | 第三方（Rapier） | `physics_runtime`、`物理模拟` 测试 | 仅运行态；无关节/触发器事件 UI |
-| J2 | 3D 物理 | M1 | 暂缓 | — | 未引入 3D 后端 |
+| J2 | 3D 刚体/碰撞模拟（Rapier3D） | M3 | 第三方（Rapier） | `physics3d_components` + `physics3d_runtime`、`physics3d` 集成测试 | 仅运行态；无关节/弹簧；3D 碰撞事件未接控制台 |
 | J3 | 碰撞轮廓叠加 | M4 | 核心原生 | `collision_overlay`、`collision` | — |
 | J4 | 角色控制器 | M1 | 暂缓 | — | — |
 | J5 | 碰撞层/掩码编辑 | M2 | 核心原生 | `physics_components` | 无冲突诊断 |

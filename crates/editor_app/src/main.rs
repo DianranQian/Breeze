@@ -42,14 +42,28 @@ fn 资源目录() -> String {
 
 /// 进程入口：先判身份，再装配。
 ///
-/// 带 `--game`（或 exe / 当前目录里有 `game_manifest.ron`）时以**游戏**身份
-/// 启动，走 `standalone::从命令行启动`，全程不装配编辑器界面；
-/// 否则以**编辑器**身份启动。两种身份共用同一份投影与运行时桥接，
-/// 因此"视口里长这样、打包后长那样"这类分裂从构造上就不会出现。
+/// 带 `--export-game` 时导出可玩包后退出；带 `--game`（或 exe / 当前目录里有
+/// `game_manifest.ron`）时以**游戏**身份启动，走 `standalone::从命令行启动`，
+/// 全程不装配编辑器界面；否则以**编辑器**身份启动。游戏与导出共用同一份
+/// 投影与打包逻辑，因此"视口里长这样、打包后长那样"这类分裂从构造上就不会出现。
 fn main() {
     // 崩溃一律写报告文件 + stderr，不弹原生窗口（见 `panic_report` 模块文档）。
     editor_app::panic_report::安装崩溃钩子();
     let 参数: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(结果) = editor_app::export_game::从命令行导出(&参数) {
+        match 结果 {
+            Ok(报告) => {
+                println!("{}", 报告.摘要());
+                println!("输出目录：{}", 报告.输出目录.display());
+                println!("启动：双击包内的 exe（同级有 game_manifest.ron 时直接进游戏）");
+            }
+            Err(错误) => {
+                eprintln!("导出可玩包失败：{错误}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if let Some(结果) = editor_app::standalone::从命令行启动(&参数) {
         if let Err(错误) = 结果 {
             eprintln!("独立游戏模式启动失败：{错误}");

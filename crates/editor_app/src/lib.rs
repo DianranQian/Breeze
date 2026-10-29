@@ -45,6 +45,7 @@ pub mod components3d;
 pub mod config;
 pub mod debug_bridge;
 pub mod diagnostics;
+pub mod export_game;
 pub mod light_preview;
 pub mod panic_report;
 pub mod physics3d_components;

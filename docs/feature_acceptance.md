@@ -288,15 +288,15 @@ cargo 当成工作区成员"，与本轮改动无关（清单见 `docs/验收证
 
 ## 18. P5-20 独立游戏每帧开销优化
 
-验收对象：`crates/editor_app/src/standalone.rs` 的 `同步运行姿态` / `同步游戏相机` /
-新增的 `解析相机节点`。
+验收对象：`crates/editor_app/src/standalone.rs` 的 `同步运行姿态` / `同步游戏相机`
+（相机节点的解析揉进同步系统内部，不再是一个独立系统）。
 
 优化的三处都是"每帧无条件写"，代价不在单帧可见，而在于持续：
 
 | 位置 | 原来的每帧动作 | 现在 |
 | --- | --- | --- |
 | `同步运行姿态` | 对所有已映射的预览节点整份拷贝 `Transform` | 相等就不写（`Mut` 不解引用成可变，就不盖变更标记） |
-| `同步游戏相机` | 遍历全部预览实体找相机节点；重写视野/近远裁剪面 | 相机绑定缓存节点实体，`解析相机节点` 只在缺失/失效时解析；投影参数只在生成相机时写一次 |
+| `同步游戏相机` | 遍历全部预览实体找相机节点；重写视野/近远裁剪面 | 相机绑定缓存节点实体，缓存失效时**就地重解析**；投影参数只在生成相机时写一次 |
 | `同步游戏相机` | 找不到节点时把相机弹回 `(0,0,999)` | 保持上一帧姿态（瞬移比停在原地更糟） |
 
 | 类别 | 命令 / 步骤 | 结果 |
@@ -311,3 +311,70 @@ cargo 当成工作区成员"，与本轮改动无关（清单见 `docs/验收证
 **为什么断言用 `Changed<Transform>` 而不是比较数值**：数值相同但被 `Mut` 写一遍，
 变更标记照样会被盖上，下游变换传播照样重算整棵子树 —— 那正是这次要消掉的开销。
 只比数值的测试会放过这种"看着对、白算一帧"的实现。
+
+## 19. P5-21 独立模式调试参数、导出路径统一与遗留风险
+
+验收对象：`crates/editor_app/src/standalone.rs`（`--bench` / `--monitor`）、
+`crates/editor_app/src/export_game.rs`（`--export-game`）、
+`crates/editor_core/src/package.rs`（`导出可玩包`）、根目录 `build_release.ps1`。
+
+### 19.1 帧耗时基线（`--bench`）
+
+`--bench [秒]` 关垂直同步（`PresentMode::AutoNoVsync`），预热 2 秒
+（着色器编译、贴图解码）后按 `Time::delta_secs()` 采样，最近秩算平均/中位/p95，
+打印一行后以 `AppExit::Success` 退出。默认 10 秒，限制在 1～600 秒。
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 自动化 | `cargo test -p editor_app --lib standalone` | **17 通过 / 0 失败** |
+| 真实测量（release 导出包） | `target\verify\Game_Build_Release\bevy-studio.exe --windowed --bench 5` | **1667 帧 / 平均 3.00 ms / 中位 2.27 ms / p95 8.46 ms** |
+| 真实测量（dev 构建） | `target\verify\Game_Build\bevy-studio.exe --windowed --bench 5` | 942 帧 / 平均 5.31 ms / 中位 2.46 ms / p95 16.91 ms |
+
+两次都是同一份 `examples/3d_demo` 与同一个桌面环境；dev 与 release 的中位差距
+来自优化等级，p95 差距主要来自 dev 构建的抖动。不关垂直同步时指标会被
+显示器刷新率钉住，所以 `--bench` 总是关它。
+
+### 19.2 多显示器全屏（`--monitor`）
+
+CLI 用 1 基序号（`--monitor 2` 是系统显示设置里的第二台），
+`MonitorSelection::Index` 是 0 基，转换只发生在 `解析显示器`。
+`--windowed` 优先于 `--monitor`；`--monitor` 隐含全屏。
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 自动化：换算 | `显示器参数按一基解析成零基索引` | `--monitor 2` → `Some(1)` |
+| 自动化：非法值 | `显示器序号非法时报错` | `0`、非数字、缺值都报错而不是回落到主屏 |
+| 实机 | 本机只有一块显示器 | **未验证**：真实第二屏上的无边框全屏落位 |
+
+### 19.3 导出路径统一（`--export-game`）
+
+`build_release.ps1 -ExportGame` 不再解析 `project.ron`，只把路径解析成绝对路径
+后调用刚构建出的 exe：
+
+```powershell
+bevy-studio.exe --export-game <工程目录> <输出目录> [--windowed]
+```
+
+`editor_core::package::导出可玩包` 复用编辑器「打包」的
+`生成打包计划` / `复制计划` / `补齐生成物`，因此包结构、依赖闭包、清单格式
+只有一份实现。输出目录的安全校验收回 Rust：不能是工程目录或它的上级，
+可执行文件不能在输出目录内（否则清空时先把自己删掉）。
+
+| 类别 | 命令 / 步骤 | 结果 |
+| --- | --- | --- |
+| 自动化：打包层 | `cargo test -p editor_core --lib package::测试` | **14 通过 / 0 失败**（新增 5 条：全场景+调试符号+全屏覆盖、拒绝工程/上级、拒绝产物在输出内、缺失依赖列出原因、无场景报错） |
+| 自动化：命令行 | `cargo test -p editor_app --lib export_game` | **5 通过 / 0 失败**（缺参数返回 `None`、两个位置参数、`--windowed` 任意位置、数量不对报用法、未知参数不静默忽略） |
+| 真实导出（release） | `.\build_release.ps1 -ExportGame -SkipBuild -ProjectDir 'examples\3d_demo' -GameOutDir 'target\verify\Game_Build_Release' -ExportWindowed` | **15 个文件 / 114.6 MB**；`game_manifest.ron` 的 `全屏: false`；`scenes/` 带全部场景、`assets/` 只含场景登记的资源 |
+| 实机启动 | 包内 `.\bevy-studio.exe --windowed --bench 5` | 日志 `独立游戏已启动：运行时实体 37 个…三维取景`，随后打印基准行并自行退出 |
+| 顺带修掉的真实缺陷 | 首次重跑脚本 | `cargo build … 2>&1` 在 `ErrorActionPreference=Stop` 下把进度（stderr）当 `NativeCommandError` 终止，构建第一行就停 → 局部放宽偏好、仍按 `$LASTEXITCODE` 判成败 |
+
+### 19.4 上一轮遗留风险
+
+| 风险 | 处理 | 证据 |
+| --- | --- | --- |
+| 相机缓存依赖系统顺序（错序会静默停在默认机位） | 把节点解析揉进 `同步游戏相机`（自愈缓存），删掉独立系统；顺序变化不再影响正确性 | `standalone` 的 `游戏相机跟随文档相机节点并保持姿态` |
+| 相机路径缺变更检测断言 | 新增 `静止的文档相机不会每帧重写变换` | 第二帧 `Changed<Transform>` 计数为 0 |
+| `cargo test --workspace` 偶发 `required to be available in rlib format` | 与改动无关的并行编译/文件占用问题；单包测试与三次全量中的第三次均通过 | 本轮全量结果见下方 |
+| 脚本正则解析 `project.ron` | 由 19.3 整体消除 | 脚本里不再有 `project.ron` 的正则 |
+
+**未验证**：真实第二显示器上的全屏落位（本机单屏）。

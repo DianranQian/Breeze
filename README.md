@@ -157,8 +157,11 @@ cargo run -p editor_app --bin bevy-studio
 ### 打包与独立运行（绿色版）
 
 `build_release.ps1` 做两件事：构建 release 编辑器，再把可执行文件与资源
-收进 `dist/`。加 `-ExportGame` 时改做第三件事：把 exe + 一个工程 + 游戏清单
-收进 `Game_Build/`，那是一个**直接进游戏、不开编辑器**的可玩包。
+收进 `dist/`。加 `-ExportGame` 时改做第三件事：把 exe + 一个工程里可达的
+场景/资源 + 游戏清单收进 `Game_Build/`，那是一个**直接进游戏、不开编辑器**
+的可玩包。导出本身不写在脚本里 —— 脚本只调用刚构建出的 exe 的
+`--export-game`，与编辑器界面的「打包」共用 `editor_core::package`
+里同一份计划、复制与清单逻辑（脚本不再解析 `project.ron`）。
 目标机器不需要安装 Rust，把产物目录整个复制过去即可运行。
 
 ```powershell
@@ -197,15 +200,29 @@ Game_Build/
 ├── bevy-studio.pdb        # 存在时一并复制，崩溃报告才能定位符号
 ├── game_manifest.ron      # 主场景 / 设计分辨率 / 是否全屏
 ├── project.ron            # 工程清单（独立模式仍按它装载项目）
-├── scenes/  assets/  prefabs/  animations/   # 工程里存在才复制
+├── scenes/                # 全部场景
+├── assets/                # 场景登记的、磁盘上真实存在的资源
 └── build-info.txt
 ```
 
+包里**只包含启动可达的东西**：场景引用的资源按场景的 `资源表` 收集，
+未被引用的资源与源码不进包（与编辑器「打包」完全同一套规则）。
+
 `-ProjectDir` 省略时，脚本读编辑器配置里的**当前打开的工程**
 （`%APPDATA%\BevyStudio\config.ron`，可用 `BEVY_STUDIO_CONFIG_DIR` 覆盖），
-所以"在编辑器里调好、回终端敲一条命令"就是完整流程。主场景与设计分辨率
-从工程的 `project.ron` 推导；读不出启动场景时退回 `scenes/` 里第一个场景，
-一个场景都没有则直接报错——生成一个跑不起来的包比报错更难排查。
+所以"在编辑器里调好、回终端敲一条命令"就是完整流程。主场景、名称与设计
+分辨率由 `项目描述` 从 `project.ron` **结构化读取**（不再是脚本里的正则）；
+没有启动场景时按场景目录第一个兜底，一个场景都没有直接报错 ——
+生成一个跑不起来的包比报错更难排查。
+
+导出也可以直接调用 exe（脚本内部就是这么做的）：
+
+```powershell
+bevy-studio.exe --export-game <工程目录> <输出目录> [--windowed]
+```
+
+输出目录会被**先清空**；校验在 Rust 侧完成：输出目录不能是工程目录或它的
+上级，可执行文件也不能位于输出目录内（否则清空时先把自己删掉）。
 
 **资源根解析**（`editor_core::asset_root`，编辑器启动时执行一次）：
 
@@ -237,8 +254,15 @@ Game_Build/
 | --- | --- |
 | 双击 `Game_Build/bevy-studio.exe` | 按 `game_manifest.ron` 全屏进游戏 |
 | `bevy-studio.exe --windowed` | 同样进游戏，但不独占显示器 |
+| `bevy-studio.exe --monitor 2` | 指定显示器全屏（序号从 1 开始，对应系统显示设置里的顺序） |
 | `bevy-studio.exe --game D:\我的工程` | 不带清单，直接以该工程的启动场景运行 |
+| `bevy-studio.exe --bench 10` | 关闭垂直同步，预热 2 秒后采样 10 秒，打印帧耗时统计后退出 |
 | 以上都不满足 | 编辑器照旧启动 |
+
+`--bench` 用来拿可复现的帧耗时数字：不做预热会把首帧的着色器编译、
+贴图解码算进平均值；不关垂直同步则指标会被显示器刷新率钉住。
+输出一行 `基准：… 帧 / 平均 / 中位 / p95（已关垂直同步）`。
+`--windowed` 优先于 `--monitor`，`--monitor` 隐含全屏。
 
 `Esc` 退出游戏窗口。3D 场景需要文档里有一台 `Camera3d` 节点（编辑器
 新建场景时会自动补），否则退回二维正交取景并在日志里告警。

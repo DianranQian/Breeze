@@ -23,6 +23,18 @@
 //!
 //! `--windowed` 只覆盖"全屏"这一件事，不改变是否进游戏。
 //!
+//! # 调试参数
+//!
+//! | 参数 | 作用 |
+//! | --- | --- |
+//! | `--windowed` | 不独占显示器（覆盖清单的 `全屏`） |
+//! | `--monitor <n>` | 全屏投到第 n 台显示器（从 1 开始），并隐含全屏 |
+//! | `--bench [秒]` | 关掉垂直同步采样帧耗时，跑够时长打印 平均 / 中位 / p95 后退出（缺省 10 秒） |
+//!
+//! `--bench` 的存在理由：没有基线就没有优化。帧率被垂直同步钉在 16.7 ms 时，
+//! 任何同步系统的开销都被掩盖，前后对比看不出差别；基准模式关掉垂直同步、
+//! 跳过预热帧，输出的数字可以当作「改之前 / 改之后」的比较基准。
+//!
 //! # 为什么复用编辑器投影，而不是另写一套渲染
 //!
 //! 编辑器已经有一套经过测试的**文档 → 渲染实体**投影（`preview`、
@@ -65,7 +77,7 @@ use std::path::{Path, PathBuf};
 
 use bevy::camera::{ScalingMode, visibility::RenderLayers};
 use bevy::prelude::*;
-use bevy::window::{MonitorSelection, WindowMode, WindowResolution};
+use bevy::window::{MonitorSelection, PresentMode, WindowMode, WindowResolution};
 use editor_core::game_manifest::{游戏清单, 游戏清单文件名};
 use editor_core::state::编辑器状态;
 use scene_doc::document::{场景文档, 实体标识};
@@ -84,6 +96,18 @@ pub const 游戏模式参数: &str = "--game";
 ///
 /// 发布包默认清单里 `全屏: true`；调试时不希望独占显示器就用它。
 pub const 窗口模式参数: &str = "--windowed";
+
+/// 命令行里选择全屏显示器的参数名（值为 1 基序号）。
+pub const 显示器参数: &str = "--monitor";
+
+/// 命令行里开启帧耗时基准的参数名（值可省略，单位秒）。
+pub const 基准参数: &str = "--bench";
+
+/// 基准模式的缺省时长（秒）。
+const 基准默认秒: f32 = 10.0;
+
+/// 基准模式的预热时长（秒）：着色器编译、资源解码都落在这一段里。
+const 基准预热秒: f32 = 2.0;
 
 /// 三维场景相机的组件名（与 `scene_bridge` 的注册名一致）。
 const 三维相机组件名: &str = "Camera3d";
@@ -108,6 +132,10 @@ pub struct 启动请求 {
     pub 清单: Option<游戏清单>,
     /// 是否全屏。清单的 `全屏` 与 `--windowed` 合成后的结果。
     pub 全屏: bool,
+    /// 全屏时投到第几台显示器（0 基）。`None` 表示主显示器。
+    pub 显示器: Option<usize>,
+    /// 基准模式时长（秒）。`Some` 表示跑完这个时长、打印帧耗时后退出。
+    pub 基准秒: Option<f32>,
 }
 
 /// 把命令行参数解析成启动请求。
@@ -154,11 +182,16 @@ pub fn 识别启动(
             ),
             false => None,
         };
-        let 全屏 = !要求窗口 && 清单.as_ref().map(|清单| 清单.全屏).unwrap_or(true);
+        let 全屏基础 = !要求窗口 && 清单.as_ref().map(|清单| 清单.全屏).unwrap_or(true);
+        let 显示器 = 解析显示器(参数)?;
+        let 基准秒 = 解析基准(参数)?;
+        let 全屏 = 全屏基础 || (!要求窗口 && 显示器.is_some());
         return Ok(Some(启动请求 {
             项目目录: 目录,
             清单,
             全屏,
+            显示器: if 全屏 { 显示器 } else { None },
+            基准秒,
         }));
     }
     Ok(None)
@@ -199,6 +232,66 @@ fn 相对于(文本: &str, 当前目录: &Path) -> PathBuf {
     }
 }
 
+/// 取 `--monitor <n>`（1 基输入）并转成 0 基索引。
+///
+/// 命令行里从 1 开始数，是因为玩家数显示器也这么数；
+/// Bevy 的 `MonitorSelection::Index` 是 0 基，换算只在这一处发生。
+fn 解析显示器(参数: &[String]) -> Result<Option<usize>, String> {
+    let Some(文本) = 取参数值(参数, 显示器参数) else {
+        return Ok(None);
+    };
+    let 序号: usize = 文本
+        .trim()
+        .parse()
+        .map_err(|_| format!("{显示器参数} 需要显示器序号（从 1 开始），收到「{文本}」"))?;
+    if 序号 == 0 {
+        return Err(format!("{显示器参数} 的序号从 1 开始，收到「0」"));
+    }
+    Ok(Some(序号 - 1))
+}
+
+/// 取 `--bench[=<秒>]` 的时长（缺省 [`基准默认秒`]）。
+fn 解析基准(参数: &[String]) -> Result<Option<f32>, String> {
+    let Some(文本) = 取参数值(参数, 基准参数) else {
+        return Ok(None);
+    };
+    if 文本.trim().is_empty() {
+        return Ok(Some(基准默认秒));
+    }
+    let 秒: f32 = 文本
+        .trim()
+        .parse()
+        .map_err(|_| format!("{基准参数} 需要秒数，收到「{文本}」"))?;
+    if !(1.0..=600.0).contains(&秒) {
+        return Err(format!(
+            "{基准参数} 的时长要在 1–600 秒之间，收到「{文本}」"
+        ));
+    }
+    Ok(Some(秒))
+}
+
+/// 取 `--名字 值` / `--名字=值` 的值；名字后面没有值时返回空串。
+///
+/// 空串与"参数不存在"必须区分：`--bench` 不带值是有意义的（用缺省时长），
+/// 而 `--monitor` 不带值应当报错，两种判断留给调用方。
+fn 取参数值(参数: &[String], 名字: &str) -> Option<String> {
+    let 前缀 = format!("{名字}=");
+    for (索引, 当前) in 参数.iter().enumerate() {
+        if let Some(尾) = 当前.strip_prefix(&前缀) {
+            return Some(尾.trim().to_string());
+        }
+        if 当前 == 名字 {
+            let 值 = 参数
+                .get(索引 + 1)
+                .filter(|值| !值.starts_with('-'))
+                .map(|值| 值.trim().to_string())
+                .unwrap_or_default();
+            return Some(值);
+        }
+    }
+    None
+}
+
 /// 载入完成、可以直接开跑的游戏配置。
 #[derive(Debug)]
 pub struct 游戏启动配置 {
@@ -216,6 +309,10 @@ pub struct 游戏启动配置 {
     /// 场景相机：文档里的 `Camera3d` 实体与其参数。
     /// `None` 表示按二维正交取景。
     pub 三维相机: Option<(实体标识, 编辑器相机3d)>,
+    /// 全屏时投到第几台显示器（0 基）。
+    pub 显示器: Option<usize>,
+    /// 基准模式时长（秒）。
+    pub 基准秒: Option<f32>,
 }
 
 /// 打开项目与主场景，产出可直接运行的配置。
@@ -294,6 +391,8 @@ pub fn 载入(请求: &启动请求) -> Result<游戏启动配置, String> {
         设计分辨率,
         项目目录: 请求.项目目录.clone(),
         三维相机: 解析三维相机(&状态),
+        显示器: 请求.显示器,
+        基准秒: 请求.基准秒,
         状态,
     })
 }
@@ -329,6 +428,7 @@ fn 解析三维相机(状态: &编辑器状态) -> Option<(实体标识, 编辑�
 struct 游戏运行参数 {
     设计分辨率: (u32, u32),
     三维相机: Option<(实体标识, 编辑器相机3d)>,
+    基准秒: Option<f32>,
 }
 
 /// 三维取景相机的绑定：文档里那台 `Camera3d` → 它的投影节点 → 渲染相机。
@@ -383,10 +483,15 @@ pub fn 运行(配置: 游戏启动配置) {
 fn 构建游戏应用(配置: 游戏启动配置) -> App {
     let (设计宽, 设计高) = 配置.设计分辨率;
     let 资源目录 = 配置.项目目录.join(editor_core::project::目录名::资源);
-    let 窗口模式 = if 配置.全屏 {
-        WindowMode::BorderlessFullscreen(MonitorSelection::Primary)
+    let 窗口模式 = match (配置.全屏, 配置.显示器) {
+        (true, Some(索引)) => WindowMode::BorderlessFullscreen(MonitorSelection::Index(索引)),
+        (true, None) => WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+        _ => WindowMode::Windowed,
+    };
+    let 呈现模式 = if 配置.基准秒.is_some() {
+        PresentMode::AutoNoVsync
     } else {
-        WindowMode::Windowed
+        PresentMode::AutoVsync
     };
     let 名称 = 配置.名称.clone();
 
@@ -406,6 +511,7 @@ fn 构建游戏应用(配置: 游戏启动配置) -> App {
                     title: 名称,
                     resolution: WindowResolution::new(设计宽, 设计高),
                     mode: 窗口模式,
+                    present_mode: 呈现模式,
                     ..default()
                 }),
                 ..default()
@@ -428,6 +534,7 @@ fn 装配内核(应用: &mut App, 配置: 游戏启动配置) {
     let 参数 = 游戏运行参数 {
         设计分辨率: 配置.设计分辨率,
         三维相机: 配置.三维相机,
+        基准秒: 配置.基准秒,
     };
     应用
         .insert_resource(EditorStateHolder {
@@ -446,6 +553,7 @@ impl Plugin for 独立游戏插件 {
             .init_resource::<crate::physics_runtime::物理运行时状态>()
             .init_resource::<crate::light_preview::灯光同步状态>()
             .init_resource::<crate::ui_preview::界面同步状态>()
+            .init_resource::<基准采样>()
             .add_systems(Startup, 初始化游戏)
             .add_systems(
                 Update,
@@ -454,8 +562,6 @@ impl Plugin for 独立游戏插件 {
                         // 文档 → 投影实体：只在首帧真正干活（运行期没人改文档），
                         // 但守卫逻辑本来就是按修订号写的，这里不改它。
                         crate::preview::同步预览实体,
-                        // 紧跟投影：相机要的节点实体这时才存在。
-                        解析相机节点,
                         crate::light_preview::同步场景灯光,
                         crate::light_preview::同步场景环境,
                         crate::ui_preview::同步界面元素,
@@ -474,7 +580,7 @@ impl Plugin for 独立游戏插件 {
                         .chain(),
                 ),
             )
-            .add_systems(Update, 处理退出按键);
+            .add_systems(Update, (处理退出按键, 采集基准));
     }
 }
 
@@ -642,53 +748,125 @@ fn 同步运行姿态(
     }
 }
 
-/// 把文档相机对到它的投影节点上（缓存缺失或失效时才扫描）。
-///
-/// 投影实体由 [`crate::preview::同步预览实体`] 建立；那份系统自己按修订号
-/// 判断要不要重建，因此这里的缓存判定只看"实体还在不在"，不看修订号。
-fn 解析相机节点(
-    预览: Query<(Entity, &预览来源), With<预览实体>>,
-    mut 相机: Query<&mut 游戏相机绑定>,
-) {
-    for mut 绑定 in &mut 相机 {
-        if 绑定.节点.is_some_and(|实体| 预览.get(实体).is_ok()) {
-            continue;
-        }
-        let 找到 = 预览
-            .iter()
-            .find(|(_, 来源)| 来源.0 == 绑定.文档)
-            .map(|(实体, _)| 实体);
-        if 绑定.节点 != 找到 {
-            绑定.节点 = 找到;
-        }
-    }
-}
-
 /// 让取景相机跟随文档里的三维相机节点。
 ///
 /// 每帧从投影节点取 `GlobalTransform`（分解后的世界平移/旋转），
 /// 因此相机挂在带旋转/缩放的父节点下时依然正确；缩放对相机无意义，不搬。
+///
+/// # 缓存与自愈
+///
+/// 节点实体缓存在绑定里，命中时只做一次 `get`；没有命中（首帧、投影实体被
+/// 重建、或别的系统顺序把节点挪走了）就当场扫一遍重新解析。**这里故意不依赖
+/// 系统顺序**：曾经把解析拆成独立系统排在前面的写法，一旦有人调整分组就会
+/// 静默停在默认机位 —— 编译不报错、画面只是"角度不对"，属于最难查的那类。
 ///
 /// 姿态只在真的变了才写入（理由同 [`同步运行姿态`]）；节点暂时不可用时
 /// **保持上一帧姿态**——把相机弹回默认位置只会让画面瞬间跳到别处。
 /// 视野与裁剪面也不在这里写：文档在游戏模式下只读，这些参数在生成相机时
 /// 就定好了，每帧重写只会白白推进投影的变更标记。
 fn 同步游戏相机(
-    预览: Query<&GlobalTransform, With<预览实体>>,
-    mut 相机: Query<(&mut Transform, &游戏相机绑定), With<预览相机>>,
+    预览: Query<(Entity, &预览来源, &GlobalTransform), With<预览实体>>,
+    mut 相机: Query<(&mut Transform, &mut 游戏相机绑定), With<预览相机>>,
 ) {
-    for (mut 变换, 绑定) in &mut 相机 {
-        let Some(实体) = 绑定.节点 else {
-            continue;
-        };
-        let Ok(全局) = 预览.get(实体) else {
-            continue;
+    for (mut 变换, mut 绑定) in &mut 相机 {
+        let 全局 = match 绑定
+            .节点
+            .and_then(|实体| 预览.get(实体).ok().map(|项| 项.2))
+        {
+            Some(全局) => 全局,
+            None => {
+                let Some((实体, _, 全局)) = 预览.iter().find(|(_, 来源, _)| 来源.0 == 绑定.文档)
+                else {
+                    if 绑定.节点.is_some() {
+                        绑定.节点 = None;
+                    }
+                    continue;
+                };
+                if 绑定.节点 != Some(实体) {
+                    绑定.节点 = Some(实体);
+                }
+                全局
+            }
         };
         let 目标 = Transform::from_translation(全局.translation()).with_rotation(全局.rotation());
         if *变换 != 目标 {
             *变换 = 目标;
         }
     }
+}
+
+/// 基准模式的采样状态。
+#[derive(Resource, Debug)]
+struct 基准采样 {
+    已采样秒: f32,
+    预热剩余秒: f32,
+    帧毫秒: Vec<f32>,
+}
+
+impl Default for 基准采样 {
+    fn default() -> Self {
+        Self {
+            已采样秒: 0.0,
+            预热剩余秒: 基准预热秒,
+            帧毫秒: Vec::new(),
+        }
+    }
+}
+
+/// 基准模式：采样固定时长的帧耗时，打印分布后退出。
+///
+/// 非基准启动（`--bench` 没给）时第一行就返回，代价是一次资源读取。
+/// 采样的是 `Time::delta`，也就是"上一帧从开始到下一帧开始"的墙钟时间，
+/// 含渲染提交；因此基准模式必须关掉垂直同步，否则量到的是刷新率。
+fn 采集基准(
+    时间: Res<Time>,
+    参数: Res<游戏运行参数>,
+    mut 采样: ResMut<基准采样>,
+    mut 退出: MessageWriter<AppExit>,
+) {
+    let Some(时长) = 参数.基准秒 else {
+        return;
+    };
+    let 帧秒 = 时间.delta_secs();
+    if 帧秒 <= 0.0 {
+        return;
+    }
+    if 采样.预热剩余秒 > 0.0 {
+        采样.预热剩余秒 -= 帧秒;
+        return;
+    }
+    采样.已采样秒 += 帧秒;
+    采样.帧毫秒.push(帧秒 * 1000.0);
+    if 采样.已采样秒 < 时长 {
+        return;
+    }
+
+    let mut 样本 = std::mem::take(&mut 采样.帧毫秒);
+    样本.sort_by(|甲, 乙| 甲.partial_cmp(乙).unwrap_or(std::cmp::Ordering::Equal));
+    let 合计: f32 = 样本.iter().sum();
+    let 平均 = if 样本.is_empty() {
+        0.0
+    } else {
+        合计 / 样本.len() as f32
+    };
+    info!(
+        "基准：预热 {基准预热秒} 秒后采样 {:.1} 秒 / {} 帧 / 平均 {:.2} ms / 中位 {:.2} ms / p95 {:.2} ms（已关垂直同步）",
+        采样.已采样秒,
+        样本.len(),
+        平均,
+        分位(&样本, 0.5),
+        分位(&样本, 0.95)
+    );
+    退出.write(AppExit::Success);
+}
+
+/// 取已排序样本的某个分位（最近秩）。
+fn 分位(已排序: &[f32], 比例: f32) -> f32 {
+    if 已排序.is_empty() {
+        return 0.0;
+    }
+    let 位置 = ((已排序.len() - 1) as f32 * 比例.clamp(0.0, 1.0)).round() as usize;
+    已排序[位置.min(已排序.len() - 1)]
 }
 
 /// `Esc` 退出游戏。
@@ -849,6 +1027,8 @@ mod 测试 {
             项目目录: 包.clone(),
             清单: None,
             全屏: true,
+            显示器: None,
+            基准秒: None,
         };
         let 配置 = 载入(&请求).expect("载入");
         let (标识, 参数) = 配置.三维相机.expect("场景相机必须被认领");
@@ -879,6 +1059,8 @@ mod 测试 {
                 全屏: true,
             }),
             全屏: true,
+            显示器: None,
+            基准秒: None,
         };
         let 错误 = 载入(&请求).expect_err("缺失主场景必须失败");
         assert!(错误.contains("不存在的场景"), "错误里要点名场景：{错误}");
@@ -893,6 +1075,8 @@ mod 测试 {
             项目目录: 包,
             清单: None,
             全屏: true,
+            显示器: None,
+            基准秒: None,
         };
         let 错误 = 载入(&请求).expect_err("没有入口必须失败");
         assert!(
@@ -914,6 +1098,8 @@ mod 测试 {
             项目目录: 包,
             清单: None,
             全屏: false,
+            显示器: None,
+            基准秒: None,
         };
         let mut 应用 = App::new();
         装配内核(&mut 应用, 载入(&请求).expect("载入"));
@@ -1000,7 +1186,7 @@ mod 测试 {
     fn 游戏相机跟随文档相机节点并保持姿态() {
         let 标识 = 实体标识::新建();
         let mut 应用 = App::new();
-        应用.add_systems(Update, (解析相机节点, 同步游戏相机).chain());
+        应用.add_systems(Update, 同步游戏相机);
         let 相机 = 应用
             .world_mut()
             .spawn((
@@ -1063,5 +1249,104 @@ mod 测试 {
             Vec3::new(3.0, 4.0, 5.0),
             "节点不可用时保持上一帧姿态，不要弹回原点"
         );
+    }
+
+    /// 相机姿态没变时同样不该重复写：缓存命中后每帧只做一次相等比较。
+    #[test]
+    fn 静止的文档相机不会每帧重写变换() {
+        let 标识 = 实体标识::新建();
+        let mut 应用 = App::new();
+        应用
+            .init_resource::<变换变更次数>()
+            .add_systems(Update, (同步游戏相机, 统计变换变更).chain());
+        应用.world_mut().spawn((
+            预览相机,
+            游戏相机绑定 {
+                文档: 标识,
+                节点: None,
+            },
+            Transform::default(),
+        ));
+        应用.world_mut().spawn((
+            预览实体,
+            预览来源(标识),
+            Transform::from_xyz(3.0, 4.0, 5.0),
+            GlobalTransform::from_xyz(3.0, 4.0, 5.0),
+        ));
+
+        应用.update();
+        assert_eq!(
+            应用.world().resource::<变换变更次数>().0,
+            2,
+            "首帧两个 `Transform` 都是新增，本来就带变更标记"
+        );
+
+        应用.update();
+        assert_eq!(
+            应用.world().resource::<变换变更次数>().0,
+            0,
+            "相机姿态没变就不该写"
+        );
+    }
+
+    #[test]
+    fn 显示器参数按一基解析成零基索引() {
+        let 临时 = tempfile::tempdir().expect("临时目录");
+        let 工程 = 临时.path().join("工程");
+        建工程(&工程, false);
+        let 请求 = 识别启动(
+            &参数表(&["--game", 工程.to_str().unwrap(), "--monitor", "2"]),
+            临时.path(),
+            临时.path(),
+        )
+        .expect("判定")
+        .expect("应当进游戏");
+        assert_eq!(请求.显示器, Some(1), "命令行从 1 数，Bevy 从 0 数");
+        assert!(请求.全屏, "--monitor 隐含全屏");
+
+        let 窗口 = 识别启动(
+            &参数表(&[
+                "--game",
+                工程.to_str().unwrap(),
+                "--monitor=3",
+                "--windowed",
+            ]),
+            临时.path(),
+            临时.path(),
+        )
+        .expect("判定")
+        .expect("应当进游戏");
+        assert!(!窗口.全屏, "--windowed 优先");
+        assert_eq!(窗口.显示器, None, "窗口模式下显示器选择不生效");
+    }
+
+    #[test]
+    fn 显示器序号非法时报错() {
+        assert!(
+            解析显示器(&参数表(&["--monitor", "0"])).is_err(),
+            "1 基没有 0"
+        );
+        assert!(解析显示器(&参数表(&["--monitor", "甲"])).is_err());
+        assert_eq!(解析显示器(&参数表(&[])).expect("缺省"), None);
+    }
+
+    #[test]
+    fn 基准参数缺省十秒且限制在一到六百秒() {
+        assert_eq!(解析基准(&参数表(&["--bench"])).expect("缺省"), Some(10.0));
+        assert_eq!(
+            解析基准(&参数表(&["--bench=4.5"])).expect("带值"),
+            Some(4.5)
+        );
+        assert!(解析基准(&参数表(&["--bench=0"])).is_err());
+        assert!(解析基准(&参数表(&["--bench=601"])).is_err());
+        assert_eq!(解析基准(&参数表(&[])).expect("没有该参数"), None);
+    }
+
+    #[test]
+    fn 分位取最近秩() {
+        let 样本: Vec<f32> = (1..=9).map(|值| 值 as f32).collect();
+        assert_eq!(分位(&样本, 0.5), 5.0);
+        assert_eq!(分位(&样本, 0.95), 9.0);
+        assert_eq!(分位(&[], 0.5), 0.0, "空样本不能 panic");
     }
 }

@@ -5,8 +5,11 @@
 #   2. 把可执行文件与资源目录收集到 dist/，形成可直接复制分发的绿色版。
 #
 # 加 -ExportGame 时做第三件事（并跳过 dist/ 收集）：
-#   把 exe + 当前工程 + game_manifest.ron 收进一个纯粹的 Game_Build/，
+#   把 exe + 工程里可达的场景/资源 + game_manifest.ron 收进一个纯粹的 Game_Build/，
 #   双击里面的 exe 直接进游戏，不启动任何编辑器界面。
+#   导出本身**不在这里实现**：脚本只调用刚构建出来的 exe 的
+#   `--export-game`，包结构、清单字段与依赖闭包都来自 editor_core::package，
+#   与编辑器界面的「打包」共用同一份实现。脚本不再解析 project.ron。
 #
 # 产物布局与 editor_core::asset_root 的资源查找规则一致：
 #   dist/bevy-studio.exe
@@ -18,9 +21,11 @@
 # -ExportGame 的产物布局（与 editor_app::standalone 的判定规则一致：
 # exe 同级有 game_manifest.ron 即以游戏身份启动）：
 #   Game_Build/bevy-studio.exe
+#   Game_Build/bevy-studio.pdb        （构建目录里有符号时）
 #   Game_Build/game_manifest.ron
 #   Game_Build/project.ron
-#   Game_Build/scenes/  assets/  prefabs/  animations/
+#   Game_Build/scenes/                 （全部场景）
+#   Game_Build/assets/                 （场景登记过的资源）
 #   Game_Build/build-info.txt
 #
 # 用法：
@@ -69,7 +74,8 @@ function TrimPath([string]$路径) {
 }
 
 # RON（serde 生成）里的字符串是转义过的：Windows 路径写成 "C:\\x"。
-# 这里还原成真实字符，避免反斜杠被当成字面量带进清单。
+# 这里还原成真实字符 —— 只用于读编辑器 config.ron 里的"最近项目"，
+# 工程清单（project.ron）不再由脚本解析。
 function UnescapeRon([string]$文本) {
     return $文本 -replace '\\\\', '\' -replace '\\"', '"'
 }
@@ -105,125 +111,23 @@ function 取当前工程 {
     return $null
 }
 
-# 写 game_manifest.ron：UTF-8 无 BOM。
-# 带 BOM 时 ron 解析会直接失败，而那份清单是游戏启动的唯一入口，
-# 所以这里不走 Set-Content -Encoding UTF8（Windows PowerShell 5.1 会加 BOM）。
-function 写文本([string]$路径, [string]$内容) {
-    $编码 = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($路径, $内容, $编码)
-}
-
+# 导出交给 exe 自己：`--export-game` 走 editor_core::package::导出可玩包，
+# 与编辑器「打包」共用同一份计划、复制与清单逻辑。
+# 这里只负责把"相对仓库根的路径"解析成绝对路径，并转达 -ExportWindowed。
+# 输出目录的安全判断（不能是工程或它的上级、产物不能在输出目录里）在 Rust 侧。
 function 导出游戏包([string]$可执行路径, [string]$工程路径) {
-    $目标 = TrimPath ([System.IO.Path]::GetFullPath((ResolvePath $GameOutDir)))
-    $工程 = TrimPath ([System.IO.Path]::GetFullPath((ResolvePath $工程路径)))
-
-    if ([string]::Equals($目标, $根全, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "游戏包目录不能是仓库根：$目标"
-    }
-    if ($根全.StartsWith($目标 + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "游戏包目录不能是仓库根的祖先（会清空整个仓库）：$目标"
-    }
-    if ([string]::Equals($目标, $工程, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "游戏包目录不能就是工程目录本身：$目标"
-    }
-    if ($工程.StartsWith($目标 + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "工程目录在游戏包目录里面，复制会自我嵌套：工程 $工程 / 输出 $目标"
-    }
-
-    $清单路径 = Join-Path $工程 "project.ron"
-    if (-not (Test-Path -LiteralPath $清单路径 -PathType Leaf)) {
-        throw "$工程 里没有 project.ron，不是微风工程，无法作为游戏导出"
-    }
-
-    # 主场景与设计分辨率都从 project.ron 读：导出流程不猜入口，
-    # 读不出来就报错 —— 生成一个跑不起来的包比报错更难排查。
-    $清单文本 = Get-Content -LiteralPath $清单路径 -Raw -Encoding UTF8
-    $名称 = "微风游戏"
-    if ($清单文本 -match '名称:\s*"([^"]+)"') { $名称 = UnescapeRon $Matches[1] }
-    $设计 = @(1920, 1080)
-    if ($清单文本 -match '设计分辨率:\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)') {
-        $设计 = @([int]$Matches[1], [int]$Matches[2])
-    }
-    $主场景 = $null
-    if ($清单文本 -match '启动场景:\s*Some\("([^"]+)"\)') {
-        $主场景 = (UnescapeRon $Matches[1]) -replace '\\', '/'
-    }
-    if (-not $主场景) {
-        $场景目录 = Join-Path $工程 "scenes"
-        $首个 = if (Test-Path -LiteralPath $场景目录 -PathType Container) {
-            @(Get-ChildItem -LiteralPath $场景目录 -Recurse -File -Filter "*.scene.ron" | Sort-Object FullName)
-        }
-        else { @() }
-        if ($首个.Count -eq 0) {
-            throw "$工程 的 scenes/ 里没有任何场景；请先在编辑器里保存一个场景并设为启动场景"
-        }
-        $主场景 = ($首个[0].FullName.Substring($工程.Length).TrimStart('\', '/')) -replace '\\', '/'
-    }
-    $主场景绝对 = Join-Path $工程 ($主场景 -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-    if (-not (Test-Path -LiteralPath $主场景绝对 -PathType Leaf)) {
-        throw "启动场景不存在：$主场景绝对"
-    }
+    $目标 = [System.IO.Path]::GetFullPath((ResolvePath $GameOutDir))
+    $工程 = [System.IO.Path]::GetFullPath((ResolvePath $工程路径))
 
     Write-Host "==> 导出可玩包到 $目标"
-    if (Test-Path -LiteralPath $目标) {
-        Remove-Item -LiteralPath $目标 -Recurse -Force
+    $导出参数 = @("--export-game", $工程, $目标)
+    if ($ExportWindowed) { $导出参数 += "--windowed" }
+    & $可执行路径 @导出参数
+    if ($LASTEXITCODE -ne 0) {
+        throw "导出可玩包失败（退出码 $LASTEXITCODE）"
     }
-    New-Item -ItemType Directory -Path $目标 -Force | Out-Null
-
-    Copy-Item -LiteralPath $可执行路径 -Destination $目标
-    $调试符号 = [System.IO.Path]::ChangeExtension($可执行路径, ".pdb")
-    if (Test-Path -LiteralPath $调试符号 -PathType Leaf) {
-        Copy-Item -LiteralPath $调试符号 -Destination $目标
-    }
-
-    Copy-Item -LiteralPath $清单路径 -Destination $目标
-    foreach ($子目录 in @("scenes", "assets", "prefabs", "animations")) {
-        $源 = Join-Path $工程 $子目录
-        if (Test-Path -LiteralPath $源 -PathType Container) {
-            Copy-Item -LiteralPath $源 -Destination (Join-Path $目标 $子目录) -Recurse -Force
-            Write-Host "    $子目录/"
-        }
-        elseif ($子目录 -eq "scenes") {
-            throw "工程里没有 scenes/ 目录：$工程"
-        }
-    }
-
-    $全屏 = $true
-    if ($ExportWindowed) { $全屏 = $false }
-    $清单内容 = @"
-(
-    格式版本: 1,
-    名称: "$($名称 -replace '"', '\"')",
-    主场景: "$主场景",
-    设计分辨率: ($($设计[0]), $($设计[1])),
-    全屏: $($全屏.ToString().ToLower()),
-)
-"@
-    写文本 (Join-Path $目标 "game_manifest.ron") ($清单内容 + "`n")
-
-    $文件 = @(Get-ChildItem -LiteralPath $目标 -Recurse -File)
-    $总字节 = [int64]0
-    foreach ($项 in $文件) { $总字节 += $项.Length }
-    $信息 = New-Object System.Collections.Generic.List[string]
-    $信息.Add("# 微风（Breeze）可玩包")
-    $信息.Add("# 导出时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
-    $信息.Add("# 工程：$工程")
-    $信息.Add("# 主场景：$主场景")
-    $信息.Add("# 设计分辨率：$($设计[0]) x $($设计[1])")
-    $信息.Add("# 全屏：$全屏")
-    $信息.Add("# 文件数：$($文件.Count)")
-    $信息.Add("# 总大小：$总字节 字节")
-    foreach ($项 in ($文件 | Sort-Object FullName)) {
-        $相对 = $项.FullName.Substring($目标.Length).TrimStart([char[]]@('\', '/'))
-        $信息.Add(("{0}  {1}" -f $相对, $项.Length))
-    }
-    写文本 (Join-Path $目标 "build-info.txt") (($信息 -join "`n") + "`n")
 
     Write-Host ""
-    Write-Host "==> 可玩包导出完成"
-    Write-Host "    目录：$目标"
-    Write-Host "    文件：$($文件.Count) 个（$([math]::Round($总字节 / 1MB, 1)) MB）"
-    Write-Host "    启动：双击 bevy-studio.exe（同级有 game_manifest.ron，直接进游戏，不开编辑器）"
     Write-Host "    调试：bevy-studio.exe --windowed   退出：Esc"
 }
 
@@ -241,11 +145,22 @@ if ($根全.StartsWith($输出全 + [System.IO.Path]::DirectorySeparatorChar, [S
 $可执行 = $null
 if (-not $SkipBuild) {
     Write-Host "==> cargo build --release -p $包名 --bin $目标名"
-    $构建行 = @(
-        & cargo build --release -p $包名 --bin $目标名 --message-format=json 2>&1 |
-            ForEach-Object { "$_" }
-    )
-    $构建码 = $LASTEXITCODE
+    # `2>&1` 会把 cargo 的进度（走 stderr）并进管道；Windows PowerShell 5.1
+    # 在 ErrorActionPreference=Stop 下把 NativeCommandError 也当终止错误，
+    # 于是"Compiling ..."第一行就让脚本停下。这里局部放宽偏好，
+    # 构建是否成功仍由 $LASTEXITCODE 判定。
+    $原错误偏好 = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $构建行 = @(
+            & cargo build --release -p $包名 --bin $目标名 --message-format=json 2>&1 |
+                ForEach-Object { "$_" }
+        )
+        $构建码 = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $原错误偏好
+    }
     if ($构建码 -ne 0) {
         foreach ($行 in $构建行) {
             if (-not $行.TrimStart().StartsWith("{")) {

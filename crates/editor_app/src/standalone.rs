@@ -331,13 +331,17 @@ struct 游戏运行参数 {
     三维相机: Option<(实体标识, 编辑器相机3d)>,
 }
 
-/// 三维取景相机的绑定：投影节点（文档相机）→ 真正的渲染相机。
+/// 三维取景相机的绑定：文档里那台 `Camera3d` → 它的投影节点 → 渲染相机。
+///
+/// `节点` 缓存"文档相机被投影成了哪个实体"。没有这份缓存，每帧都要遍历
+/// 全部预览实体去找它，实体数一多就是白花的帧预算；缓存失效（尚未建立、
+/// 或投影实体被重建）时由 [`解析相机节点`] 重新解析。
 #[derive(Component)]
 struct 游戏相机绑定 {
     /// 文档里那台 `Camera3d` 的实体标识。
     文档: 实体标识,
-    /// 投影参数（视野/近裁剪/远裁剪）。
-    参数: 编辑器相机3d,
+    /// 已解析到的投影节点实体。
+    节点: Option<Entity>,
 }
 
 /// 按请求载入并阻塞运行；载入失败时把错误交回调用方打印。
@@ -450,6 +454,8 @@ impl Plugin for 独立游戏插件 {
                         // 文档 → 投影实体：只在首帧真正干活（运行期没人改文档），
                         // 但守卫逻辑本来就是按修订号写的，这里不改它。
                         crate::preview::同步预览实体,
+                        // 紧跟投影：相机要的节点实体这时才存在。
+                        解析相机节点,
                         crate::light_preview::同步场景灯光,
                         crate::light_preview::同步场景环境,
                         crate::ui_preview::同步界面元素,
@@ -525,7 +531,7 @@ fn 初始化游戏(
             预览相机,
             游戏相机绑定 {
                 文档: *标识,
-                参数: *相机参数,
+                节点: None,
             },
             Camera3d::default(),
             Camera {
@@ -607,6 +613,12 @@ fn 有三维内容(文档: &场景文档) -> bool {
 ///
 /// 搬的是**本地** `Transform`：运行时世界与投影世界用同一份文档建立同一棵
 /// 父子树，父链一致，本地变换因此可以直接对拷，不需要世界空间换算。
+///
+/// # 只在值真的变了才写
+///
+/// `Mut<Transform>` 一旦解引用成可变就会盖上变更标记，而变换传播按这个标记
+/// 决定要不要重算子树的 `GlobalTransform`。静止的实体每帧照写一遍，等于让
+/// 整棵投影树在没有任何变化的情况下每帧重算 —— 大场景里这是纯粹的浪费。
 fn 同步运行姿态(
     运行时: Res<运行时宿主>,
     mut 预览: Query<(&预览来源, &mut Transform), With<预览实体>>,
@@ -621,8 +633,33 @@ fn 同步运行姿态(
         let Some(实体) = 运行时.映射.取运行时(来源.0) else {
             continue;
         };
-        if let Some(本地) = 世界.get::<Transform>(实体) {
+        let Some(本地) = 世界.get::<Transform>(实体) else {
+            continue;
+        };
+        if *变换 != *本地 {
             *变换 = *本地;
+        }
+    }
+}
+
+/// 把文档相机对到它的投影节点上（缓存缺失或失效时才扫描）。
+///
+/// 投影实体由 [`crate::preview::同步预览实体`] 建立；那份系统自己按修订号
+/// 判断要不要重建，因此这里的缓存判定只看"实体还在不在"，不看修订号。
+fn 解析相机节点(
+    预览: Query<(Entity, &预览来源), With<预览实体>>,
+    mut 相机: Query<&mut 游戏相机绑定>,
+) {
+    for mut 绑定 in &mut 相机 {
+        if 绑定.节点.is_some_and(|实体| 预览.get(实体).is_ok()) {
+            continue;
+        }
+        let 找到 = 预览
+            .iter()
+            .find(|(_, 来源)| 来源.0 == 绑定.文档)
+            .map(|(实体, _)| 实体);
+        if 绑定.节点 != 找到 {
+            绑定.节点 = 找到;
         }
     }
 }
@@ -631,20 +668,25 @@ fn 同步运行姿态(
 ///
 /// 每帧从投影节点取 `GlobalTransform`（分解后的世界平移/旋转），
 /// 因此相机挂在带旋转/缩放的父节点下时依然正确；缩放对相机无意义，不搬。
+///
+/// 姿态只在真的变了才写入（理由同 [`同步运行姿态`]）；节点暂时不可用时
+/// **保持上一帧姿态**——把相机弹回默认位置只会让画面瞬间跳到别处。
+/// 视野与裁剪面也不在这里写：文档在游戏模式下只读，这些参数在生成相机时
+/// 就定好了，每帧重写只会白白推进投影的变更标记。
 fn 同步游戏相机(
-    节点: Query<(&预览来源, &GlobalTransform), With<预览实体>>,
-    mut 相机: Query<(&mut Transform, &mut Projection, &游戏相机绑定), With<预览相机>>,
+    预览: Query<&GlobalTransform, With<预览实体>>,
+    mut 相机: Query<(&mut Transform, &游戏相机绑定), With<预览相机>>,
 ) {
-    for (mut 变换, mut 投影, 绑定) in &mut 相机 {
-        变换.translation = Vec3::new(0.0, 0.0, 999.0);
-        if let Some((_, 全局)) = 节点.iter().find(|(来源, _)| 来源.0 == 绑定.文档) {
-            变换.translation = 全局.translation();
-            变换.rotation = 全局.rotation();
-        }
-        if let Projection::Perspective(透视) = 投影.as_mut() {
-            透视.fov = 绑定.参数.视野.to_radians();
-            透视.near = 绑定.参数.近裁剪;
-            透视.far = 绑定.参数.远裁剪;
+    for (mut 变换, 绑定) in &mut 相机 {
+        let Some(实体) = 绑定.节点 else {
+            continue;
+        };
+        let Ok(全局) = 预览.get(实体) else {
+            continue;
+        };
+        let 目标 = Transform::from_translation(全局.translation()).with_rotation(全局.rotation());
+        if *变换 != 目标 {
+            *变换 = 目标;
         }
     }
 }
@@ -892,5 +934,134 @@ mod 测试 {
         assert!(世界.get_resource::<EditorStateHolder>().is_some());
         assert!(世界.get_resource::<游戏运行参数>().is_some());
         assert!(世界.get_resource::<运行时宿主>().is_some());
+    }
+
+    /// 这一帧有多少个 `Transform` 被标记过变更（新加实体也算）。
+    #[derive(Resource, Default)]
+    struct 变换变更次数(usize);
+
+    fn 统计变换变更(
+        变化: Query<(), Changed<Transform>>, mut 次数: ResMut<变换变更次数>
+    ) {
+        次数.0 = 变化.iter().count();
+    }
+
+    /// 静止的运行时实体不该每帧重写投影变换。
+    ///
+    /// 断言用 `Changed<Transform>` 而不是比较数值：`Mut<Transform>` 只要解引用
+    /// 成可变就会盖变更标记，而变化标记正是"整棵投影树重算变换传播"的开关。
+    /// 数值相同但标记被盖上，照样是每帧白算。
+    #[test]
+    fn 静止的运行时实体不会每帧重写投影变换() {
+        let 标识 = 实体标识::新建();
+        let mut 运行时世界 = World::new();
+        let 运行时实体 = 运行时世界.spawn(Transform::from_xyz(1.0, 2.0, 3.0)).id();
+        let mut 宿主 = 运行时宿主::default();
+        宿主.状态 = crate::scene_bridge::运行状态::运行中;
+        宿主.映射.插入(标识, 运行时实体);
+        宿主.世界 = Some(运行时世界);
+
+        let mut 应用 = App::new();
+        应用
+            .insert_resource(宿主)
+            .init_resource::<变换变更次数>()
+            .add_systems(Update, (同步运行姿态, 统计变换变更).chain());
+        let 预览节点 = 应用
+            .world_mut()
+            .spawn((预览实体, 预览来源(标识), Transform::default()))
+            .id();
+
+        应用.update();
+        assert_eq!(
+            应用
+                .world()
+                .get::<Transform>(预览节点)
+                .expect("投影节点")
+                .translation,
+            Vec3::new(1.0, 2.0, 3.0),
+            "运行时姿态要搬到投影节点上"
+        );
+        assert_eq!(
+            应用.world().resource::<变换变更次数>().0,
+            1,
+            "首帧要真的写过一次"
+        );
+
+        应用.update();
+        assert_eq!(
+            应用.world().resource::<变换变更次数>().0,
+            0,
+            "值没变就不该写：每次写都会让这棵子树重算变换传播"
+        );
+    }
+
+    /// 相机跟随文档相机节点；节点消失时保持姿态，节点回来后重新解析。
+    #[test]
+    fn 游戏相机跟随文档相机节点并保持姿态() {
+        let 标识 = 实体标识::新建();
+        let mut 应用 = App::new();
+        应用.add_systems(Update, (解析相机节点, 同步游戏相机).chain());
+        let 相机 = 应用
+            .world_mut()
+            .spawn((
+                预览相机,
+                游戏相机绑定 {
+                    文档: 标识,
+                    节点: None,
+                },
+                Transform::default(),
+            ))
+            .id();
+        let 节点 = 应用
+            .world_mut()
+            .spawn((
+                预览实体,
+                预览来源(标识),
+                Transform::from_xyz(3.0, 4.0, 5.0),
+                GlobalTransform::from_xyz(3.0, 4.0, 5.0),
+            ))
+            .id();
+
+        应用.update();
+        assert_eq!(
+            应用
+                .world()
+                .entity(相机)
+                .get::<游戏相机绑定>()
+                .expect("绑定还在")
+                .节点,
+            Some(节点),
+            "解析一次就该记住投影节点，之后不再遍历全部预览实体"
+        );
+        assert_eq!(
+            应用
+                .world()
+                .get::<Transform>(相机)
+                .expect("相机变换")
+                .translation,
+            Vec3::new(3.0, 4.0, 5.0)
+        );
+
+        应用.world_mut().despawn(节点);
+        应用.update();
+        assert_eq!(
+            应用
+                .world()
+                .entity(相机)
+                .get::<游戏相机绑定>()
+                .expect("绑定还在")
+                .节点,
+            None,
+            "节点没了，缓存必须失效"
+        );
+        assert_eq!(
+            应用
+                .world()
+                .get::<Transform>(相机)
+                .expect("相机变换")
+                .translation,
+            Vec3::new(3.0, 4.0, 5.0),
+            "节点不可用时保持上一帧姿态，不要弹回原点"
+        );
     }
 }

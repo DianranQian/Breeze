@@ -9,6 +9,7 @@ members = [
     "crates/editor_core",
     "crates/editor_ui",
     "crates/editor_app",
+    "crates/breeze_runtime",
     "crates/gui_probe",
     "tools/icon_bake",
     # 最小真实运行时样例：给「运行项目」的声明式运行目标提供一个

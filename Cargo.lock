@@ -2146,6 +2146,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "breeze_runtime"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "editor_app",
+ "editor_core",
+ "tempfile",
+]
+
+[[package]]
 name = "bsn_bridge"
 version = "0.1.0"
 dependencies = [

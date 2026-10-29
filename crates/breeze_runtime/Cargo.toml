@@ -1,0 +1,17 @@
+[package]
+name = "breeze_runtime"
+description = "微风游戏运行时：用户项目 crate 的唯一依赖，提供启动入口与 Bevy 重导出。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy.workspace = true
+editor_core.workspace = true
+# 薄壳阶段直接复用编辑器应用库里的投影与运行时内核：游戏画面与编辑器视口
+# 出自同一份实现，"编辑器里长这样、打包后长那样"从构造上不会出现。
+editor_app = { path = "../editor_app" }
+
+[dev-dependencies]
+tempfile = "3.13"

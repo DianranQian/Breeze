@@ -92,8 +92,8 @@ use scene_doc::document::{场景文档, 实体标识};
 
 use crate::plugin::EditorStateHolder;
 use crate::preview::{
-    三维渲染层, 三维预览资源, 场景背景清屏, 材质缓存, 贴图缓存, 预览同步状态, 预览实体, 预览来源,
-    预览渲染层, 预览相机,
+    三维渲染层, 三维预览资源, 二维正交投影, 二维相机高度, 场景背景清屏, 材质缓存, 贴图缓存,
+    预览同步状态, 预览实体, 预览来源, 预览渲染层, 预览相机,
 };
 use crate::scene_bridge::{全部内置组件注册表, 编辑器相机3d, 运行时宿主};
 
@@ -698,15 +698,12 @@ fn 初始化游戏(
                 clear_color: ClearColorConfig::Custom(背景),
                 ..default()
             },
-            Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::AutoMin {
-                    min_width: 设计宽.max(1) as f32,
-                    min_height: 设计高.max(1) as f32,
-                },
-                ..OrthographicProjection::default_2d()
-            }),
+            Projection::Orthographic(二维正交投影(ScalingMode::AutoMin {
+                min_width: 设计宽.max(1) as f32,
+                min_height: 设计高.max(1) as f32,
+            })),
             RenderLayers::layer(预览渲染层),
-            Transform::from_xyz(0.0, 0.0, 999.0),
+            Transform::from_xyz(0.0, 0.0, 二维相机高度),
         ));
         if 有三维内容(文档) {
             warn!(

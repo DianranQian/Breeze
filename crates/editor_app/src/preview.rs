@@ -570,6 +570,36 @@ pub fn 变换转预览(变换: 变换数据) -> Transform {
     crate::scene_bridge::变换数据转_bevy(变换)
 }
 
+/// 二维预览相机的世界 z。
+///
+/// 相机必须在全部二维内容前方（精灵 z 通常在 0 附近），且与三维内容分开。
+pub const 二维相机高度: f32 = 999.0;
+
+/// 二维正交相机的近裁剪面（相对相机的深度，沿视线方向）。
+///
+/// Bevy `default_2d()` 给的是 near = −1000 / far = 1000；换算到本相机
+/// （世界 z = [`二维相机高度`]）只覆盖世界 z ∈ [−1, 1999]。作为背景放到
+/// 负 z 的图层（示例地形在 z = −20）会落到范围之外被整块裁掉 ——
+/// 表现就是"瓦片地图不渲染"。正交投影的深度精度是线性的，把范围放大到
+/// ±10000 不会引起 z-fighting。
+pub const 二维近裁剪: f32 = -10_000.0;
+
+/// 二维正交相机的远裁剪面（相对相机）。取值理由见 [`二维近裁剪`]。
+pub const 二维远裁剪: f32 = 10_000.0;
+
+/// 构造二维预览相机的正交投影。
+///
+/// 三个出生点（编辑器初始化、2D/3D 切换回二维、独立游戏）共用，
+/// 保证裁剪面只有一处定义，不会各写一份而漂移。
+pub fn 二维正交投影(scaling_mode: ScalingMode) -> OrthographicProjection {
+    OrthographicProjection {
+        scaling_mode,
+        near: 二维近裁剪,
+        far: 二维远裁剪,
+        ..OrthographicProjection::default_2d()
+    }
+}
+
 /// 2D 叠放步长：把文档遍历序号折算成精灵局部 z 的微小偏移。
 ///
 /// 正交相机下 z 不改变屏幕位置，只决定精灵的绘制先后。步长远小于任何
@@ -1023,20 +1053,17 @@ pub fn 初始化预览资源(
                 clear_color: ClearColorConfig::Custom(Color::NONE),
                 ..default()
             },
-            Projection::Orthographic(OrthographicProjection {
+            Projection::Orthographic(二维正交投影(ScalingMode::Fixed {
                 // 明确指定可见世界区域而不是依赖 WindowSize + scale：
                 // 相机的世界范围直接由 `预览相机状态` 驱动，
                 // 与 `视口相机::可见世界矩形` 用同一个矩形，
                 // 因此渲染结果与 egui 叠加层按构造对齐。
-                scaling_mode: ScalingMode::Fixed {
-                    width: 512.0,
-                    height: 512.0,
-                },
-                ..OrthographicProjection::default_2d()
-            }),
+                width: 512.0,
+                height: 512.0,
+            })),
             RenderTarget::Image(图片句柄.clone().into()),
             预览层,
-            Transform::default(),
+            Transform::from_xyz(0.0, 0.0, 二维相机高度),
         ))
         .id();
 
@@ -1192,7 +1219,7 @@ pub fn 同步预览相机(
 
     for (mut 变换, mut 投影) in &mut 相机查询 {
         // z 保持为正，确保相机在 2D 内容前方（精灵 z 通常为 0）。
-        变换.translation = Vec3::new(中心.0, 中心.1, 999.0);
+        变换.translation = Vec3::new(中心.0, 中心.1, 二维相机高度);
         变换.rotation = Quat::IDENTITY;
         变换.scale = Vec3::ONE;
 
@@ -1773,16 +1800,13 @@ pub fn 同步三维相机(
                         clear_color: ClearColorConfig::Custom(Color::NONE),
                         ..default()
                     },
-                    Projection::Orthographic(OrthographicProjection {
-                        scaling_mode: ScalingMode::Fixed {
-                            width: 512.0,
-                            height: 512.0,
-                        },
-                        ..OrthographicProjection::default_2d()
-                    }),
+                    Projection::Orthographic(二维正交投影(ScalingMode::Fixed {
+                        width: 512.0,
+                        height: 512.0,
+                    })),
                     RenderTarget::Image(渲染目标.图片.clone().into()),
                     RenderLayers::layer(预览渲染层),
-                    Transform::default(),
+                    Transform::from_xyz(0.0, 0.0, 二维相机高度),
                 ))
                 .id()
         };
@@ -2445,6 +2469,35 @@ mod 测试 {
         assert!(
             (半x - 1.0).abs() < 1e-4 && (半y - 1.0).abs() < 1e-4 && (半z - 1.0).abs() < 1e-4,
             "半尺寸应吃掉子节点的 2 倍缩放，实际 ({半x}, {半y}, {半z})"
+        );
+    }
+
+    /// 二维裁剪面必须容得下放到负 z 的背景图层。
+    ///
+    /// 相机在世界 z = [`二维相机高度`]，Bevy `default_2d()` 的 far = 1000
+    /// 只覆盖到世界 z = −1；示例地形在 z = −20，会被整块裁掉。
+    #[test]
+    fn 二维裁剪面覆盖负_z_的背景图层() {
+        let 投影 = 二维正交投影(ScalingMode::Fixed {
+            width: 1920.0,
+            height: 1080.0,
+        });
+        let 深度 = |世界z: f32| 二维相机高度 - 世界z;
+
+        for 世界z in [-20.0, 0.0, 48.4] {
+            let d = 深度(世界z);
+            assert!(
+                d >= 投影.near && d <= 投影.far,
+                "世界 z = {世界z}（深度 {d}）应当落在裁剪范围 [{} , {}] 内",
+                投影.near,
+                投影.far
+            );
+        }
+
+        // 回归证据：若 bevy 默认裁剪面就能覆盖，这条用例就失去意义。
+        assert!(
+            深度(-20.0) > OrthographicProjection::default_2d().far,
+            "Bevy 默认 far 本应覆盖不到负 z 背景层，否则无需自定义裁剪面"
         );
     }
 }

@@ -17,12 +17,15 @@
 //! | --- | --- |
 //! | 没有 `运行` 段（纯微风项目） | 当前进程 —— 脚本构建出的 release exe 调用自身来导出 |
 //! | 有 `运行` 段（项目自带 Cargo 目标） | `cargo build -p <包> --bin <目标> --release` 的产物 |
+//! | `运行` 段指向非 Cargo 程序且没有构建配置 | 当前进程 **+ 显式警告**（旧项目兼容出口） |
 //!
 //! 第二种是"项目代码真的进包"的唯一路径：包里那份 exe 是**用户项目自己**
 //! 编译出来的可执行文件，链接了 `breeze_runtime`，因此它的 System 会执行。
 //! 清单声明了运行目标却在 `Cargo.toml` 里找不到对应的包/目标（清单陈旧）
 //! 时导出直接报错 —— 悄悄打包编辑器 exe 会让用户对着一个"能开但逻辑不对"
-//! 的包排查很久。
+//! 的包排查很久。第三种是唯一的回退：清单把游戏声明成外部程序
+//! （例如 `程序: "python"`）时根本不具备"构建进包"的条件，此时沿用编辑器
+//! exe 并打印警告，把"包里没有你的游戏逻辑"这件事说给用户听。
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -65,27 +68,57 @@ pub enum 产物来源 {
     构建(构建目标),
 }
 
+/// 产物来源判定结果：来源本身，加上必须转告用户的警告。
+///
+/// 警告与错误分开：回退到编辑器 exe 是用户明确批准的兼容出口，
+/// 导出照样成功，但"包里没有游戏自己的逻辑"必须被说出来，
+/// 不能只靠用户日后打开包发现。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 产物决策 {
+    /// 包里那份 exe 的来源。
+    pub 来源: 产物来源,
+    /// 需要打印给用户的警告（没有回退时为 `None`）。
+    pub 警告: Option<String>,
+}
+
 /// 根据清单与 Cargo 工程决定"包里的 exe 从哪来"。
 ///
 /// # 规则
 ///
 /// 1. 清单没有 `运行` 段 → [`产物来源::当前程序`]；
-/// 2. 有 `运行` 段但没有 Cargo 工程 → 报错（声明的运行目标不是可构建的东西）；
-/// 3. 有 `运行` 段、有 Cargo 工程，但清单里没有包名 → 报错；
-/// 4. 包名 / 证据都能对上 `Cargo.toml` → [`产物来源::构建`]；
-/// 5. 包或目标在 `Cargo.toml` 里已经不存在 → 报错（清单陈旧）。
+/// 2. 有 `运行` 段、没有构建配置、且程序不是 Cargo → 当前程序 + 警告
+///    （旧项目把游戏声明成外部程序，没有可构建的东西）；
+/// 3. 有 `运行` 段但没有 Cargo 工程 → 报错（声明的运行目标不是可构建的东西）；
+/// 4. 有 `运行` 段、有 Cargo 工程，但清单里没有包名 → 报错；
+/// 5. 包名 / 证据都能对上 `Cargo.toml` → [`产物来源::构建`]；
+/// 6. 包或目标在 `Cargo.toml` 里已经不存在 → 报错（清单陈旧）。
 ///
-/// 第 2–5 条**都不回退**到当前程序：导出的产物必须与清单声明一致，
-/// 不一致时宁可失败也不交出一个"能开但逻辑不对"的包。
+/// 第 3–6 条**都不回退**到当前程序：导出的产物必须与清单声明一致，
+/// 不一致时宁可失败也不交出一个"能开但逻辑不对"的包。第 2 条是唯一例外：
+/// 声明的是外部程序，本来就不存在"构建进包"的路径，强行报错只会让
+/// 所有旧项目失去导出能力；因此回退，但警告内容点名程序并说明后果。
 ///
 /// 本函数不做任何 IO，`工程` 由调用方读取后传入，因而可以直接单测。
 pub fn 选择产物来源(
     运行: Option<&运行目标清单>,
     构建: Option<&构建配置>,
     工程: Option<&Cargo工程>,
-) -> Result<产物来源, String> {
-    if 运行.is_none() {
-        return Ok(产物来源::当前程序);
+) -> Result<产物决策, String> {
+    let Some(运行) = 运行 else {
+        return Ok(产物决策 {
+            来源: 产物来源::当前程序,
+            警告: None,
+        });
+    };
+    if 构建.is_none() && !是_cargo程序(&运行.程序) {
+        return Ok(产物决策 {
+            来源: 产物来源::当前程序,
+            警告: Some(format!(
+                "该运行目标不是 Cargo 项目，已回退到编辑器 exe（清单里的程序是「{}」）；\
+                 包里不会包含这个项目的游戏逻辑",
+                运行.程序.trim()
+            )),
+        });
     }
     let Some(工程) = 工程 else {
         return Err(
@@ -121,10 +154,21 @@ pub fn 选择产物来源(
             原因.说明()
         )
     })?;
-    Ok(产物来源::构建(构建目标 {
-        包名: 包名.to_string(),
-        目标名: 目标名.to_string(),
-    }))
+    Ok(产物决策 {
+        来源: 产物来源::构建(构建目标 {
+            包名: 包名.to_string(),
+            目标名: 目标名.to_string(),
+        }),
+        警告: None,
+    })
+}
+
+/// 运行目标的程序是不是 cargo（含 `cargo.exe` 与带目录的路径）。
+fn 是_cargo程序(程序: &str) -> bool {
+    Path::new(程序.trim())
+        .file_stem()
+        .and_then(|名| 名.to_str())
+        .is_some_and(|名| 名.eq_ignore_ascii_case("cargo"))
 }
 
 /// 打开工程并决定产物来源。
@@ -132,7 +176,7 @@ pub fn 选择产物来源(
 /// 微风项目以 `project.ron` 为准，`项目描述` 不会顺带识别同目录的
 /// `Cargo.toml`；因此当清单声明了运行目标、而项目本身没有 Cargo 工程时，
 /// 再按工程根补读一次 `Cargo.toml`（微风项目 + 自带 crate 的组合）。
-pub fn 解析产物来源(工程根: &Path) -> Result<产物来源, String> {
+pub fn 解析产物来源(工程根: &Path) -> Result<产物决策, String> {
     let 项目 = 项目描述::打开(工程根).map_err(|错误| format!("打开项目失败：{错误}"))?;
     let 运行 = 项目.清单().运行.as_ref();
     let 自带工程 = 项目.cargo_工程();
@@ -164,7 +208,11 @@ pub fn 从命令行导出(参数: &[String]) -> Option<Result<打包报告, Stri
 /// 构建发生在清空输出目录**之前**：编译失败时上一版包原样保留，
 /// 不会出现"编译报错 + 旧包已被删"的双重损失。
 pub fn 执行导出(命令: &导出命令) -> Result<打包报告, String> {
-    let 产物 = match 解析产物来源(&命令.工程目录)? {
+    let 决策 = 解析产物来源(&命令.工程目录)?;
+    if let Some(警告) = &决策.警告 {
+        eprintln!("警告：{警告}");
+    }
+    let 产物 = match 决策.来源 {
         产物来源::当前程序 => {
             std::env::current_exe().map_err(|错误| format!("找不到当前可执行文件：{错误}"))?
         }
@@ -201,6 +249,7 @@ pub fn 执行导出(命令: &导出命令) -> Result<打包报告, String> {
 /// 渲染好的人读文本（含文件、行号、源码片段），与终端里看到的一致。
 /// 这里不会把失败压缩成一句"导出失败"。
 fn 构建运行目标(工程根: &Path, 目标: &构建目标) -> Result<PathBuf, String> {
+    let 工程根 = std::path::absolute(工程根).map_err(|错误| format!("工程目录路径非法：{错误}"))?;
     let 输出 = Command::new("cargo")
         .arg("build")
         .arg("--message-format=json")
@@ -212,7 +261,7 @@ fn 构建运行目标(工程根: &Path, 目标: &构建目标) -> Result<PathBuf
         .arg(&目标.目标名)
         .arg("--manifest-path")
         .arg(工程根.join("Cargo.toml"))
-        .current_dir(工程根)
+        .current_dir(&工程根)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
@@ -421,17 +470,19 @@ mod 测试 {
     #[test]
     fn 没有运行目标时沿用当前程序() {
         assert_eq!(
-            选择产物来源(None, None, None).expect("判定"),
+            选择产物来源(None, None, None).expect("判定").来源,
             产物来源::当前程序,
             "没有运行段就维持既有导出行为"
         );
         let 工程 = 造工程("my_game", &["my_game"]);
         let 构建 = 造构建("my_game", None);
+        let 决策 = 选择产物来源(None, Some(&构建), Some(&工程)).expect("判定");
         assert_eq!(
-            选择产物来源(None, Some(&构建), Some(&工程)).expect("判定"),
+            决策.来源,
             产物来源::当前程序,
             "构建配置存在但清单没有运行段，不算自带游戏"
         );
+        assert!(决策.警告.is_none(), "没有回退就不该有警告");
     }
 
     #[test]
@@ -440,12 +491,44 @@ mod 测试 {
         let 构建 = 造构建("my_game", Some("my_game"));
         let 工程 = 造工程("my_game", &["my_game"]);
         assert_eq!(
-            选择产物来源(Some(&运行), Some(&构建), Some(&工程)).expect("判定"),
+            选择产物来源(Some(&运行), Some(&构建), Some(&工程))
+                .expect("判定")
+                .来源,
             产物来源::构建(构建目标 {
                 包名: "my_game".to_string(),
                 目标名: "my_game".to_string(),
             })
         );
+    }
+
+    #[test]
+    fn 外部程序运行目标回退并给出警告() {
+        let mut 运行 = 造运行();
+        运行.程序 = "python".to_string();
+        let 决策 = 选择产物来源(Some(&运行), None, None).expect("应当回退");
+        assert_eq!(决策.来源, 产物来源::当前程序);
+        let 警告 = 决策.警告.expect("回退必须带警告");
+        assert!(警告.contains("不是 Cargo 项目"), "{警告}");
+        assert!(警告.contains("已回退到编辑器 exe"), "{警告}");
+        assert!(警告.contains("python"), "要点名清单里的程序：{警告}");
+        assert!(警告.contains("不会包含"), "要说清后果：{警告}");
+    }
+
+    #[test]
+    fn 有构建配置时外部程序仍按构建处理() {
+        let mut 运行 = 造运行();
+        运行.程序 = "python".to_string();
+        let 构建 = 造构建("my_game", Some("my_game"));
+        let 工程 = 造工程("my_game", &["my_game"]);
+        let 决策 = 选择产物来源(Some(&运行), Some(&构建), Some(&工程)).expect("判定");
+        assert_eq!(
+            决策.来源,
+            产物来源::构建(构建目标 {
+                包名: "my_game".to_string(),
+                目标名: "my_game".to_string(),
+            })
+        );
+        assert!(决策.警告.is_none(), "有构建配置就不算回退");
     }
 
     #[test]

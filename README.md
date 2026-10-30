@@ -238,6 +238,54 @@ bevy-studio.exe --export-game <工程目录> <输出目录> [--windowed]
 
 ### 如何导出一个可玩的游戏
 
+**方式零：Rust 游戏项目（游戏逻辑随包发布）**
+
+当游戏有自己的 Rust 代码时，把项目本身做成一个 Cargo 工程，只依赖
+`breeze_runtime`：
+
+```text
+my_game/
+├─ Cargo.toml          # 只写 breeze_runtime
+├─ src/main.rs         # breeze_runtime::启动带扩展(|应用| { ... })
+├─ project.ron         # 运行 + 构建 两段都指向这个 crate
+└─ scenes/main.scene.ron
+```
+
+```toml
+[dependencies]
+breeze_runtime = { path = "…/crates/breeze_runtime" }
+```
+
+```rust
+use breeze_runtime::prelude::*;
+
+fn main() {
+    breeze_runtime::启动带扩展(|应用| {
+        应用.add_systems(Update, 我的系统);
+    });
+}
+```
+
+> **项目里不要自己声明 `bevy` 依赖。** 运行时用的是 `breeze_runtime`
+> 重导出的那一份 Bevy；项目再写一行 `bevy` 会拉进第二份互不认识的类型，
+> 报错长得像"组件不满足 trait 约束"。一律从 `breeze_runtime::prelude::*` 取类型。
+
+导出时（编辑器「打包」，或 `bevy-studio.exe --export-game <工程> <输出>`）
+读取 `project.ron` 的 `构建` 段执行 `cargo build --release`，把**项目自己
+编译出的 exe** 放进包 —— 这个 exe 链接了 `breeze_runtime`，你的 System 会执行。
+
+- **导出机**需要 Rust 工具链（`cargo` 在 PATH 上）；**玩家机器**不需要；
+- 首次导出要把 Bevy 全套依赖编译一遍，耗时以十分钟计；之后增量导出只重编
+  项目自己，通常几秒；
+- 编译产物在项目的 `target/release/` 下，**可以整个删掉**，下次导出会重建；
+  导出的游戏包不依赖这个目录；
+- 清单里的运行目标指向非 Cargo 程序、且没有构建配置时，导出会回退到编辑器
+  exe 并打印警告（包内不含该项目的游戏逻辑）。
+
+完整可运行示例见 [`examples/runtime_demo/`](examples/runtime_demo/)：
+只依赖 `breeze_runtime`，挂一个自转立方体的 System，`project.ron` 已配好
+`运行` 与 `构建`。
+
 **方式一：一键导出可玩包（推荐给玩家/测试者）**
 
 ```powershell
@@ -268,8 +316,9 @@ bevy-studio.exe --export-game <工程目录> <输出目录> [--windowed]
 新建场景时会自动补），否则退回二维正交取景并在日志里告警。
 
 > **边界**：独立模式复用编辑器的**投影 + 运行时世界**，因此能看到场景、
-> 物理、动画与粒子，但**不执行项目自己的 System / Plugin**——游戏逻辑仍走
-> 「运行项目」的子进程路径（见下方方式三）。
+> 物理、动画与粒子，但**不执行项目自己的 System / Plugin**——如果包里那份
+> exe 就是编辑器程序，游戏逻辑仍走「运行项目」的子进程路径（见下方方式三）。
+> 要让 System 进包，把项目做成 Cargo 工程（方式零）。
 
 **方式二：编辑器内打包（项目交付）**
 
@@ -358,16 +407,18 @@ cargo clippy --workspace --all-targets   # 零警告
 │   │   ├── src/state.rs       界面状态与 UiAction
 │   │   ├── src/docks.rs       可停靠布局
 │   │   └── src/theme.rs       配色
-│   └── editor_app/            Bevy 应用装配
-│       ├── src/main.rs        入口
-│       ├── src/plugin.rs      Bevy 插件、资源、文件对话框线程
-│       ├── src/actions.rs     UiAction 执行器（唯一改编辑器状态处）
-│       ├── src/scene_bridge.rs 组件注册表、场景 ⇄ ECS 单向桥接
-│       ├── src/tile_terrain.rs 双网格瓦片地形烘焙（TileTerrain）
-│       └── src/preview.rs     预览渲染（Sprite / TileTerrain / Primitive3d / glTF）
+│   ├── editor_app/            Bevy 应用装配
+│   │   ├── src/main.rs        入口
+│   │   ├── src/plugin.rs      Bevy 插件、资源、文件对话框线程
+│   │   ├── src/actions.rs     UiAction 执行器（唯一改编辑器状态处）
+│   │   ├── src/scene_bridge.rs 组件注册表、场景 ⇄ ECS 单向桥接
+│   │   ├── src/tile_terrain.rs 双网格瓦片地形烘焙（TileTerrain）
+│   │   └── src/preview.rs     预览渲染（Sprite / TileTerrain / Primitive3d / glTF）
+│   └── breeze_runtime/        游戏运行时（用户项目 crate 的唯一依赖）
 ├── examples/
 │   ├── 2d_demo/               2D 程序化瓦片示例（青岚山谷）
-│   └── 3d_demo/               3D 受光几何体示例（TPS 竞技场）
+│   ├── 3d_demo/               3D 受光几何体示例（TPS 竞技场）
+│   └── runtime_demo/          Rust 游戏项目示例（独立 workspace，自转立方体）
 ├── tools/
 │   └── build_xiuxian_demo.py  复制原项目图集、生成地形字符网格与道具
 └── docs/

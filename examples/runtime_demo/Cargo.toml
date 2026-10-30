@@ -1,0 +1,17 @@
+[package]
+name = "runtime_demo"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+# 独立工程不继承根 `[workspace.package]`，许可要自己写一遍。
+license = "MIT OR Apache-2.0"
+
+# 空 `[workspace]` 把示例排除在微风自己的 workspace 之外：
+# 它演示的是"用户项目"的形态，不是仓库成员。
+[workspace]
+
+# 用户项目**只**依赖 breeze_runtime，不直接写 bevy。
+# 两份 Bevy 会得到两套互不认识的类型，`breeze_runtime::prelude::*`
+# 里的类型才是运行时真正使用的那一套。
+[dependencies]
+breeze_runtime = { path = "../../crates/breeze_runtime" }

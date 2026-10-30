@@ -1,0 +1,15 @@
+(
+    格式版本: 1,
+    名称: "运行时扩展示例",
+    说明: "最小 Rust 游戏项目：只依赖 breeze_runtime，用启动带扩展挂自己的 System。",
+    启动场景: Some("scenes/demo.scene.ron"),
+    运行: Some((
+        程序: "cargo",
+        参数: ["run", "--release"],
+    )),
+    设计分辨率: (1280, 720),
+    构建: Some((
+        包名: Some("runtime_demo"),
+        二进制名: Some("runtime_demo"),
+    )),
+)

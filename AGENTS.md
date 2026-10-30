@@ -1,7 +1,7 @@
 # AGENTS.md — 微风（Breeze）编辑器 · AI 协作规范
 
 > 所有在本仓库工作的 AI Agent，先读本文件，再按任务的读取清单读代码。
-> 当前基线：2026-10-29，P5-7 保存前一致性审计（材质投影进预览并按代次缓存 →
+> 当前基线：2026-10-30，P5-7 保存前一致性审计（材质投影进预览并按代次缓存 →
 > 材质编辑器浮层（复用 Inspector 字段控件，保存即推进代次）→
 > 保存前审计：孤儿实例记录 / 失效覆盖地址 / 已删与脱钩节点 / 跨文件缺失资源 /
 > 模板缺失与版本倒退，**只告警不阻断保存**，句子全部进 `messages.tsv`）+
@@ -114,10 +114,30 @@
 > 收进 Rust；顺带修脚本在 `ErrorActionPreference=Stop` 下把 cargo 的 stderr 当成
 > 终止错误的问题；相机节点解析揉进 `同步游戏相机` 的自愈缓存，不再依赖系统顺序；
 > 证据：`standalone` 17 单元 + `export_game` 5 单元 + `package` 14 单元，
-> 并用真实 release 导出包跑通「启动 → 基准采样 → 自行退出」），
-> 11 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
+> 并用真实 release 导出包跑通「启动 → 基准采样 → 自行退出」）+
+> P5-22 用户项目代码进包（P5-22a `crates/breeze_runtime` 薄壳：用户 crate **只依赖它**，
+> `启动()` / `启动带扩展(|应用| …)` 复用 `standalone::载入` 与 `构建游戏应用并扩展`
+> 拉起同一个游戏应用；`--project <目录>` 改写为 `--game <目录>` 透传，exe 同级 →
+> 工作目录两档探测工程；`prelude` 除 `bevy::prelude::*` 还带进 `bevy_ecs` 别名 ——
+> 只在 Cargo.toml 写 `breeze_runtime` 时，派生宏展开的 `bevy_ecs::…` 才有处可去；
+> 证据：6 单元。P5-22b 导出产物来源：`选择产物来源(运行, 构建, 工程)` 纯函数，
+> 有 `构建` 段时用 `cargo build --release --message-format=json` 构建**项目自己的
+> exe**（复用 `解析编译事件` 取真实产物路径，rustc 诊断原样转述），构建先于清空
+> 输出目录；清单陈旧（包/目标对不上 `Cargo.toml`）直接报错、不回退；唯一例外是
+> 运行目标指向非 Cargo 程序且没有构建配置 —— 沿用编辑器 exe 并打印「该运行目标
+> 不是 Cargo 项目，已回退到编辑器 exe」；`--manifest-path` 先转绝对路径（否则
+> 工作目录与相对清单路径叠加会找不到 `Cargo.toml`）；证据：`export_game` 15 单元。
+> P5-22c `examples/runtime_demo`（独立 `[workspace]`、Cargo.toml 只写
+> `breeze_runtime`、一个自转立方体的 System、`project.ron` 配好运行/构建）+
+> README「方式零：Rust 游戏项目」；实测（Intel Ultra 7 265K，干净 `target` 首次
+> release 构建）**171 秒**、exe **104.4 MiB**（109,449,216 B）、导出包 161.9 MB
+> （含 57.5 MB pdb）、导出包 `--bench 3` = 1732 帧 / 平均 1.73 ms / 中位 1.69 ms /
+> p95 2.11 ms，截取游戏窗口两张截图（`docs/验收证据/72_运行时示例_导出包实机.png` /
+> `73_运行时示例_旋转前后对比.png`）确认立方体在转（项目 System 真的执行）；
+> 顺带把 `template_standalone` 的「示例必须有 assets」收窄为「自带 `assets/` 的示例」），
+> 12 个 workspace 成员，许可证 **MIT OR Apache-2.0** 双许可
 > （全文见根目录 `LICENSE-MIT` / `LICENSE-APACHE`；随附的字体/图标保留各自上游许可），
-> `cargo test --workspace` = 1,627 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,632 处）。
+> `cargo test --workspace` = 1,643 passed / 0 failed / 8 ignored（源码里 `#[test]` 共 1,648 处）。
 > 诊断依据：`docs/AI开发流程诊断.md`（A 结论 / C 耦合簇 / D 读取策略 / F D1）。
 > 冲突处理：代码与测试是事实；文档过期就顺手修正，并同步更新本文件基线。
 

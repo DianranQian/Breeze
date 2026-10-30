@@ -57,11 +57,26 @@ use editor_core::game_manifest::{游戏清单, 游戏清单文件名};
 pub use bevy;
 pub use editor_app;
 
+/// Bevy 的 ECS crate，以 `bevy_ecs` 这个名字重新导出。
+///
+/// Bevy 的派生宏（`#[derive(Component)]`、`Resource`、`Event` 等）在**用户
+/// crate** 里展开成 `bevy_ecs::…` 路径；当用户只依赖 `breeze_runtime`、
+/// 没有直接声明 `bevy` / `bevy_ecs` 时，这个名字必须由作用域提供，
+/// 否则编译报 `use of unresolved module or unlinked crate 'bevy_ecs'`。
+///
+/// prelude 会把它一并带进作用域，因此用户写一行
+/// `use breeze_runtime::prelude::*;` 就能直接用这些派生宏。
+pub use bevy::ecs as bevy_ecs;
+
 /// 常用类型的统一入口：与 `bevy::prelude` 完全相同。
 ///
 /// 用户项目只依赖本 crate，因此不能写 `use bevy::prelude::*`；
 /// 写 `use breeze_runtime::prelude::*` 拿到的就是同一批名字。
+///
+/// 除了 Bevy 的 prelude，还带进 [`bevy_ecs`] 这个 crate 别名 ——
+/// 派生宏展开时按这个名字找 ECS crate（见该别名的文档）。
 pub mod prelude {
+    pub use crate::bevy_ecs;
     pub use bevy::prelude::*;
 }
 

@@ -11,6 +11,7 @@
 /Game_Build/
 # 独立示例是自己的 Cargo 工程，构建产物落在它自己的目录里。
 /examples/bevy_debug_demo/target/
+/examples/runtime_demo/target/
 **/*.rs.bk
 *.pdb
 

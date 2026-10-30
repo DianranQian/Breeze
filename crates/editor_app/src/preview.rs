@@ -72,6 +72,15 @@ pub struct 预览来源(pub 实体标识);
 #[derive(Component, Debug, Clone, Copy)]
 pub struct 预览相机;
 
+/// 用场景背景色清屏的预览相机。
+///
+/// 只有**需要看见场景背景**的相机才挂这个标记：三维视口与独立运行的游戏。
+/// 二维编辑器视口不挂 —— 它必须清成全透明，让 egui 画的网格与坐标轴
+/// 从渲染纹理下面透出来（绘制顺序见 `editor_ui::viewport_panel`）。
+/// 清屏色由 `light_preview::同步场景环境` 按此标记写入。
+#[derive(Component, Debug, Clone, Copy)]
+pub struct 场景背景清屏;
+
 /// 三维预览层：与 2D 预览层分开。
 ///
 /// 2D 相机只画精灵层、3D 相机只画网格层。否则 2D 的正交相机也会把
@@ -1734,10 +1743,11 @@ pub fn 同步三维相机(
             命令
                 .spawn((
                     预览相机,
+                    场景背景清屏,
                     Camera3d::default(),
                     Camera {
                         order: -1,
-                        // 三维视图也要让 egui 叠加层透过来：清成透明。
+                        // 出生值只是兜底：每帧由 `同步场景环境` 写成场景背景色。
                         clear_color: ClearColorConfig::Custom(Color::NONE),
                         ..default()
                     },

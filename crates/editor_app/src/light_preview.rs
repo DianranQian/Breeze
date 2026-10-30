@@ -26,6 +26,7 @@ use scene_doc::property::{属性值, 颜色值};
 
 use crate::components3d::{方向光组件名, 点光组件名, 聚光灯组件名};
 use crate::plugin::EditorStateHolder;
+use crate::preview::场景背景清屏;
 
 /// 由灯光组件生成的光源实体标记。
 #[derive(Component)]
@@ -364,14 +365,21 @@ pub fn 同步场景灯光(
 /// 比较而不是无条件赋值，是为了避开 Bevy 的变更检测：资源每帧被标脏
 /// 会让渲染器每帧重建环境光照参数，白白消耗一次管线检查。
 ///
-/// # 背景色为什么强制不透明
+/// # 清屏色按相机职责分工
 ///
-/// 预览相机渲染到界面里的一张纹理，透明清屏会让画布后面的界面元素
-/// 透出来。用户设置的是"场景背景"，它必须是实色。
+/// 预览相机渲染到界面里的一张纹理，透明清屏会让画布后面的界面元素透出来。
+/// 谁该看见场景背景，由相机上的 [`场景背景清屏`] 标记决定：
+///
+/// - **带标记**（三维视口、独立运行的游戏）：清成场景背景色；
+/// - **不带标记**（二维编辑器视口）：清成全透明，让 egui 画的网格与
+///   坐标轴从纹理下面透出来（绘制顺序见 `editor_ui::viewport_panel`）。
+///
+/// 标记而不是读界面模式：独立运行没有界面状态，两条渲染路径共用本系统，
+/// 相机自己的标记是它们唯一都有的信息。
 pub fn 同步场景环境(
     编辑器: Res<EditorStateHolder>,
     mut 环境光: ResMut<GlobalAmbientLight>,
-    mut 相机: Query<&mut Camera, With<crate::preview::预览相机>>,
+    mut 相机: Query<(&mut Camera, Has<场景背景清屏>), With<crate::preview::预览相机>>,
 ) {
     let 设置 = 编辑器.状态.会话.文档.环境;
 
@@ -385,13 +393,14 @@ pub fn 同步场景环境(
     }
 
     let 背景 = 颜色转_bevy(设置.背景颜色);
-    for mut 相机 in &mut 相机 {
-        let 已匹配 = match 相机.clear_color {
-            ClearColorConfig::Custom(当前) => 当前 == 背景,
+    for (mut 相机, 用场景背景) in &mut 相机 {
+        let 目标 = ClearColorConfig::Custom(if 用场景背景 { 背景 } else { Color::NONE });
+        let 已匹配 = match (相机.clear_color, 目标) {
+            (ClearColorConfig::Custom(当前), ClearColorConfig::Custom(目标)) => 当前 == 目标,
             _ => false,
         };
         if !已匹配 {
-            相机.clear_color = ClearColorConfig::Custom(背景);
+            相机.clear_color = 目标;
         }
     }
 }
@@ -486,7 +495,7 @@ mod 测试 {
     }
 
     #[test]
-    fn 环境同步把设置写进全局环境光与相机背景() {
+    fn 环境同步把设置写进全局环境光与场景背景清屏() {
         use bevy::ecs::system::RunSystemOnce;
 
         let mut 状态 = editor_core::state::编辑器状态::新建();
@@ -500,7 +509,7 @@ mod 测试 {
         世界.insert_resource(EditorStateHolder { 状态 });
         世界.insert_resource(GlobalAmbientLight::default());
         let 相机 = 世界
-            .spawn((Camera::default(), crate::preview::预览相机))
+            .spawn((Camera::default(), crate::preview::预览相机, 场景背景清屏))
             .id();
 
         世界
@@ -515,7 +524,33 @@ mod 测试 {
             ClearColorConfig::Custom(颜色) => {
                 assert_eq!(颜色, Color::srgba(0.1, 0.2, 1.0, 1.0));
             }
-            _ => panic!("预览相机应当使用环境里的背景色清屏"),
+            _ => panic!("带场景背景清屏标记的相机应当使用环境里的背景色清屏"),
+        }
+    }
+
+    #[test]
+    fn 二维预览相机清成全透明以透出视口网格() {
+        use bevy::ecs::system::RunSystemOnce;
+
+        let mut 状态 = editor_core::state::编辑器状态::新建();
+        状态.会话.文档.环境.背景颜色 = 颜色值::srgb(0.1, 0.2, 1.0, 1.0);
+
+        let mut 世界 = World::new();
+        世界.insert_resource(EditorStateHolder { 状态 });
+        世界.insert_resource(GlobalAmbientLight::default());
+        let 相机 = 世界
+            .spawn((Camera::default(), crate::preview::预览相机))
+            .id();
+
+        世界
+            .run_system_once(同步场景环境)
+            .expect("同步场景环境应当能运行");
+
+        match 世界.get::<Camera>(相机).expect("相机存在").clear_color {
+            ClearColorConfig::Custom(颜色) => {
+                assert_eq!(颜色, Color::NONE, "二维预览相机必须透明，否则网格被盖住");
+            }
+            _ => panic!("二维预览相机应当被写成透明清屏"),
         }
     }
 

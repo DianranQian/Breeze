@@ -110,6 +110,12 @@ pub mod 目录名 {
     pub const 产物: &str = "target";
 }
 
+/// 目录扫描的最大下探深度（分区根算第 0 层）。
+///
+/// 符号链接之外还有 junction、挂载点这类看不见的环；不跟随链接能挡住
+/// 最常见的一种，深度上限是最后一道保险 —— 真遇到环也不会把扫描拖成死循环。
+pub const 最大扫描深度: usize = 20;
+
 /// 项目的运行目标声明（`project.ron` 里的 `运行` 字段）。
 ///
 /// # 为什么运行目标必须是项目契约，而不是编辑器的固定行为
@@ -894,11 +900,22 @@ impl 项目描述 {
 
     /// 递归扫描项目内某个分区目录。
     ///
-    /// 实现要点：
+    /// # 实现要点
+    ///
     /// * 使用显式栈而不是递归，避免深层目录导致栈溢出；
     /// * 遇到无法读取的子目录时跳过而不是整体失败 ——
     ///   资源浏览器不该因为一个被占用的目录就整个打不开；
     /// * 结果按路径排序，保证 UI 顺序稳定（不随文件系统枚举顺序抖动）。
+    ///
+    /// # 不跟随符号链接、限制深度
+    ///
+    /// 扫描结果会被打包整份复制进发行包，范围必须可预测：
+    ///
+    /// * 符号链接可能指向分区之外（甚至指回祖先目录），跟随它既会带进
+    ///   不该进包的文件，又可能让扫描绕圈。因此这里用
+    ///   [`std::fs::symlink_metadata`] 判断类型，链接本身直接跳过；
+    /// * 从分区根算起最多下探 [`最大扫描深度`] 层，挡住 junction / 挂载点
+    ///   这类不表现为符号链接的环。
     pub fn 扫描目录(&self, 分区: &str) -> Vec<资源条目> {
         let 起点 = self.根目录.join(分区);
         let mut 结果 = Vec::new();
@@ -906,22 +923,27 @@ impl 项目描述 {
             return 结果;
         }
 
-        let mut 栈 = vec![起点];
-        while let Some(当前) = 栈.pop() {
+        let mut 栈 = vec![(起点, 0usize)];
+        while let Some((当前, 深度)) = 栈.pop() {
             let Ok(读取) = std::fs::read_dir(&当前) else {
                 continue;
             };
             for 项 in 读取.flatten() {
                 let 路径 = 项.path();
-                let Ok(元数据) = 项.metadata() else {
+                let Ok(元数据) = std::fs::symlink_metadata(&路径) else {
                     continue;
                 };
-
-                if 元数据.is_dir() {
-                    栈.push(路径);
+                let 类型 = 元数据.file_type();
+                if 类型.is_symlink() {
                     continue;
                 }
-                if !元数据.is_file() {
+                if 类型.is_dir() {
+                    if 深度 < 最大扫描深度 {
+                        栈.push((路径, 深度 + 1));
+                    }
+                    continue;
+                }
+                if !类型.is_file() {
                     continue;
                 }
 
@@ -2121,5 +2143,83 @@ mod 测试 {
         let 报告 = 项目.按标识修复文档(&mut 文档);
         assert_eq!(报告.冲突.len(), 1, "冲突必须被报告：{报告:?}");
         assert!(报告.已修复.is_empty(), "不能替用户猜");
+    }
+
+    /// 建目录链接；平台不支持（Windows 未开开发者模式）时返回 `false`。
+    ///
+    /// Windows 上普通用户建不了符号链接，但能建 junction —— 两者在
+    /// `symlink_metadata` 眼里都是重解析点，走的是同一条跳过分支，
+    /// 因此用 junction 兜底仍然测的是真实行为。
+    fn 建目录链接(原: &Path, 链接: &Path) -> bool {
+        #[cfg(windows)]
+        {
+            if std::os::windows::fs::symlink_dir(原, 链接).is_ok() {
+                return true;
+            }
+            std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(链接)
+                .arg(原)
+                .output()
+                .is_ok_and(|输出| 输出.status.success())
+        }
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(原, 链接).is_ok()
+        }
+    }
+
+    fn 资源路径(项目: &项目描述) -> Vec<String> {
+        项目
+            .资源列表()
+            .into_iter()
+            .map(|条目| 条目.路径.文本().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn 扫描目录不跟随符号链接() {
+        let (目录, 项目) = 建项目();
+        let 工程外 = 目录.path().join("工程外");
+        std::fs::create_dir_all(&工程外).expect("建工程外目录");
+        std::fs::write(工程外.join("陷阱.png"), b"x").expect("写文件");
+        std::fs::write(项目.根目录().join("assets").join("自己的.png"), b"x").expect("写文件");
+        let 链接 = 项目.根目录().join("assets").join("链接目录");
+        if !建目录链接(&工程外, &链接) {
+            eprintln!("跳过：本机既建不了符号链接也建不了 junction");
+            return;
+        }
+
+        let 路径 = 资源路径(&项目);
+        assert!(
+            !路径.iter().any(|路径| 路径.contains("陷阱")),
+            "符号链接指向分区之外，跟随它就会把工程外文件打进包：{路径:?}"
+        );
+        assert!(路径.iter().any(|路径| 路径.contains("自己的.png")));
+    }
+
+    #[test]
+    fn 扫描目录限制下探深度() {
+        let (_目录, 项目) = 建项目();
+        let 资源根 = 项目.根目录().join(目录名::资源);
+        std::fs::write(资源根.join("浅.png"), b"x").expect("写文件");
+
+        let mut 深层 = 资源根.clone();
+        for 序号 in 1..=最大扫描深度 + 1 {
+            深层.push(format!("d{序号}"));
+        }
+        std::fs::create_dir_all(&深层).expect("建深层目录");
+        std::fs::write(深层.join("太深.png"), b"x").expect("写文件");
+
+        let 路径 = 资源路径(&项目);
+        assert!(
+            路径.iter().any(|路径| 路径.contains("浅.png")),
+            "分区根的文件当然要扫到：{路径:?}"
+        );
+        assert!(
+            !路径.iter().any(|路径| 路径.contains("太深")),
+            "第 {} 层以下的目录不再下探：{路径:?}",
+            最大扫描深度 + 1
+        );
     }
 }

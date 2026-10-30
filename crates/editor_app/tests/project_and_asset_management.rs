@@ -312,6 +312,7 @@ fn 打包配置会写进项目清单() {
         输出目录: "build/release".into(),
         包含全部场景: true,
         写入清单: false,
+        排除资源: vec!["raw_src".into()],
     };
     推动作(&mut 世界, vec![UiAction::设置打包配置(配置.clone())]);
     执行动作(&mut 世界);
